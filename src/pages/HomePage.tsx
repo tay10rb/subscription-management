@@ -1,0 +1,764 @@
+import { useState, useEffect } from "react"
+import { 
+  Calendar, 
+  CreditCard, 
+  DollarSign, 
+  Plus, 
+  Search, 
+  Sliders, 
+  Clock,
+  Tags,
+  ChevronDown,
+  Check,
+  Download,
+  Upload,
+  Calendar as CalendarIcon,
+  Cloud
+} from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { SearchInput } from "@/components/ui/search-input"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useToast } from "@/hooks/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import { Separator } from "@/components/ui/separator"
+import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
+
+import { 
+  useSubscriptionStore, 
+  Subscription, 
+  SubscriptionStatus,
+  BillingCycle
+} from "@/store/subscriptionStore"
+import { useAuthStore } from "@/store/authStore"
+import { useSettingsStore } from "@/store/settingsStore"
+import { formatCurrency, exportSubscriptionsToCSV } from "@/lib/subscription-utils"
+
+import { SubscriptionCard } from "@/components/subscription/SubscriptionCard"
+import { SubscriptionForm } from "@/components/subscription/SubscriptionForm"
+import { StatCard } from "@/components/dashboard/StatCard"
+import { UpcomingRenewals } from "@/components/dashboard/UpcomingRenewals"
+import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown"
+import { ImportModal } from "@/components/imports/ImportModal"
+import { MainLayout } from "@/components/layouts/MainLayout"
+
+function HomePage() {
+  const { toast } = useToast()
+  const [searchTerm, setSearchTerm] = useState("")
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null)
+  const [currentView, setCurrentView] = useState<"all" | "active" | "cancelled">("all")
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
+  const [selectedBillingCycles, setSelectedBillingCycles] = useState<BillingCycle[]>([])
+  const [categoryFilterOpen, setCategoryFilterOpen] = useState(false)
+  const [billingCycleFilterOpen, setBillingCycleFilterOpen] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+
+  // Get the default view from settings
+  const { defaultView, currency: userCurrency, fetchSettings } = useSettingsStore()
+  
+  // Get auth user
+  const { user } = useAuthStore()
+
+  const { 
+    subscriptions, 
+    categories,
+    addSubscription, 
+    updateSubscription, 
+    deleteSubscription,
+    fetchSubscriptions,
+    getTotalMonthlySpending,
+    getTotalYearlySpending,
+    getUpcomingRenewals,
+    getSpendingByCategory,
+    getUniqueCategories,
+    syncSubscriptions,
+    isLoading
+  } = useSubscriptionStore()
+
+  // Fetch subscriptions when component mounts
+  useEffect(() => {
+    fetchSubscriptions()
+    fetchSettings()
+  }, [fetchSubscriptions, fetchSettings])
+  
+  // Initial sync on user change
+  useEffect(() => {
+    if (user) {
+      syncSubscriptions()
+    }
+  }, [user, syncSubscriptions])
+
+  // Get categories actually in use
+  const usedCategories = getUniqueCategories()
+  
+  // Get unique billing cycles in use
+  const getUniqueBillingCycles = () => {
+    const billingCycles = subscriptions.map(sub => sub.billingCycle)
+    return Array.from(new Set(billingCycles)).map(cycle => ({
+      value: cycle,
+      label: cycle.charAt(0).toUpperCase() + cycle.slice(1)
+    }))
+  }
+  
+  const usedBillingCycles = getUniqueBillingCycles()
+
+  // Filter subscriptions based on search term, current view, selected categories and billing cycles
+  const filteredSubscriptions = subscriptions.filter(sub => {
+    const matchesSearch = sub.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        sub.plan.toLowerCase().includes(searchTerm.toLowerCase())
+    
+    const matchesStatus = 
+      currentView === "all" || 
+      (currentView === "active" && sub.status !== "cancelled") ||
+      (currentView === "cancelled" && sub.status === "cancelled")
+    
+    const matchesCategory = 
+      selectedCategories.length === 0 || 
+      selectedCategories.includes(sub.category)
+      
+    const matchesBillingCycle =
+      selectedBillingCycles.length === 0 ||
+      selectedBillingCycles.includes(sub.billingCycle)
+    
+    return matchesSearch && matchesStatus && matchesCategory && matchesBillingCycle
+  })
+
+  // Handler for adding new subscription
+  const handleAddSubscription = async (subscription: Omit<Subscription, "id">) => {
+    const { error } = await addSubscription(subscription)
+    
+    if (error) {
+      toast({
+        title: "Error adding subscription",
+        description: error.message || "Failed to add subscription",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    toast({
+      title: "Subscription added",
+      description: `${subscription.name} has been added successfully.`
+    })
+  }
+
+  // Handler for updating subscription
+  const handleUpdateSubscription = async (id: string, data: Omit<Subscription, "id">) => {
+    const { error } = await updateSubscription(id, data)
+    
+    if (error) {
+      toast({
+        title: "Error updating subscription",
+        description: error.message || "Failed to update subscription",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    setEditingSubscription(null)
+    toast({
+      title: "Subscription updated",
+      description: `${data.name} has been updated successfully.`
+    })
+  }
+
+  // Handler for deleting subscription
+  const handleDeleteSubscription = async (id: string) => {
+    const subscription = subscriptions.find(sub => sub.id === id)
+    if (!subscription) return
+    
+    const { error } = await deleteSubscription(id)
+    
+    if (error) {
+      toast({
+        title: "Error deleting subscription",
+        description: error.message || "Failed to delete subscription",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    toast({
+      title: "Subscription deleted",
+      description: `${subscription.name} has been deleted.`,
+      variant: "destructive"
+    })
+  }
+
+  // Handler for changing subscription status
+  const handleStatusChange = async (id: string, status: SubscriptionStatus) => {
+    const subscription = subscriptions.find(sub => sub.id === id)
+    if (!subscription) return
+    
+    const { error } = await updateSubscription(id, { status })
+    
+    if (error) {
+      toast({
+        title: "Error updating status",
+        description: error.message || "Failed to update status",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    toast({
+      title: status === "active" ? "Subscription activated" : "Subscription cancelled",
+      description: `${subscription.name} has been ${status === "active" ? "activated" : "cancelled"}.`
+    })
+  }
+
+  // Handler for toggling a category in the filter
+  const toggleCategoryFilter = (categoryValue: string) => {
+    setSelectedCategories(prev => {
+      if (prev.includes(categoryValue)) {
+        return prev.filter(c => c !== categoryValue)
+      } else {
+        return [...prev, categoryValue]
+      }
+    })
+  }
+  
+  // Handler for toggling a billing cycle in the filter
+  const toggleBillingCycleFilter = (billingCycle: BillingCycle) => {
+    setSelectedBillingCycles(prev => {
+      if (prev.includes(billingCycle)) {
+        return prev.filter(c => c !== billingCycle)
+      } else {
+        return [...prev, billingCycle]
+      }
+    })
+  }
+
+  // Handler for importing subscriptions
+  const handleImportSubscriptions = async (newSubscriptions: Omit<Subscription, "id">[]) => {
+    // Import subscriptions one by one to ensure they're all properly processed
+    try {
+      const results = await Promise.all(
+        newSubscriptions.map(subscription => addSubscription(subscription))
+      );
+      
+      const errors = results.filter(result => result.error !== null);
+      
+      if (errors.length > 0) {
+        toast({
+          title: "Some imports failed",
+          description: `Imported ${results.length - errors.length} out of ${newSubscriptions.length} subscriptions.`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Import successful",
+          description: `${newSubscriptions.length} subscriptions have been imported.`
+        });
+        
+        // Force sync if user is logged in to ensure cross-device availability
+        if (user) {
+          syncSubscriptions(true);
+          toast({
+            title: "Syncing imported data",
+            description: "Your imported subscriptions are being synchronized across your devices."
+          });
+        }
+      }
+      
+      // Refresh subscriptions to ensure UI is in sync with the updated data
+      fetchSubscriptions();
+    } catch (error: any) {
+      toast({
+        title: "Import failed",
+        description: error.message || "Failed to import subscriptions",
+        variant: "destructive"
+      });
+    }
+  }
+
+  // Handler for exporting subscriptions
+  const handleExportSubscriptions = () => {
+    // Generate CSV data
+    const csvData = exportSubscriptionsToCSV(subscriptions)
+    
+    // Create a blob and download link
+    const blob = new Blob([csvData], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `subscriptions-${new Date().toISOString().split('T')[0]}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    
+    toast({
+      title: "Export successful",
+      description: "Your subscriptions have been exported to CSV."
+    })
+  }
+  
+  // Get billing cycle badge variant
+  const getBillingCycleBadgeVariant = (billingCycle: BillingCycle) => {
+    switch (billingCycle) {
+      case 'yearly':
+        return "success" // Green color for yearly
+      case 'monthly':
+        return "warning" // Orange/yellow for monthly
+      case 'quarterly':
+        return "info" // Blue for quarterly
+      default:
+        return "outline"
+    }
+  }
+  
+  // Handle force sync
+  const handleForceSync = async () => {
+    if (!user) {
+      toast({
+        title: "Sync requires login",
+        description: "Please log in to sync data across devices",
+        variant: "destructive"
+      })
+      return
+    }
+    
+    try {
+      const { error } = await syncSubscriptions(true)
+      
+      if (error) {
+        toast({
+          title: "Sync failed",
+          description: error.message || "Failed to sync subscriptions",
+          variant: "destructive"
+        })
+        return
+      }
+      
+      toast({
+        title: "Sync successful",
+        description: "Your subscription data has been synchronized across devices."
+      })
+    } catch (error: any) {
+      toast({
+        title: "Sync error",
+        description: error.message || "An error occurred during synchronization",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Get data for dashboard
+  const monthlySpending = getTotalMonthlySpending()
+  const yearlySpending = getTotalYearlySpending()
+  const upcomingRenewals = getUpcomingRenewals(30)
+  const spendingByCategory = getSpendingByCategory()
+
+  if (isLoading) {
+    return (
+      <MainLayout>
+        <div className="flex items-center justify-center h-[calc(100vh-16rem)]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-lg font-medium">Loading subscriptions...</p>
+          </div>
+        </div>
+      </MainLayout>
+    )
+  }
+
+  return (
+    <MainLayout>
+      <div className="flex justify-between mb-4">
+        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        <Button onClick={() => setShowAddForm(true)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Subscription
+        </Button>
+      </div>
+
+      <Tabs defaultValue={defaultView}>
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+            <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
+          </TabsList>
+          
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="ml-auto">
+                <Sliders className="h-4 w-4 mr-2" />
+                Options
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Data</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                onClick={() => setShowImportModal(true)}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import Subscriptions
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                onClick={handleExportSubscriptions}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export to CSV
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                onClick={handleForceSync}
+                disabled={!user}
+              >
+                <Cloud className="h-4 w-4 mr-2" />
+                Sync Across Devices
+              </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Dashboard Tab */}
+        <TabsContent value="dashboard" className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <StatCard 
+              title="Monthly Spending" 
+              value={formatCurrency(monthlySpending, userCurrency)}
+              description="Total active subscriptions"
+              icon={CreditCard}
+            />
+            <StatCard 
+              title="Yearly Spending" 
+              value={formatCurrency(yearlySpending, userCurrency)}
+              description="Projected annual cost"
+              icon={DollarSign}
+            />
+            <StatCard 
+              title="Active Subscriptions" 
+              value={subscriptions.filter(sub => sub.status === "active").length}
+              description="Total services"
+              icon={Clock}
+            />
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-4">
+            <UpcomingRenewals 
+              subscriptions={upcomingRenewals} 
+              onViewAll={() => {
+                setCurrentView("active")
+                document.querySelector('[data-value="subscriptions"]')?.dispatchEvent(
+                  new MouseEvent('click', { bubbles: true })
+                )
+              }} 
+            />
+            
+            <div className="md:col-span-1">
+              <CategoryBreakdown data={spendingByCategory} />
+            </div>
+          </div>
+        </TabsContent>
+
+        {/* Subscriptions Tab */}
+        <TabsContent value="subscriptions">
+          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-4 gap-3">
+            <div className="flex items-center gap-2 w-full max-w-sm">
+              <SearchInput
+                placeholder="Search subscriptions..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full"
+                icon={<Search className="h-4 w-4 text-muted-foreground" />}
+              />
+              
+              <Popover open={categoryFilterOpen} onOpenChange={setCategoryFilterOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon" className="relative">
+                    <Tags className="h-4 w-4" />
+                    {selectedCategories.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
+                        {selectedCategories.length}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="end">
+                  <div className="p-2">
+                    <div className="font-medium text-sm flex items-center justify-between">
+                      <span>Filter by Category</span>
+                      {selectedCategories.length > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-xs"
+                          onClick={() => setSelectedCategories([])}
+                        >
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="max-h-72 overflow-y-auto">
+                    {usedCategories.map((category) => (
+                      <div 
+                        key={category.value}
+                        className={cn(
+                          "flex items-center px-2 py-1.5 transition-colors hover:bg-muted cursor-pointer",
+                          selectedCategories.includes(category.value) && "bg-muted"
+                        )}
+                        onClick={() => toggleCategoryFilter(category.value)}
+                      >
+                        <div className={cn(
+                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+                          selectedCategories.includes(category.value) 
+                            ? "border-primary bg-primary text-primary-foreground" 
+                            : "opacity-50 border-primary"
+                        )}>
+                          {selectedCategories.includes(category.value) && (
+                            <Check className="h-3 w-3" />
+                          )}
+                        </div>
+                        <div className="text-sm">{category.label}</div>
+                        <Badge variant="outline" className="ml-auto text-xs">
+                          {subscriptions.filter(s => s.category === category.value).length}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+              
+              {/* Billing Cycle Filter */}
+              <Popover open={billingCycleFilterOpen} onOpenChange={setBillingCycleFilterOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="icon" className="relative">
+                    <CalendarIcon className="h-4 w-4" />
+                    {selectedBillingCycles.length > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground rounded-full w-4 h-4 text-[10px] flex items-center justify-center">
+                        {selectedBillingCycles.length}
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56 p-0" align="end">
+                  <div className="p-2">
+                    <div className="font-medium text-sm flex items-center justify-between">
+                      <span>Filter by Billing Cycle</span>
+                      {selectedBillingCycles.length > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-6 text-xs"
+                          onClick={() => setSelectedBillingCycles([])}
+                        >
+                          Reset
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <Separator />
+                  <div className="max-h-72 overflow-y-auto">
+                    {usedBillingCycles.map((cycle) => (
+                      <div 
+                        key={cycle.value}
+                        className={cn(
+                          "flex items-center px-2 py-1.5 transition-colors hover:bg-muted cursor-pointer",
+                          selectedBillingCycles.includes(cycle.value as BillingCycle) && "bg-muted"
+                        )}
+                        onClick={() => toggleBillingCycleFilter(cycle.value as BillingCycle)}
+                      >
+                        <div className={cn(
+                          "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border",
+                          selectedBillingCycles.includes(cycle.value as BillingCycle) 
+                            ? "border-primary bg-primary text-primary-foreground" 
+                            : "opacity-50 border-primary"
+                        )}>
+                          {selectedBillingCycles.includes(cycle.value as BillingCycle) && (
+                            <Check className="h-3 w-3" />
+                          )}
+                        </div>
+                        <div className="text-sm">{cycle.label}</div>
+                        <Badge 
+                          variant={getBillingCycleBadgeVariant(cycle.value as BillingCycle)} 
+                          className="ml-auto text-xs"
+                        >
+                          {subscriptions.filter(s => s.billingCycle === cycle.value).length}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Button 
+                variant={currentView === "all" ? "default" : "outline"}
+                onClick={() => setCurrentView("all")}
+              >
+                All
+              </Button>
+              <Button 
+                variant={currentView === "active" ? "default" : "outline"}
+                onClick={() => setCurrentView("active")}
+              >
+                Active
+              </Button>
+              <Button 
+                variant={currentView === "cancelled" ? "default" : "outline"}
+                onClick={() => setCurrentView("cancelled")}
+              >
+                Cancelled
+              </Button>
+            </div>
+          </div>
+
+          {/* Display selected category filters */}
+          {(selectedCategories.length > 0 || selectedBillingCycles.length > 0) && (
+            <div className="flex flex-wrap gap-2 mb-4">
+              {selectedCategories.map(categoryValue => {
+                const category = categories.find(c => c.value === categoryValue)
+                return (
+                  <Badge 
+                    key={categoryValue} 
+                    variant="secondary"
+                    className="flex items-center gap-1 px-2 py-1"
+                  >
+                    {category?.label || categoryValue}
+                    <button 
+                      onClick={() => toggleCategoryFilter(categoryValue)}
+                      className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                    >
+                      <span className="sr-only">Remove</span>
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        width="14" 
+                        height="14" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        className="h-3 w-3"
+                      >
+                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                      </svg>
+                    </button>
+                  </Badge>
+                )
+              })}
+              
+              {/* Display selected billing cycle filters */}
+              {selectedBillingCycles.map(cycleValue => {
+                const cycle = usedBillingCycles.find(c => c.value === cycleValue)
+                return (
+                  <Badge 
+                    key={cycleValue} 
+                    variant={getBillingCycleBadgeVariant(cycleValue)}
+                    className="flex items-center gap-1 px-2 py-1"
+                  >
+                    {cycle?.label || cycleValue}
+                    <button 
+                      onClick={() => toggleBillingCycleFilter(cycleValue)}
+                      className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
+                    >
+                      <span className="sr-only">Remove</span>
+                      <svg 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        width="14" 
+                        height="14" 
+                        viewBox="0 0 24 24" 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round" 
+                        className="h-3 w-3 text-white"
+                      >
+                        <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                      </svg>
+                    </button>
+                  </Badge>
+                )
+              })}
+            </div>
+          )}
+
+          {filteredSubscriptions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Calendar className="h-12 w-12 text-muted-foreground opacity-50 mb-4" />
+              <h3 className="text-lg font-medium mb-1">No subscriptions found</h3>
+              <p className="text-muted-foreground mb-4">
+                {searchTerm || selectedCategories.length > 0 || selectedBillingCycles.length > 0
+                  ? `No results for your current filters. Try changing your search terms or filters.`
+                  : currentView !== "all" 
+                    ? `You don't have any ${currentView} subscriptions.` 
+                    : "Get started by adding your first subscription."
+                }
+              </p>
+              <div className="flex gap-2">
+                <Button onClick={() => setShowAddForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Subscription
+                </Button>
+                <Button variant="outline" onClick={() => setShowImportModal(true)}>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import Subscriptions
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredSubscriptions.map((subscription) => (
+                <SubscriptionCard
+                  key={subscription.id}
+                  subscription={subscription}
+                  onEdit={(id) => {
+                    const sub = subscriptions.find((s) => s.id === id)
+                    if (sub) setEditingSubscription(sub)
+                  }}
+                  onDelete={handleDeleteSubscription}
+                  onStatusChange={handleStatusChange}
+                />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Forms and Modals */}
+      <SubscriptionForm
+        open={showAddForm}
+        onOpenChange={setShowAddForm}
+        onSubmit={handleAddSubscription}
+      />
+      
+      {editingSubscription && (
+        <SubscriptionForm
+          open={Boolean(editingSubscription)}
+          onOpenChange={() => setEditingSubscription(null)}
+          initialData={editingSubscription}
+          onSubmit={(data) => handleUpdateSubscription(editingSubscription.id, data)}
+        />
+      )}
+      
+      <ImportModal
+        open={showImportModal}
+        onOpenChange={setShowImportModal}
+        onImport={handleImportSubscriptions}
+      />
+    </MainLayout>
+  )
+}
+
+export default HomePage
