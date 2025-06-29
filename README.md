@@ -9,6 +9,9 @@ A simple, local-first subscription management tool to keep track of your recurri
 - View upcoming renewal dates
 - Filter by status, category, or search term
 - Light and dark mode
+- **Automatic exchange rate updates** - Daily updates from tianapi.com
+- **Multi-currency support** - Convert between USD, EUR, GBP, CAD, AUD, JPY, CNY
+- **Real-time currency conversion** - All amounts displayed in your preferred currency
 
 ## Tech Stack
 
@@ -59,7 +62,22 @@ npm start
 ```
 The backend server will run on `http://localhost:3000`.
 
-### 4. Configure API Key
+### 4. Configure Environment Variables (Optional)
+
+For automatic exchange rate updates, you can configure the following environment variables in the `.env` file:
+
+```bash
+# Copy the example environment file
+cp env.example .env
+
+# Edit the .env file and add your API keys:
+# API_KEY=your-secret-api-key-here
+# TIANAPI_KEY=your-tianapi-key-here  # Optional: for automatic exchange rate updates
+```
+
+**Note:** The `TIANAPI_KEY` is optional. If not provided, the system will use fallback exchange rates and manual updates will be disabled.
+
+### 5. Configure API Key
 
 1.  Open the application in your browser (`http://localhost:5173`).
 2.  Navigate to the "Settings" page.

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { ExchangeRateApi } from '@/services/exchangeRateApi'
 import { applyTheme } from '@/lib/theme-sync'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
@@ -58,6 +59,8 @@ interface SettingsState {
   updateExchangeRate: (currency: string, rate: number) => void
   lastExchangeRateUpdate: string | null
   updateLastExchangeRateUpdate: () => void
+  fetchExchangeRates: () => Promise<void>
+  updateExchangeRatesFromApi: () => Promise<void>
   
   // Data management
   resetSettings: () => void
@@ -125,6 +128,9 @@ export const useSettingsStore = create<SettingsState>()(
           applyTheme(loadedSettings.theme)
           localStorage.setItem('vite-ui-theme', loadedSettings.theme)
 
+          // 获取汇率数据
+          get().fetchExchangeRates()
+
         } catch (error: any) {
           console.error('Error fetching settings:', error)
           set({ error: error.message, isLoading: false })
@@ -191,6 +197,45 @@ export const useSettingsStore = create<SettingsState>()(
       updateLastExchangeRateUpdate: () => set({
         lastExchangeRateUpdate: new Date().toISOString()
       }),
+
+      fetchExchangeRates: async () => {
+        try {
+          console.log('📡 Fetching exchange rates from API...');
+          const rates = await ExchangeRateApi.getAllRates();
+          console.log('📊 Raw rates from API:', rates);
+
+          const rateMap = ExchangeRateApi.ratesToMap(rates);
+          console.log('🗺️ Converted rate map:', rateMap);
+
+          set({
+            exchangeRates: rateMap,
+            lastExchangeRateUpdate: new Date().toISOString()
+          });
+
+          console.log('✅ Exchange rates updated in store');
+        } catch (error: any) {
+          console.error('❌ Error fetching exchange rates:', error);
+          // 保持现有汇率，不更新错误状态，因为这可能在后台运行
+        }
+      },
+
+      updateExchangeRatesFromApi: async () => {
+        const { apiKey } = get();
+        if (!apiKey) {
+          console.warn('No API key available for updating exchange rates');
+          return;
+        }
+
+        try {
+          await ExchangeRateApi.updateRates(apiKey);
+          // 更新成功后重新获取汇率
+          await get().fetchExchangeRates();
+        } catch (error: any) {
+          console.error('Error updating exchange rates from API:', error);
+          set({ error: error.message });
+          throw error;
+        }
+      },
       
       resetSettings: async () => {
         try {

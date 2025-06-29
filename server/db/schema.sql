@@ -33,12 +33,39 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Create exchange_rates table
+CREATE TABLE IF NOT EXISTS exchange_rates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_currency TEXT NOT NULL,
+    to_currency TEXT NOT NULL,
+    rate DECIMAL(15, 8) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(from_currency, to_currency)
+);
+
 -- Create trigger to automatically update updated_at timestamp for subscriptions
 CREATE TRIGGER IF NOT EXISTS subscriptions_updated_at
 AFTER UPDATE ON subscriptions
 FOR EACH ROW
 BEGIN
     UPDATE subscriptions SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- Create trigger to automatically update updated_at timestamp for settings
+CREATE TRIGGER IF NOT EXISTS settings_updated_at
+AFTER UPDATE ON settings
+FOR EACH ROW
+BEGIN
+    UPDATE settings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
+
+-- Create trigger to automatically update updated_at timestamp for exchange_rates
+CREATE TRIGGER IF NOT EXISTS exchange_rates_updated_at
+AFTER UPDATE ON exchange_rates
+FOR EACH ROW
+BEGIN
+    UPDATE exchange_rates SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
 -- Create trigger to automatically update updated_at timestamp for settings

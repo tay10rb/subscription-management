@@ -31,11 +31,12 @@ import { Label } from "@/components/ui/label"
 import { useSettingsStore, ThemeType, DefaultViewType, CurrencyType } from "@/store/settingsStore"
 import { ImportModal } from "@/components/imports/ImportModal"
 import { useSubscriptionStore } from "@/store/subscriptionStore"
-import { 
-  exportSubscriptionsToJSON, 
+import {
+  exportSubscriptionsToJSON,
   downloadFile,
 } from "@/lib/subscription-utils"
 import { useToast } from "@/hooks/use-toast"
+import { ExchangeRateManager } from "@/components/ExchangeRateManager"
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -68,10 +69,7 @@ export function SettingsPage() {
     setEnableBrowserNotifications,
     currency,
     setCurrency,
-    exchangeRates,
-    updateExchangeRate,
-    lastExchangeRateUpdate,
-    updateLastExchangeRateUpdate,
+
     resetSettings,
     isLoading,
     fetchSettings
@@ -95,51 +93,7 @@ export function SettingsPage() {
     }
   }, [apiKey])
 
-  // Exchange rate temp state
-  const [tempRates, setTempRates] = useState<Record<string, string>>({
-    USD: exchangeRates.USD?.toString() || "1",
-    EUR: exchangeRates.EUR?.toString() || "0.93",
-    GBP: exchangeRates.GBP?.toString() || "0.79",
-    CAD: exchangeRates.CAD?.toString() || "1.36",
-    AUD: exchangeRates.AUD?.toString() || "1.52",
-    JPY: exchangeRates.JPY?.toString() || "151.16",
-    CNY: exchangeRates.CNY?.toString() || "7.24"
-  })
 
-  // Update temp rates when exchange rates change
-  useEffect(() => {
-    setTempRates({
-      USD: exchangeRates.USD?.toString() || "1",
-      EUR: exchangeRates.EUR?.toString() || "0.93",
-      GBP: exchangeRates.GBP?.toString() || "0.79",
-      CAD: exchangeRates.CAD?.toString() || "1.36",
-      AUD: exchangeRates.AUD?.toString() || "1.52",
-      JPY: exchangeRates.JPY?.toString() || "151.16",
-      CNY: exchangeRates.CNY?.toString() || "7.24"
-    })
-  }, [exchangeRates])
-
-  // Update exchange rate with validation
-  const handleRateChange = (currency: string, value: string) => {
-    setTempRates({
-      ...tempRates,
-      [currency]: value
-    })
-  }
-
-  const saveExchangeRates = () => {
-    Object.entries(tempRates).forEach(([currency, rateStr]) => {
-      const rate = parseFloat(rateStr)
-      if (!isNaN(rate) && rate > 0) {
-        updateExchangeRate(currency, rate)
-      }
-    })
-    updateLastExchangeRateUpdate()
-    toast({
-      title: "Success",
-      description: "Exchange rates have been updated.",
-    })
-  }
 
   const handleSaveApiKey = async () => {
     await setApiKey(tempApiKey)
@@ -494,115 +448,7 @@ export function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="currency" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Exchange Rates</CardTitle>
-              <CardDescription>
-                Configure currency exchange rates for conversion
-                {lastExchangeRateUpdate && (
-                  <div className="text-xs text-muted-foreground mt-1">
-                    Last updated: {new Date(lastExchangeRateUpdate).toLocaleString()}
-                  </div>
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                Rates are relative to 1 USD. Update these rates to ensure accurate currency conversion.
-              </p>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="rate-usd">USD (US Dollar)</Label>
-                  <Input
-                    id="rate-usd"
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={tempRates.USD}
-                    onChange={(e) => handleRateChange("USD", e.target.value)}
-                    disabled
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="rate-eur">EUR (Euro)</Label>
-                  <Input
-                    id="rate-eur"
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={tempRates.EUR}
-                    onChange={(e) => handleRateChange("EUR", e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="rate-gbp">GBP (British Pound)</Label>
-                  <Input
-                    id="rate-gbp"
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={tempRates.GBP}
-                    onChange={(e) => handleRateChange("GBP", e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="rate-cad">CAD (Canadian Dollar)</Label>
-                  <Input
-                    id="rate-cad"
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={tempRates.CAD}
-                    onChange={(e) => handleRateChange("CAD", e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="rate-aud">AUD (Australian Dollar)</Label>
-                  <Input
-                    id="rate-aud"
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={tempRates.AUD}
-                    onChange={(e) => handleRateChange("AUD", e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="rate-jpy">JPY (Japanese Yen)</Label>
-                  <Input
-                    id="rate-jpy"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={tempRates.JPY}
-                    onChange={(e) => handleRateChange("JPY", e.target.value)}
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="rate-cny">CNY (Chinese Yuan)</Label>
-                  <Input
-                    id="rate-cny"
-                    type="number"
-                    step="0.0001"
-                    min="0"
-                    value={tempRates.CNY}
-                    onChange={(e) => handleRateChange("CNY", e.target.value)}
-                  />
-                </div>
-              </div>
-              
-              <Button onClick={saveExchangeRates} className="w-full mt-4">
-                Save Exchange Rates
-              </Button>
-            </CardContent>
-          </Card>
+          <ExchangeRateManager />
         </TabsContent>
       </Tabs>
       

@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const Database = require('better-sqlite3');
 const path = require('path');
+const ExchangeRateScheduler = require('./services/exchangeRateScheduler');
 
 // Load environment variables from root .env file (unified configuration)
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
@@ -28,8 +29,9 @@ function initializeDatabase() {
         const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
         const hasSubscriptions = tables.some(table => table.name === 'subscriptions');
         const hasSettings = tables.some(table => table.name === 'settings');
-        
-        if (!hasSubscriptions || !hasSettings) {
+        const hasExchangeRates = tables.some(table => table.name === 'exchange_rates');
+
+        if (!hasSubscriptions || !hasSettings || !hasExchangeRates) {
             console.log('🔧 Initializing database tables...');
             
             // Create subscriptions table
@@ -64,6 +66,19 @@ function initializeDatabase() {
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             `);
+
+            // Create exchange_rates table
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS exchange_rates (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    from_currency TEXT NOT NULL,
+                    to_currency TEXT NOT NULL,
+                    rate DECIMAL(15, 8) NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(from_currency, to_currency)
+                )
+            `);
             
             // Create triggers
             db.exec(`
@@ -83,6 +98,15 @@ function initializeDatabase() {
                     UPDATE settings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
                 END
             `);
+
+            db.exec(`
+                CREATE TRIGGER IF NOT EXISTS exchange_rates_updated_at
+                AFTER UPDATE ON exchange_rates
+                FOR EACH ROW
+                BEGIN
+                    UPDATE exchange_rates SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+                END
+            `);
             
             // Insert default settings
             const insertDefaultSettings = db.prepare(`
@@ -90,7 +114,27 @@ function initializeDatabase() {
                 VALUES (1, 'USD', 'system')
             `);
             insertDefaultSettings.run();
-            
+
+            // Insert default exchange rates (fallback rates)
+            const defaultRates = [
+                { from: 'USD', to: 'USD', rate: 1.0 },
+                { from: 'USD', to: 'EUR', rate: 0.93 },
+                { from: 'USD', to: 'GBP', rate: 0.79 },
+                { from: 'USD', to: 'CAD', rate: 1.36 },
+                { from: 'USD', to: 'AUD', rate: 1.52 },
+                { from: 'USD', to: 'JPY', rate: 151.16 },
+                { from: 'USD', to: 'CNY', rate: 7.24 }
+            ];
+
+            const insertRate = db.prepare(`
+                INSERT OR IGNORE INTO exchange_rates (from_currency, to_currency, rate)
+                VALUES (?, ?, ?)
+            `);
+
+            for (const rate of defaultRates) {
+                insertRate.run(rate.from, rate.to, rate.rate);
+            }
+
             console.log('✅ Database tables initialized successfully!');
         } else {
             console.log('✅ Database tables already exist');
@@ -104,6 +148,10 @@ function initializeDatabase() {
 }
 
 const db = initializeDatabase();
+
+// Initialize exchange rate scheduler
+const exchangeRateScheduler = new ExchangeRateScheduler(db, process.env.TIANAPI_KEY);
+exchangeRateScheduler.start();
 
 // Function to calculate last billing date based on next billing date and billing cycle
 function calculateLastBillingDate(nextBillingDate, startDate, billingCycle) {
@@ -523,6 +571,65 @@ protectedApiRouter.post('/settings/reset', (req, res) => {
         const insertStmt = db.prepare('INSERT INTO settings (id, currency, theme) VALUES (1, ?, ?)');
         insertStmt.run('USD', 'system'); // Default values, api_key is removed
         res.json({ message: 'Settings have been reset to default.' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Exchange Rate Routes ---
+
+// GET all exchange rates (Public)
+apiRouter.get('/exchange-rates', (req, res) => {
+    try {
+        const stmt = db.prepare('SELECT * FROM exchange_rates ORDER BY from_currency, to_currency');
+        const rates = stmt.all();
+        res.json(rates);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET specific exchange rate (Public)
+apiRouter.get('/exchange-rates/:from/:to', (req, res) => {
+    try {
+        const { from, to } = req.params;
+        const stmt = db.prepare('SELECT * FROM exchange_rates WHERE from_currency = ? AND to_currency = ?');
+        const rate = stmt.get(from.toUpperCase(), to.toUpperCase());
+
+        if (!rate) {
+            return res.status(404).json({ error: 'Exchange rate not found' });
+        }
+
+        res.json(rate);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST to manually update exchange rates (Protected)
+protectedApiRouter.post('/exchange-rates/update', async (req, res) => {
+    try {
+        console.log('🔄 Manual exchange rate update triggered');
+        const result = await exchangeRateScheduler.updateExchangeRates();
+
+        if (result.success) {
+            res.json({
+                message: result.message,
+                updatedAt: result.updatedAt
+            });
+        } else {
+            res.status(500).json({ error: result.message });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// GET exchange rate scheduler status (Protected)
+protectedApiRouter.get('/exchange-rates/status', (req, res) => {
+    try {
+        const status = exchangeRateScheduler.getStatus();
+        res.json(status);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

@@ -1,28 +1,6 @@
 import { BillingCycle, Subscription, SubscriptionStatus } from '@/store/subscriptionStore'
 
-/**
- * Convert a currency amount between different currencies
- */
-export function convertCurrency(amount: number, fromCurrency: string, toCurrency: string): number {
-  if (fromCurrency === toCurrency) return amount;
-  
-  // Exchange rates relative to USD
-  const rates: Record<string, number> = {
-    USD: 1,
-    EUR: 0.93,
-    GBP: 0.79,
-    CAD: 1.36,
-    AUD: 1.52,
-    JPY: 151.16,
-    CNY: 7.24
-  };
-  
-  // Convert to USD first if not USD
-  let inUSD = fromCurrency === 'USD' ? amount : amount / (rates[fromCurrency] || 1);
-  
-  // Then convert from USD to target currency
-  return toCurrency === 'USD' ? inUSD : inUSD * (rates[toCurrency] || 1);
-}
+
 
 /**
  * Format a currency amount with its symbol
