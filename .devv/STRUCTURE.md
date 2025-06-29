@@ -31,31 +31,20 @@
 │
 ├── lib/            # Utility library directory
 │   ├── utils.ts    # Utility functions, including the cn function for merging Tailwind class names
-│   ├── supabase.ts # Supabase client initialization and configuration
 │   ├── subscription-utils.ts # Subscription-specific utility functions (formatting, calculations)
 │   ├── sync/       # Synchronization-related utilities
 │   │   ├── subscription-sync.ts # Main synchronization logic for subscription data
 │   │   └── README.md # Documentation on how to set up and use synchronization
-│   │
-│   └── sql/        # SQL scripts for database setup
-│       └── subscription-tables.sql # SQL script to create required tables in Supabase
 │
 ├── store/          # State management directory
-│   ├── authStore.ts       # Zustand store for authentication management
 │   ├── settingsStore.ts   # Zustand store for settings management
 │   └── subscriptionStore.ts # Zustand store for subscription management
 │
 ├── types/          # TypeScript types directory
-│   └── supabase.ts # Supabase database types
 │
 ├── pages/          # Page components directory, based on React Router structure
 │   ├── HomePage.tsx        # Home page component with dashboard and subscription management
-│   ├── SettingsPage.tsx    # Settings page for user preferences
-│   ├── ProfilePage.tsx     # User profile management page
-│   ├── LoginPage.tsx       # Authentication login page
-│   ├── SignupPage.tsx      # User registration page
-│   ├── ForgotPasswordPage.tsx # Password recovery request page
-│   └── ResetPasswordPage.tsx  # Password reset page
+│   └── SettingsPage.tsx    # Settings page for user preferences
 │
 ├── App.tsx         # Root component, with React Router routing system configured
 │                   # Add new route configurations in this file
