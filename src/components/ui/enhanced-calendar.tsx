@@ -1,7 +1,5 @@
 import * as React from "react"
-import { ChevronLeft, ChevronRight } from "lucide-react"
 import { DayPicker, CaptionProps } from "react-day-picker"
-import { format } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -12,7 +10,7 @@ export type EnhancedCalendarProps = React.ComponentProps<typeof DayPicker> & {
 }
 
 // Custom caption component with year/month dropdowns
-function EnhancedCaption({ displayMonth, displayIndex }: CaptionProps & { onMonthChange?: (date: Date) => void }) {
+function EnhancedCaption({ displayMonth }: CaptionProps & { onMonthChange?: (date: Date) => void }) {
   const currentYear = new Date().getFullYear()
   const years = Array.from({ length: 30 }, (_, i) => currentYear - 15 + i)
   const months = [
@@ -33,16 +31,12 @@ function EnhancedCaption({ displayMonth, displayIndex }: CaptionProps & { onMont
   const [isMonthOpen, setIsMonthOpen] = React.useState(false)
   const [isYearOpen, setIsYearOpen] = React.useState(false)
 
-  const handleMonthChange = (monthValue: string) => {
-    const monthIndex = parseInt(monthValue)
-    const newDate = new Date(displayMonth.getFullYear(), monthIndex, 1)
+  const handleMonthChange = (_monthValue: string) => {
     // Note: This would need proper integration with DayPicker's navigation
     setIsMonthOpen(false)
   }
 
-  const handleYearChange = (yearValue: string) => {
-    const year = parseInt(yearValue)
-    const newDate = new Date(year, displayMonth.getMonth(), 1)
+  const handleYearChange = (_yearValue: string) => {
     // Note: This would need proper integration with DayPicker's navigation
     setIsYearOpen(false)
   }
@@ -106,6 +100,26 @@ function EnhancedCalendar({
     onMonthChange?.(newMonth)
   }
 
+  // Helper function to safely call onSelect based on mode
+  const handleDateSelect = (date: Date) => {
+    if ('onSelect' in props && props.onSelect) {
+      // For single mode (default), onSelect expects Date | undefined
+      if (!props.mode || props.mode === 'single') {
+        (props.onSelect as (date: Date | undefined) => void)(date)
+      }
+      // For multiple mode, onSelect expects Date[] | undefined
+      else if (props.mode === 'multiple') {
+        // This would need more complex logic for multiple selection
+        // For now, we'll skip this case
+      }
+      // For range mode, onSelect expects DateRange | undefined
+      else if (props.mode === 'range') {
+        // This would need more complex logic for range selection
+        // For now, we'll skip this case
+      }
+    }
+  }
+
   return (
     <div className="space-y-2">
       {/* Quick date selection buttons */}
@@ -116,7 +130,7 @@ function EnhancedCalendar({
           onClick={() => {
             const today = new Date()
             handleMonthChange(today)
-            props.onSelect?.(today)
+            handleDateSelect(today)
           }}
           className="text-xs h-7"
         >
@@ -129,7 +143,7 @@ function EnhancedCalendar({
             const tomorrow = new Date()
             tomorrow.setDate(tomorrow.getDate() + 1)
             handleMonthChange(tomorrow)
-            props.onSelect?.(tomorrow)
+            handleDateSelect(tomorrow)
           }}
           className="text-xs h-7"
         >
@@ -142,7 +156,7 @@ function EnhancedCalendar({
             const nextWeek = new Date()
             nextWeek.setDate(nextWeek.getDate() + 7)
             handleMonthChange(nextWeek)
-            props.onSelect?.(nextWeek)
+            handleDateSelect(nextWeek)
           }}
           className="text-xs h-7"
         >
