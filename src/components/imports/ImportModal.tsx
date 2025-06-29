@@ -18,10 +18,13 @@ import { Separator } from "@/components/ui/separator"
 import { Subscription } from "@/store/subscriptionStore"
 import { parseCSVToSubscriptions } from "@/lib/subscription-utils"
 
+// Import data type - excludes auto-calculated fields
+type SubscriptionImportData = Omit<Subscription, "id" | "lastBillingDate">
+
 interface ImportModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  onImport: (subscriptions: Omit<Subscription, "id">[]) => void
+  onImport: (subscriptions: SubscriptionImportData[]) => void
 }
 
 enum ImportStep {
@@ -39,7 +42,7 @@ export function ImportModal({
   const [step, setStep] = useState<ImportStep>(ImportStep.Upload)
   const [file, setFile] = useState<File | null>(null)
   const [progress, setProgress] = useState(0)
-  const [subscriptions, setSubscriptions] = useState<Omit<Subscription, "id">[]>([])
+  const [subscriptions, setSubscriptions] = useState<SubscriptionImportData[]>([])
   const [errors, setErrors] = useState<string[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
 

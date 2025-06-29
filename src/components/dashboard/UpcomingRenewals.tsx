@@ -1,6 +1,7 @@
 import { Calendar, CalendarIcon } from "lucide-react"
 import { Subscription } from "@/store/subscriptionStore"
-import { formatCurrency, formatDate, daysUntil } from "@/lib/subscription-utils"
+import { formatDate, daysUntil } from "@/lib/subscription-utils"
+import { formatWithUserCurrency } from "@/utils/currency"
 import {
   Card,
   CardContent,
@@ -10,13 +11,15 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 interface UpcomingRenewalsProps {
   subscriptions: Subscription[]
   onViewAll?: () => void
+  className?: string
 }
 
-export function UpcomingRenewals({ subscriptions, onViewAll }: UpcomingRenewalsProps) {
+export function UpcomingRenewals({ subscriptions, onViewAll, className }: UpcomingRenewalsProps) {
   const getBadgeVariant = (daysLeft: number) => {
     if (daysLeft <= 3) return "destructive"
     if (daysLeft <= 7) return "warning"
@@ -30,26 +33,26 @@ export function UpcomingRenewals({ subscriptions, onViewAll }: UpcomingRenewalsP
   }
 
   return (
-    <Card className="col-span-3">
-      <CardHeader className="flex flex-row items-center justify-between">
+    <Card className={cn("min-h-[200px] flex flex-col", className)}>
+      <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
         <div>
           <CardTitle className="text-lg">Upcoming Renewals</CardTitle>
           <CardDescription>
-            Subscriptions renewing in the next 30 days
+            Subscriptions renewing in the next 7 days
           </CardDescription>
         </div>
         <Button variant="outline" size="sm" onClick={onViewAll}>
           View all
         </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col">
         {subscriptions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-6 text-center">
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
             <Calendar className="h-10 w-10 text-muted-foreground opacity-50 mb-2" />
-            <p className="text-muted-foreground">No upcoming renewals for the next 30 days</p>
+            <p className="text-muted-foreground">No upcoming renewals for the next 7 days</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1">
             {subscriptions.map((subscription) => {
               const daysRemaining = daysUntil(subscription.nextBillingDate)
               return (
@@ -66,7 +69,7 @@ export function UpcomingRenewals({ subscriptions, onViewAll }: UpcomingRenewalsP
                   <div className="flex items-center gap-2">
                     <div className="text-right">
                       <div className="font-medium">
-                        {formatCurrency(subscription.amount, subscription.currency)}
+                        {formatWithUserCurrency(subscription.amount, subscription.currency)}
                       </div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1">
                         <CalendarIcon className="h-3 w-3" />

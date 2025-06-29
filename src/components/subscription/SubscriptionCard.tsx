@@ -11,12 +11,12 @@ import {
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
 import { 
-  formatCurrency, 
   formatDate, 
   daysUntil,
   getStatusColor,
   getBillingCycleLabel
 } from "@/lib/subscription-utils"
+import { formatWithUserCurrency } from "@/utils/currency"
 
 import { 
   Card, 
@@ -35,9 +35,9 @@ import {
 
 interface SubscriptionCardProps {
   subscription: Subscription
-  onEdit: (id: string) => void
-  onDelete: (id: string) => void
-  onStatusChange: (id: string, status: 'active' | 'cancelled') => void
+  onEdit: (id: number) => void
+  onDelete: (id: number) => void
+  onStatusChange: (id: number, status: 'active' | 'cancelled') => void
 }
 
 export function SubscriptionCard({ 
@@ -141,15 +141,15 @@ export function SubscriptionCard({
         </DropdownMenu>
       </CardHeader>
       
-      <CardContent className="pb-2">
+      <CardContent className="pb-2 flex-1 flex flex-col">
         <div className="flex justify-between items-center mb-2">
-          <div className="font-medium">{formatCurrency(amount, currency)}</div>
+          <div className="font-medium">{formatWithUserCurrency(amount, currency)}</div>
           <Badge variant={getBillingCycleBadgeVariant()}>
             {getBillingCycleLabel(billingCycle)}
           </Badge>
         </div>
         
-        <div className="space-y-1 text-sm">
+        <div className="space-y-1 text-sm flex-1">
           <div className="flex items-center gap-2 text-muted-foreground">
             <Tag className="h-4 w-4" />
             <span className="font-medium">{categoryLabel}</span>
@@ -176,7 +176,7 @@ export function SubscriptionCard({
       </CardContent>
       
       {website && (
-        <CardFooter>
+        <CardFooter className="flex-shrink-0">
           <Button 
             variant="ghost" 
             size="sm" 

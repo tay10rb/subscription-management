@@ -1,0 +1,18 @@
+services:
+  subscription-manager:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: subscription-manager
+    ports:
+      - "3001:3001"
+    volumes:
+      - subscription-data:/app/server/db
+    environment:
+      - API_KEY=${API_KEY}
+      - NODE_ENV=production
+    restart: unless-stopped
+
+volumes:
+  subscription-data:
+    driver: local 

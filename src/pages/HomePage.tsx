@@ -13,7 +13,8 @@ import {
   Download,
   Upload,
   Calendar as CalendarIcon,
-  Cloud
+  ArrowUp,
+  ArrowDown
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -22,8 +23,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/hooks/use-toast"
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -36,6 +37,12 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 import { 
   useSubscriptionStore, 
@@ -43,7 +50,6 @@ import {
   SubscriptionStatus,
   BillingCycle
 } from "@/store/subscriptionStore"
-import { useAuthStore } from "@/store/authStore"
 import { useSettingsStore } from "@/store/settingsStore"
 import { formatCurrency, exportSubscriptionsToCSV } from "@/lib/subscription-utils"
 
@@ -51,9 +57,9 @@ import { SubscriptionCard } from "@/components/subscription/SubscriptionCard"
 import { SubscriptionForm } from "@/components/subscription/SubscriptionForm"
 import { StatCard } from "@/components/dashboard/StatCard"
 import { UpcomingRenewals } from "@/components/dashboard/UpcomingRenewals"
+import { RecentlyPaid } from "@/components/dashboard/RecentlyPaid"
 import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown"
 import { ImportModal } from "@/components/imports/ImportModal"
-import { MainLayout } from "@/components/layouts/MainLayout"
 
 function HomePage() {
   const { toast } = useToast()
@@ -66,17 +72,31 @@ function HomePage() {
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false)
   const [billingCycleFilterOpen, setBillingCycleFilterOpen] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
+  const [activeTab, setActiveTab] = useState<"dashboard" | "subscriptions">("dashboard")
 
   // Get the default view from settings
   const { defaultView, currency: userCurrency, fetchSettings } = useSettingsStore()
   
-  // Get auth user
-  const { user } = useAuthStore()
-
+  // Initialize active tab based on default view
+  useEffect(() => {
+    if (defaultView === "dashboard" || defaultView === "subscriptions") {
+      setActiveTab(defaultView)
+    }
+  }, [defaultView])
+  
+  // Handler for tab changes
+  const handleTabChange = (value: string) => {
+    if (value === "dashboard" || value === "subscriptions") {
+      setActiveTab(value)
+    }
+  }
+  
   const { 
     subscriptions, 
     categories,
     addSubscription, 
+    bulkAddSubscriptions,
     updateSubscription, 
     deleteSubscription,
     fetchSubscriptions,
@@ -85,7 +105,6 @@ function HomePage() {
     getUpcomingRenewals,
     getSpendingByCategory,
     getUniqueCategories,
-    syncSubscriptions,
     isLoading
   } = useSubscriptionStore()
 
@@ -95,13 +114,6 @@ function HomePage() {
     fetchSettings()
   }, [fetchSubscriptions, fetchSettings])
   
-  // Initial sync on user change
-  useEffect(() => {
-    if (user) {
-      syncSubscriptions()
-    }
-  }, [user, syncSubscriptions])
-
   // Get categories actually in use
   const usedCategories = getUniqueCategories()
   
@@ -137,8 +149,19 @@ function HomePage() {
     return matchesSearch && matchesStatus && matchesCategory && matchesBillingCycle
   })
 
+  const sortedSubscriptions = [...filteredSubscriptions].sort((a, b) => {
+    const dateA = new Date(a.nextBillingDate).getTime()
+    const dateB = new Date(b.nextBillingDate).getTime()
+
+    if (sortOrder === "asc") {
+      return dateA - dateB
+    } else {
+      return dateB - dateA
+    }
+  })
+
   // Handler for adding new subscription
-  const handleAddSubscription = async (subscription: Omit<Subscription, "id">) => {
+  const handleAddSubscription = async (subscription: Omit<Subscription, "id" | "lastBillingDate">) => {
     const { error } = await addSubscription(subscription)
     
     if (error) {
@@ -157,7 +180,7 @@ function HomePage() {
   }
 
   // Handler for updating subscription
-  const handleUpdateSubscription = async (id: string, data: Omit<Subscription, "id">) => {
+  const handleUpdateSubscription = async (id: number, data: Omit<Subscription, "id" | "lastBillingDate">) => {
     const { error } = await updateSubscription(id, data)
     
     if (error) {
@@ -177,7 +200,7 @@ function HomePage() {
   }
 
   // Handler for deleting subscription
-  const handleDeleteSubscription = async (id: string) => {
+  const handleDeleteSubscription = async (id: number) => {
     const subscription = subscriptions.find(sub => sub.id === id)
     if (!subscription) return
     
@@ -200,7 +223,7 @@ function HomePage() {
   }
 
   // Handler for changing subscription status
-  const handleStatusChange = async (id: string, status: SubscriptionStatus) => {
+  const handleStatusChange = async (id: number, status: SubscriptionStatus) => {
     const subscription = subscriptions.find(sub => sub.id === id)
     if (!subscription) return
     
@@ -245,46 +268,24 @@ function HomePage() {
 
   // Handler for importing subscriptions
   const handleImportSubscriptions = async (newSubscriptions: Omit<Subscription, "id">[]) => {
-    // Import subscriptions one by one to ensure they're all properly processed
-    try {
-      const results = await Promise.all(
-        newSubscriptions.map(subscription => addSubscription(subscription))
-      );
-      
-      const errors = results.filter(result => result.error !== null);
-      
-      if (errors.length > 0) {
-        toast({
-          title: "Some imports failed",
-          description: `Imported ${results.length - errors.length} out of ${newSubscriptions.length} subscriptions.`,
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Import successful",
-          description: `${newSubscriptions.length} subscriptions have been imported.`
-        });
-        
-        // Force sync if user is logged in to ensure cross-device availability
-        if (user) {
-          syncSubscriptions(true);
-          toast({
-            title: "Syncing imported data",
-            description: "Your imported subscriptions are being synchronized across your devices."
-          });
-        }
-      }
-      
-      // Refresh subscriptions to ensure UI is in sync with the updated data
-      fetchSubscriptions();
-    } catch (error: any) {
+    const { error } = await bulkAddSubscriptions(newSubscriptions);
+
+    if (error) {
       toast({
         title: "Import failed",
         description: error.message || "Failed to import subscriptions",
-        variant: "destructive"
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Import successful",
+        description: `${newSubscriptions.length} subscriptions have been imported.`,
       });
     }
-  }
+
+    // Final fetch to ensure UI is up-to-date
+    fetchSubscriptions();
+  };
 
   // Handler for exporting subscriptions
   const handleExportSubscriptions = () => {
@@ -321,63 +322,39 @@ function HomePage() {
     }
   }
   
-  // Handle force sync
-  const handleForceSync = async () => {
-    if (!user) {
-      toast({
-        title: "Sync requires login",
-        description: "Please log in to sync data across devices",
-        variant: "destructive"
-      })
-      return
-    }
-    
-    try {
-      const { error } = await syncSubscriptions(true)
-      
-      if (error) {
-        toast({
-          title: "Sync failed",
-          description: error.message || "Failed to sync subscriptions",
-          variant: "destructive"
-        })
-        return
-      }
-      
-      toast({
-        title: "Sync successful",
-        description: "Your subscription data has been synchronized across devices."
-      })
-    } catch (error: any) {
-      toast({
-        title: "Sync error",
-        description: error.message || "An error occurred during synchronization",
-        variant: "destructive"
-      })
-    }
-  }
-
   // Get data for dashboard
   const monthlySpending = getTotalMonthlySpending()
   const yearlySpending = getTotalYearlySpending()
-  const upcomingRenewals = getUpcomingRenewals(30)
+  const upcomingRenewals = getUpcomingRenewals(7)
   const spendingByCategory = getSpendingByCategory()
+
+  const today = new Date()
+  const pastDate = new Date()
+  pastDate.setDate(today.getDate() - 7)
+
+  const recentlyPaidSubscriptions = subscriptions
+    .filter(sub => {
+      if (!sub.lastBillingDate) return false
+      const billingDate = new Date(sub.lastBillingDate)
+      return billingDate >= pastDate && billingDate <= today
+    })
+    .sort((a, b) => 
+      new Date(b.lastBillingDate!).getTime() - new Date(a.lastBillingDate!).getTime()
+    )
 
   if (isLoading) {
     return (
-      <MainLayout>
-        <div className="flex items-center justify-center h-[calc(100vh-16rem)]">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-            <p className="text-lg font-medium">Loading subscriptions...</p>
-          </div>
+      <div className="flex items-center justify-center h-[calc(100vh-16rem)]">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-lg font-medium">Loading subscriptions...</p>
         </div>
-      </MainLayout>
+      </div>
     )
   }
 
   return (
-    <MainLayout>
+    <>
       <div className="flex justify-between mb-4">
         <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
         <Button onClick={() => setShowAddForm(true)}>
@@ -386,45 +363,12 @@ function HomePage() {
         </Button>
       </div>
 
-      <Tabs defaultValue={defaultView}>
+      <Tabs defaultValue={defaultView} value={activeTab} onValueChange={handleTabChange}>
         <div className="flex items-center justify-between mb-4">
           <TabsList>
             <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
             <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           </TabsList>
-          
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-auto">
-                <Sliders className="h-4 w-4 mr-2" />
-                Options
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Data</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                onClick={() => setShowImportModal(true)}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Import Subscriptions
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                onClick={handleExportSubscriptions}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Export to CSV
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem
-                onClick={handleForceSync}
-                disabled={!user}
-              >
-                <Cloud className="h-4 w-4 mr-2" />
-                Sync Across Devices
-              </DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </div>
 
         {/* Dashboard Tab */}
@@ -450,20 +394,24 @@ function HomePage() {
             />
           </div>
           
-          <div className="grid gap-4 md:grid-cols-4">
-            <UpcomingRenewals 
-              subscriptions={upcomingRenewals} 
+          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+            <RecentlyPaid 
+              subscriptions={recentlyPaidSubscriptions}
               onViewAll={() => {
                 setCurrentView("active")
-                document.querySelector('[data-value="subscriptions"]')?.dispatchEvent(
-                  new MouseEvent('click', { bubbles: true })
-                )
+                setActiveTab("subscriptions")
+              }}
+            />
+
+            <UpcomingRenewals 
+              subscriptions={upcomingRenewals}
+              onViewAll={() => {
+                setCurrentView("active")
+                setActiveTab("subscriptions")
               }} 
             />
             
-            <div className="md:col-span-1">
-              <CategoryBreakdown data={spendingByCategory} />
-            </div>
+            <CategoryBreakdown data={spendingByCategory} />
           </div>
         </TabsContent>
 
@@ -598,6 +546,23 @@ function HomePage() {
                   </div>
                 </PopoverContent>
               </Popover>
+
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button 
+                      variant="outline" 
+                      size="icon"
+                      onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")}
+                    >
+                      {sortOrder === "asc" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Sort by Next Billing Date ({sortOrder === 'asc' ? 'Ascending' : 'Descending'})</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
             
             <div className="flex items-center gap-2">
@@ -694,7 +659,7 @@ function HomePage() {
             </div>
           )}
 
-          {filteredSubscriptions.length === 0 ? (
+          {sortedSubscriptions.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Calendar className="h-12 w-12 text-muted-foreground opacity-50 mb-4" />
               <h3 className="text-lg font-medium mb-1">No subscriptions found</h3>
@@ -719,15 +684,12 @@ function HomePage() {
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filteredSubscriptions.map((subscription) => (
+              {sortedSubscriptions.map((subscription) => (
                 <SubscriptionCard
                   key={subscription.id}
                   subscription={subscription}
-                  onEdit={(id) => {
-                    const sub = subscriptions.find((s) => s.id === id)
-                    if (sub) setEditingSubscription(sub)
-                  }}
-                  onDelete={handleDeleteSubscription}
+                  onEdit={() => setEditingSubscription(subscription)}
+                  onDelete={() => handleDeleteSubscription(subscription.id)}
                   onStatusChange={handleStatusChange}
                 />
               ))}
@@ -757,7 +719,7 @@ function HomePage() {
         onOpenChange={setShowImportModal}
         onImport={handleImportSubscriptions}
       />
-    </MainLayout>
+    </>
   )
 }
 

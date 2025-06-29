@@ -1,8 +1,21 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from './authStore'
 import { applyTheme } from '@/lib/theme-sync'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+
+// Helper function to get headers, including API key for write operations
+const getHeaders = () => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+  // The API key is taken from the store's own state
+  const { apiKey } = useSettingsStore.getState()
+  if (apiKey) {
+    headers['X-API-KEY'] = apiKey
+  }
+  return headers
+}
 
 export type ThemeType = 'light' | 'dark' | 'system'
 export type DefaultViewType = 'dashboard' | 'subscriptions'
@@ -10,33 +23,35 @@ export type CurrencyType = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD' | 'JPY' | 'CNY'
 export type NotificationFrequencyType = 'once' | 'twice' | 'custom'
 
 interface SettingsState {
-  // General settings
+  // --- Synced with Backend ---
+  apiKey: string | null
+  setApiKey: (apiKey: string) => void
   currency: CurrencyType
   setCurrency: (currency: CurrencyType) => Promise<void>
+  theme: ThemeType
+  setTheme: (theme: ThemeType) => Promise<void>
+
+  // --- Frontend-Only Settings ---
   defaultView: DefaultViewType
-  setDefaultView: (view: DefaultViewType) => Promise<void>
+  setDefaultView: (view: DefaultViewType) => void
   showInactiveSubs: boolean
-  setShowInactiveSubs: (show: boolean) => Promise<void>
+  setShowInactiveSubs: (show: boolean) => void
   
   // Currency display settings
   showOriginalCurrency: boolean
-  setShowOriginalCurrency: (show: boolean) => Promise<void>
-  
-  // Theme settings
-  theme: ThemeType
-  setTheme: (theme: ThemeType) => Promise<void>
+  setShowOriginalCurrency: (show: boolean) => void
   
   // Notification settings
   enableEmailNotifications: boolean
-  setEnableEmailNotifications: (enable: boolean) => Promise<void>
+  setEnableEmailNotifications: (enable: boolean) => void
   emailAddress: string
-  setEmailAddress: (email: string) => Promise<void>
+  setEmailAddress: (email: string) => void
   reminderDays: number
-  setReminderDays: (days: number) => Promise<void>
+  setReminderDays: (days: number) => void
   notificationFrequency: NotificationFrequencyType
-  setNotificationFrequency: (frequency: NotificationFrequencyType) => Promise<void>
+  setNotificationFrequency: (frequency: NotificationFrequencyType) => void
   enableBrowserNotifications: boolean
-  setEnableBrowserNotifications: (enable: boolean) => Promise<void>
+  setEnableBrowserNotifications: (enable: boolean) => void
   
   // Exchange rate settings
   exchangeRates: Record<string, number>
@@ -52,11 +67,15 @@ interface SettingsState {
 }
 
 export const initialSettings = {
+  // Synced
+  apiKey: null,
   currency: 'USD' as CurrencyType,
+  theme: 'system' as ThemeType,
+  
+  // Frontend-only
   defaultView: 'dashboard' as DefaultViewType,
   showInactiveSubs: true,
   showOriginalCurrency: true,
-  theme: 'system' as ThemeType,
   enableEmailNotifications: false,
   emailAddress: '',
   reminderDays: 7,
@@ -76,285 +95,94 @@ export const initialSettings = {
   error: null
 }
 
-// Helper function to check if table exists
-const checkTableExists = async (tableName: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from(tableName)
-      .select('count')
-      .limit(1)
-    
-    return !error
-  } catch (e) {
-    console.error(`Error checking if table ${tableName} exists:`, e)
-    return false
-  }
-}
-
 export const useSettingsStore = create<SettingsState>()(
   persist(
     (set, get) => ({
       ...initialSettings,
       
       fetchSettings: async () => {
-        const user = useAuthStore.getState().user
-        if (!user) {
-          // If no user is logged in, use default settings
-          set({ ...initialSettings })
-          return
-        }
-        
         set({ isLoading: true, error: null })
-        
         try {
-          // Check if user_settings table exists first
-          const tableExists = await checkTableExists('user_settings')
-          if (!tableExists) {
-            console.log('User settings table does not exist, using defaults')
-            set({ ...initialSettings, isLoading: false })
-            return
-          }
-          
-          const { data, error } = await supabase
-            .from('user_settings')
-            .select('*')
-            .eq('user_id', user.id)
-            .single()
-            
-          if (error) {
-            if (error.message.includes('returned no rows')) {
-              // No settings found, use defaults
-              console.log('No settings found for user, using defaults')
-              set({ ...initialSettings, isLoading: false })
+          const response = await fetch(`${API_BASE_URL}/settings`)
+          if (!response.ok) {
+            // If settings don't exist, the backend might 404, which is okay.
+            // We just use the initial/persisted state.
+            if (response.status === 404) {
+              console.warn('Settings not found on backend. Using local/default settings.')
+              set({ isLoading: false })
               return
             }
-            throw error
+            throw new Error('Failed to fetch settings from backend.')
           }
+          const data = await response.json()
           
-          const loadedTheme = data.theme as ThemeType || 'system';
-          
-          // Apply theme immediately when settings are loaded
-          applyTheme(loadedTheme);
-          
-          // Also update localStorage for next-themes
-          localStorage.setItem('vite-ui-theme', loadedTheme);
-          
-          // Transform data to frontend format
-          set({
-            currency: data.currency as CurrencyType,
-            defaultView: data.default_view as DefaultViewType,
-            showInactiveSubs: data.show_inactive_subs,
-            showOriginalCurrency: data.show_original_currency,
-            theme: loadedTheme,
-            enableEmailNotifications: data.enable_email_notifications,
-            emailAddress: data.email_address || '',
-            reminderDays: data.reminder_days,
-            notificationFrequency: data.notification_frequency as NotificationFrequencyType,
-            enableBrowserNotifications: data.enable_browser_notifications,
-            isLoading: false
-          })
+          const loadedSettings = {
+            currency: data.currency || initialSettings.currency,
+            theme: data.theme || initialSettings.theme,
+          }
+
+          set({ ...loadedSettings, isLoading: false })
+          applyTheme(loadedSettings.theme)
+          localStorage.setItem('vite-ui-theme', loadedSettings.theme)
+
         } catch (error: any) {
-          console.error('Error fetching user settings:', error)
-          set({ ...initialSettings, error: error.message, isLoading: false })
+          console.error('Error fetching settings:', error)
+          set({ error: error.message, isLoading: false })
         }
       },
+      
+      setApiKey: (apiKey) => set({ apiKey }),
       
       setCurrency: async (currency) => {
         set({ currency })
         
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            // Check if table exists before trying to update
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ currency })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating currency setting:', error)
+        // Sync to backend
+        try {
+          const response = await fetch(`${API_BASE_URL}/settings`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ currency })
+          })
+          
+          if (!response.ok) {
+            console.error('Failed to save currency setting to backend')
+            // Could optionally revert the local change here
           }
-        }
-      },
-      
-      setDefaultView: async (defaultView) => {
-        set({ defaultView })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ default_view: defaultView })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating defaultView setting:', error)
-          }
-        }
-      },
-      
-      setShowInactiveSubs: async (showInactiveSubs) => {
-        set({ showInactiveSubs })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ show_inactive_subs: showInactiveSubs })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating showInactiveSubs setting:', error)
-          }
-        }
-      },
-      
-      setShowOriginalCurrency: async (showOriginalCurrency) => {
-        set({ showOriginalCurrency })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ show_original_currency: showOriginalCurrency })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating showOriginalCurrency setting:', error)
-          }
+        } catch (error: any) {
+          console.error('Error saving currency setting:', error)
+          // Could optionally revert the local change here
         }
       },
       
       setTheme: async (theme) => {
         set({ theme })
-        
-        // Directly apply theme to DOM for immediate effect
         applyTheme(theme)
-        
-        // Update localStorage to keep next-themes in sync
         localStorage.setItem('vite-ui-theme', theme)
         
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ theme })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating theme setting:', error)
+        // Sync to backend
+        try {
+          const response = await fetch(`${API_BASE_URL}/settings`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify({ theme })
+          })
+          
+          if (!response.ok) {
+            console.error('Failed to save theme setting to backend')
           }
+        } catch (error: any) {
+          console.error('Error saving theme setting:', error)
         }
       },
-      
-      setEnableEmailNotifications: async (enableEmailNotifications) => {
-        set({ enableEmailNotifications })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ enable_email_notifications: enableEmailNotifications })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating enableEmailNotifications setting:', error)
-          }
-        }
-      },
-      
-      setEmailAddress: async (emailAddress) => {
-        set({ emailAddress })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ email_address: emailAddress })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating emailAddress setting:', error)
-          }
-        }
-      },
-      
-      setReminderDays: async (reminderDays) => {
-        set({ reminderDays })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ reminder_days: reminderDays })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating reminderDays setting:', error)
-          }
-        }
-      },
-      
-      setNotificationFrequency: async (notificationFrequency) => {
-        set({ notificationFrequency })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ notification_frequency: notificationFrequency })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating notificationFrequency setting:', error)
-          }
-        }
-      },
-      
-      setEnableBrowserNotifications: async (enableBrowserNotifications) => {
-        set({ enableBrowserNotifications })
-        
-        const user = useAuthStore.getState().user
-        if (user) {
-          try {
-            const tableExists = await checkTableExists('user_settings')
-            if (!tableExists) return
-            
-            await supabase
-              .from('user_settings')
-              .update({ enable_browser_notifications: enableBrowserNotifications })
-              .eq('user_id', user.id)
-          } catch (error) {
-            console.error('Error updating enableBrowserNotifications setting:', error)
-          }
-        }
-      },
+
+      setDefaultView: (defaultView) => set({ defaultView }),
+      setShowInactiveSubs: (showInactiveSubs) => set({ showInactiveSubs }),
+      setShowOriginalCurrency: (showOriginalCurrency) => set({ showOriginalCurrency }),
+      setEnableEmailNotifications: (enableEmailNotifications) => set({ enableEmailNotifications }),
+      setEmailAddress: (emailAddress) => set({ emailAddress }),
+      setReminderDays: (reminderDays) => set({ reminderDays }),
+      setNotificationFrequency: (notificationFrequency) => set({ notificationFrequency }),
+      setEnableBrowserNotifications: (enableBrowserNotifications) => set({ enableBrowserNotifications }),
       
       updateExchangeRate: (currency, rate) => set((state) => ({
         exchangeRates: { ...state.exchangeRates, [currency]: rate }
@@ -364,21 +192,40 @@ export const useSettingsStore = create<SettingsState>()(
         lastExchangeRateUpdate: new Date().toISOString()
       }),
       
-      resetSettings: () => {
-        // Reset settings to defaults
-        set({ ...initialSettings })
-        
-        // Clear from localStorage too
-        localStorage.removeItem('settings-storage')
-      }
+      resetSettings: async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/settings/reset`, {
+            method: 'POST',
+            headers: getHeaders(),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to reset settings');
+          }
+
+          // Reset local state to initial settings
+          set({ ...initialSettings });
+          // Also apply the default theme
+          applyTheme(initialSettings.theme);
+          localStorage.setItem('vite-ui-theme', initialSettings.theme);
+
+          return { error: null };
+        } catch (error: any) {
+          console.error('Error resetting settings:', error);
+          set({ error: error.message });
+          return { error };
+        }
+      },
     }),
     {
       name: 'settings-storage',
-      partialize: (state) => ({
-        // Store only these in localStorage as backup
-        exchangeRates: state.exchangeRates,
-        lastExchangeRateUpdate: state.lastExchangeRateUpdate
-      })
+      // Persist all settings except for loading/error states.
+      partialize: (state) => {
+        const { isLoading, error, ...rest } = state;
+        // Functions are not persisted, so we don't need to omit them.
+        return rest;
+      }
     }
   )
 )

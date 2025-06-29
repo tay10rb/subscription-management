@@ -1,0 +1,69 @@
+# Dependencies
+node_modules/
+server/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Development files
+.git/
+.gitignore
+README.md
+TODO.md
+.specstory/
+.devv/
+
+# Environment files (for security, .env files should not be copied to image)
+.env
+.env.*
+server/.env
+server/.env.*
+
+# Build outputs
+dist/
+build/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Test files
+test/
+tests/
+*.test.js
+*.spec.js
+
+# Documentation (exclude from production build)
+docs/
+*.md
+!install.md
+
+# Docker files
+Dockerfile
+docker-compose.yml
+.dockerignore 

@@ -35,18 +35,20 @@ export function CategoryBreakdown({ data }: CategoryBreakdownProps) {
   }
   
   return (
-    <Card>
-      <CardHeader>
+    <Card className="min-h-[200px] flex flex-col">
+      <CardHeader className="flex-shrink-0">
         <CardTitle className="text-lg">Spending by Category</CardTitle>
         <CardDescription>Annual breakdown by category</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1 flex flex-col">
         {sortedCategories.length === 0 ? (
-          <p className="text-muted-foreground text-center py-6">
-            No spending data available
-          </p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center">
+            <p className="text-muted-foreground">
+              No spending data available
+            </p>
+          </div>
         ) : (
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1">
             {sortedCategories.map((category) => {
               const value = data[category]
               const percentage = total > 0 ? (value / total) * 100 : 0

@@ -1,25 +1,21 @@
-import React, { ReactNode } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ModeToggle } from '@/components/mode-toggle'
-import { useAuthStore } from '@/store/authStore'
+import {
+  Home,
+  Settings,
+} from 'lucide-react'
+
 import { Button } from '@/components/ui/button'
-import { Home, Settings, LogOut } from 'lucide-react'
-import SyncStatus from '@/components/sync/SyncStatus'
+import { ModeToggle } from '@/components/mode-toggle'
 
 interface MainLayoutProps {
-  children: ReactNode
+  children: React.ReactNode
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
   const location = useLocation()
-  const { logout, user } = useAuthStore()
-  
-  const handleLogout = async () => {
-    await logout()
-  }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between py-4">
           <div className="flex items-center gap-6 md:gap-10">
@@ -29,10 +25,6 @@ export function MainLayout({ children }: MainLayoutProps) {
           </div>
           
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden md:block">
-              {user?.email}
-            </span>
-            
             <Link to="/">
               <Button variant={location.pathname === '/' ? "default" : "ghost"} size="sm">
                 <Home className="h-4 w-4 mr-2" />
@@ -47,20 +39,12 @@ export function MainLayout({ children }: MainLayoutProps) {
               </Button>
             </Link>
             
-            {/* Sync status indicator */}
-            <SyncStatus />
-            
             <ModeToggle />
-            
-            <Button variant="ghost" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
           </div>
         </div>
       </header>
       
-      <main className="container py-6">{children}</main>
+      <main className="container py-6 flex-grow">{children}</main>
       
       <footer className="border-t py-6">
         <div className="container flex flex-col items-center justify-center gap-4 md:flex-row md:gap-6">

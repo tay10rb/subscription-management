@@ -267,9 +267,9 @@ export function exportSubscriptionsToCSV(subscriptions: Subscription[]): string 
  */
 export function parseCSVToSubscriptions(
   csvData: string
-): { subscriptions: Omit<Subscription, 'id'>[]; errors: string[] } {
+): { subscriptions: Omit<Subscription, 'id' | 'lastBillingDate'>[]; errors: string[] } {
   const errors: string[] = []
-  const subscriptions: Omit<Subscription, 'id'>[] = []
+  const subscriptions: Omit<Subscription, 'id' | 'lastBillingDate'>[] = []
   
   // Split the CSV into lines
   const lines = csvData.split('\n')
@@ -331,7 +331,7 @@ export function parseCSVToSubscriptions(
         throw new Error(`Invalid billingCycle value: ${subscription.billingCycle}. Must be 'monthly', 'yearly', or 'quarterly'.`)
       }
       
-      subscriptions.push(subscription as Omit<Subscription, 'id'>)
+      subscriptions.push(subscription as Omit<Subscription, 'id' | 'lastBillingDate'>)
     } catch (error: any) {
       errors.push(`Line ${i + 1}: ${error.message}`)
     }

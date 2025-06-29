@@ -41,11 +41,14 @@ import { CurrencySelector } from "@/components/subscription/CurrencySelector"
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
 
+// Form data type - excludes auto-calculated fields
+type SubscriptionFormData = Omit<Subscription, "id" | "lastBillingDate">
+
 interface SubscriptionFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: Subscription
-  onSubmit: (data: Omit<Subscription, "id">) => void
+  onSubmit: (data: SubscriptionFormData) => void
 }
 
 // Form validation types
@@ -70,7 +73,7 @@ export function SubscriptionForm({
   } = useSubscriptionStore()
 
   // State for form data and validation errors
-  const [form, setForm] = useState<Omit<Subscription, "id">>({
+  const [form, setForm] = useState<SubscriptionFormData>({
     name: "",
     plan: "",
     billingCycle: "monthly",
@@ -103,7 +106,8 @@ export function SubscriptionForm({
   // Initialize form with initial data if provided
   useEffect(() => {
     if (initialData) {
-      setForm(initialData)
+      const { lastBillingDate, ...formData } = initialData
+      setForm(formData)
     }
   }, [initialData])
 

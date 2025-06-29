@@ -1,16 +1,79 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { convertCurrency } from '@/lib/subscription-utils'
+import { convertCurrency } from '@/utils/currency'
 import { useSettingsStore } from './settingsStore'
-import { supabase } from '@/lib/supabase'
-import { useAuthStore } from './authStore'
-import { v4 as uuidv4 } from 'uuid'
-import { 
-  synchronizeSubscriptions, 
-  scheduleSync, 
-  SyncStatus, 
-  forceSync 
-} from '@/lib/sync/subscription-sync'
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+
+// Helper to calculate the last billing date from the next one
+const calculateLastBillingDate = (nextBillingDate: string, billingCycle: BillingCycle): string => {
+  const nextDate = new Date(nextBillingDate)
+  switch (billingCycle) {
+    case 'monthly':
+      nextDate.setMonth(nextDate.getMonth() - 1)
+      break
+    case 'yearly':
+      nextDate.setFullYear(nextDate.getFullYear() - 1)
+      break
+    case 'quarterly':
+      nextDate.setMonth(nextDate.getMonth() - 3)
+      break
+  }
+  return nextDate.toISOString().split('T')[0]
+}
+
+// Helper function to get headers, including API key for write operations
+const getHeaders = (method: 'GET' | 'POST' | 'PUT' | 'DELETE') => {
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  }
+  if (method !== 'GET') {
+    const { apiKey } = useSettingsStore.getState()
+    if (apiKey) {
+      headers['X-API-KEY'] = apiKey
+    }
+  }
+  return headers
+}
+
+// Helper function to transform data from API (snake_case) to frontend (camelCase)
+const transformFromApi = (sub: any): Subscription => {
+  return {
+    id: sub.id,
+    name: sub.name,
+    plan: sub.plan,
+    billingCycle: sub.billing_cycle,
+    nextBillingDate: sub.next_billing_date,
+    lastBillingDate: sub.last_billing_date,
+    amount: sub.amount,
+    currency: sub.currency,
+    paymentMethod: sub.payment_method,
+    startDate: sub.start_date,
+    status: sub.status,
+    category: sub.category,
+    notes: sub.notes,
+    website: sub.website,
+  }
+}
+
+// Helper function to transform data from frontend (camelCase) to API (snake_case)
+const transformToApi = (sub: Partial<Subscription>) => {
+  const result: any = {}
+  if (sub.name !== undefined) result.name = sub.name
+  if (sub.plan !== undefined) result.plan = sub.plan
+  if (sub.billingCycle !== undefined) result.billing_cycle = sub.billingCycle
+  if (sub.nextBillingDate !== undefined) result.next_billing_date = sub.nextBillingDate
+  if (sub.lastBillingDate !== undefined) result.last_billing_date = sub.lastBillingDate
+  if (sub.amount !== undefined) result.amount = sub.amount
+  if (sub.currency !== undefined) result.currency = sub.currency
+  if (sub.paymentMethod !== undefined) result.payment_method = sub.paymentMethod
+  if (sub.startDate !== undefined) result.start_date = sub.startDate
+  if (sub.status !== undefined) result.status = sub.status
+  if (sub.category !== undefined) result.category = sub.category
+  if (sub.notes !== undefined) result.notes = sub.notes
+  if (sub.website !== undefined) result.website = sub.website
+  return result
+}
 
 export type SubscriptionStatus = 'active' | 'trial' | 'cancelled'
 export type BillingCycle = 'monthly' | 'yearly' | 'quarterly'
@@ -18,11 +81,12 @@ export type BillingCycle = 'monthly' | 'yearly' | 'quarterly'
 export type SubscriptionCategory = 'video' | 'music' | 'software' | 'cloud' | 'news' | 'game' | 'other' | string
 
 export interface Subscription {
-  id: string
+  id: number // Changed from string to number
   name: string
   plan: string
   billingCycle: BillingCycle
   nextBillingDate: string
+  lastBillingDate: string | null
   amount: number
   currency: string
   paymentMethod: string
@@ -58,15 +122,14 @@ interface SubscriptionState {
   subscriptionPlans: SubscriptionPlanOption[]
   isLoading: boolean
   error: string | null
-  syncStatus: SyncStatus
   
   // CRUD operations
-  addSubscription: (subscription: Omit<Subscription, 'id'>) => Promise<{ error: any | null }>
-  updateSubscription: (id: string, subscription: Partial<Subscription>) => Promise<{ error: any | null }>
-  deleteSubscription: (id: string) => Promise<{ error: any | null }>
+  addSubscription: (subscription: Omit<Subscription, 'id' | 'lastBillingDate'>) => Promise<{ error: any | null }>
+  bulkAddSubscriptions: (subscriptions: Omit<Subscription, 'id' | 'lastBillingDate'>[]) => Promise<{ error: any | null }>
+  updateSubscription: (id: number, subscription: Partial<Subscription>) => Promise<{ error: any | null }>
+  deleteSubscription: (id: number) => Promise<{ error: any | null }>
   resetSubscriptions: () => void
   fetchSubscriptions: () => Promise<void>
-  syncSubscriptions: (force?: boolean) => Promise<{ error: any | null }>
   
   // Option management
   addCategory: (category: CategoryOption) => void
@@ -77,6 +140,7 @@ interface SubscriptionState {
   getTotalMonthlySpending: () => number
   getTotalYearlySpending: () => number
   getUpcomingRenewals: (days: number) => Subscription[]
+  getRecentlyPaid: (days: number) => Subscription[]
   getSpendingByCategory: () => Record<string, number>
   
   // Get unique categories from subscriptions
@@ -125,14 +189,15 @@ const initialSubscriptionPlans: SubscriptionPlanOption[] = [
   { value: 'youtube-family', label: 'Family', service: 'YouTube Premium' }
 ]
 
-// Mock data for initial development
+// Mock data is no longer the primary source, but can be kept for reset/testing
 const mockSubscriptions: Subscription[] = [
   {
-    id: '1',
+    id: 1, // Changed to number
     name: 'Netflix',
     plan: 'Standard',
     billingCycle: 'monthly',
     nextBillingDate: '2025-06-15',
+    lastBillingDate: null,
     amount: 15.99,
     currency: 'USD',
     paymentMethod: 'visa',
@@ -143,11 +208,12 @@ const mockSubscriptions: Subscription[] = [
     website: 'https://netflix.com'
   },
   {
-    id: '2',
+    id: 2, // Changed to number
     name: 'Spotify',
     plan: 'Family',
     billingCycle: 'monthly',
     nextBillingDate: '2025-06-05',
+    lastBillingDate: null,
     amount: 14.99,
     currency: 'USD',
     paymentMethod: 'paypal',
@@ -157,11 +223,12 @@ const mockSubscriptions: Subscription[] = [
     notes: 'Shared with 5 people'
   },
   {
-    id: '3',
+    id: 3, // Changed to number
     name: 'Microsoft 365',
     plan: 'Family',
     billingCycle: 'yearly',
     nextBillingDate: '2026-01-20',
+    lastBillingDate: null,
     amount: 99.99,
     currency: 'USD',
     paymentMethod: 'visa',
@@ -172,11 +239,12 @@ const mockSubscriptions: Subscription[] = [
     website: 'https://microsoft.com'
   },
   {
-    id: '4',
+    id: 4, // Changed to number
     name: 'iCloud',
     plan: '50GB Storage',
     billingCycle: 'monthly',
     nextBillingDate: '2025-05-30',
+    lastBillingDate: null,
     amount: 0.99,
     currency: 'USD',
     paymentMethod: 'applepay',
@@ -186,11 +254,12 @@ const mockSubscriptions: Subscription[] = [
     notes: 'Personal storage'
   },
   {
-    id: '5',
+    id: 5, // Changed to number
     name: 'YouTube Premium',
     plan: 'Individual',
     billingCycle: 'monthly',
     nextBillingDate: '2025-06-10',
+    lastBillingDate: null,
     amount: 11.99,
     currency: 'USD',
     paymentMethod: 'googlepay',
@@ -200,58 +269,6 @@ const mockSubscriptions: Subscription[] = [
     notes: 'No ads, background play'
   }
 ]
-
-// Helper function to transform data between frontend and database
-const transformToDbFormat = (sub: Omit<Subscription, 'id'>, userId: string) => {
-  return {
-    user_id: userId,
-    name: sub.name,
-    plan: sub.plan,
-    billing_cycle: sub.billingCycle,
-    next_billing_date: sub.nextBillingDate,
-    amount: sub.amount,
-    currency: sub.currency,
-    payment_method: sub.paymentMethod,
-    start_date: sub.startDate,
-    status: sub.status,
-    category: sub.category,
-    notes: sub.notes,
-    website: sub.website || null
-  }
-}
-
-// Helper function to transform data from database to frontend format
-const transformFromDbFormat = (sub: any): Subscription => {
-  return {
-    id: sub.id,
-    name: sub.name,
-    plan: sub.plan,
-    billingCycle: sub.billing_cycle as BillingCycle,
-    nextBillingDate: sub.next_billing_date,
-    amount: sub.amount,
-    currency: sub.currency,
-    paymentMethod: sub.payment_method,
-    startDate: sub.start_date,
-    status: sub.status as SubscriptionStatus,
-    category: sub.category as SubscriptionCategory,
-    notes: sub.notes,
-    website: sub.website
-  }
-}
-
-// Helper function to check if table exists
-const checkTableExists = async (tableName: string) => {
-  try {
-    const { error } = await supabase
-      .from(tableName)
-      .select('count')
-      .limit(1)
-    
-    return !error || !error.message.includes('does not exist')
-  } catch {
-    return false
-  }
-}
 
 // Create store with persistence
 export const useSubscriptionStore = create<SubscriptionState>()(
@@ -263,222 +280,172 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       subscriptionPlans: initialSubscriptionPlans,
       isLoading: false,
       error: null,
-      syncStatus: 'idle',
       
-      // Fetch subscriptions from Supabase and sync across devices
+      // Fetch subscriptions from the backend API
       fetchSubscriptions: async () => {
-        const user = useAuthStore.getState().user
         set({ isLoading: true, error: null })
-        
         try {
-          // If user is logged in, attempt to sync data from Supabase
-          if (user) {
-            const syncResult = await synchronizeSubscriptions([], user.id, 'pull')
-            
-            if (syncResult.status === 'success' && syncResult.subscriptions.length > 0) {
-              set({ 
-                subscriptions: syncResult.subscriptions,
-                isLoading: false,
-                syncStatus: 'success'
-              })
-              return
-            }
-          }
-          
-          // If no user or sync failed, load from localStorage
-          const localSubscriptions = localStorage.getItem('subscription-data')
-          if (localSubscriptions) {
-            try {
-              const parsedSubs = JSON.parse(localSubscriptions)
-              set({ 
-                subscriptions: parsedSubs, 
-                isLoading: false, 
-                error: null,
-                syncStatus: user ? 'error' : 'idle'
-              })
-              return
-            } catch (e) {
-              console.error('Error parsing local subscriptions:', e)
-            }
-          }
-          
-          // If no localStorage data or parsing error, use mock data
-          set({ 
-            subscriptions: mockSubscriptions, 
-            isLoading: false, 
-            error: null 
+          const response = await fetch(`${API_BASE_URL}/subscriptions`, {
+            method: 'GET',
+            headers: getHeaders('GET'),
           })
+          if (!response.ok) {
+            throw new Error('Failed to fetch subscriptions')
+          }
+          const data = await response.json()
+          const transformedData = data.map(transformFromApi)
+          set({ subscriptions: transformedData, isLoading: false })
         } catch (error: any) {
           console.error('Error fetching subscriptions:', error)
-          set({ error: error.message, isLoading: false, syncStatus: 'error' })
-          
-          // Try to get data from localStorage
-          const localSubscriptions = localStorage.getItem('subscription-data')
-          if (localSubscriptions) {
-            try {
-              const parsedSubs = JSON.parse(localSubscriptions)
-              set({ subscriptions: parsedSubs })
-              return
-            } catch (e) {
-              console.error('Error parsing local subscriptions:', e)
-            }
-          }
-          
-          // If there's an error and no localStorage data, fall back to mock data
-          set({ subscriptions: mockSubscriptions })
+          set({ error: error.message, isLoading: false, subscriptions: [] }) // Clear subscriptions on error
         }
       },
       
-      // Add a new subscription and sync
+      // Add a new subscription
       addSubscription: async (subscription) => {
-        const user = useAuthStore.getState().user
-        
         try {
-          // Generate a new ID for the subscription using UUID
-          const newId = uuidv4()
-          const newSub: Subscription = {
-            ...subscription,
-            id: newId
+          const subscriptionWithLastBilling = { 
+            ...subscription, 
+            lastBillingDate: calculateLastBillingDate(
+              subscription.nextBillingDate,
+              subscription.billingCycle
+            )
           }
-          
-          // Update local state first
-          set((state) => {
-            const updatedSubscriptions = [...state.subscriptions, newSub]
-            
-            // Save to localStorage immediately
-            localStorage.setItem('subscription-data', JSON.stringify(updatedSubscriptions))
-            
-            return {
-              subscriptions: updatedSubscriptions
-            }
+          const apiSubscription = transformToApi(subscriptionWithLastBilling)
+          const response = await fetch(`${API_BASE_URL}/subscriptions`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+            body: JSON.stringify(apiSubscription),
           })
-          
-          // Schedule sync if user is logged in
-          if (user) {
-            const updatedSubscriptions = get().subscriptions
-            scheduleSync(updatedSubscriptions, user.id)
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.message || 'Failed to add subscription')
           }
           
+          // Refetch all subscriptions to get the new one with its DB-generated ID
+          await get().fetchSubscriptions()
           return { error: null }
         } catch (error: any) {
           console.error('Error adding subscription:', error)
-          
-          // Even if there's an error with Supabase, the local state was already updated
+          set({ error: error.message })
           return { error }
         }
       },
       
-      // Update an existing subscription and sync
-      updateSubscription: async (id, updatedSubscription) => {
-        const user = useAuthStore.getState().user
-        
+      // Bulk add subscriptions
+      bulkAddSubscriptions: async (subscriptions) => {
         try {
-          // Update local state first
-          set((state) => {
-            const updatedSubscriptions = state.subscriptions.map(sub => 
-              sub.id === id ? { ...sub, ...updatedSubscription } : sub
+          const apiSubscriptions = subscriptions.map(sub => {
+            const subWithLastBilling = { 
+              ...sub,
+              lastBillingDate: calculateLastBillingDate(
+                sub.nextBillingDate,
+                sub.billingCycle
+              )
+            };
+            return transformToApi(subWithLastBilling);
+          });
+
+          const response = await fetch(`${API_BASE_URL}/subscriptions/bulk`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+            body: JSON.stringify(apiSubscriptions),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to bulk add subscriptions');
+          }
+
+          await get().fetchSubscriptions();
+          return { error: null };
+        } catch (error: any) {
+          console.error('Error bulk adding subscriptions:', error);
+          set({ error: error.message });
+          return { error };
+        }
+      },
+
+      // Update an existing subscription
+      updateSubscription: async (id, updatedSubscription) => {
+        try {
+          const originalSubscription = get().subscriptions.find(sub => sub.id === id)
+          const subscriptionWithLastBilling = { ...updatedSubscription }
+
+          if (originalSubscription && updatedSubscription.nextBillingDate && updatedSubscription.nextBillingDate !== originalSubscription.nextBillingDate) {
+            const billingCycle = updatedSubscription.billingCycle || originalSubscription.billingCycle
+            subscriptionWithLastBilling.lastBillingDate = calculateLastBillingDate(
+              updatedSubscription.nextBillingDate,
+              billingCycle
             )
-            
-            // Save to localStorage immediately
-            localStorage.setItem('subscription-data', JSON.stringify(updatedSubscriptions))
-            
-            return {
-              subscriptions: updatedSubscriptions
-            }
+          }
+          const apiSubscription = transformToApi(subscriptionWithLastBilling)
+          const response = await fetch(`${API_BASE_URL}/subscriptions/${id}`, {
+            method: 'PUT',
+            headers: getHeaders('PUT'),
+            body: JSON.stringify(apiSubscription),
           })
-          
-          // Schedule sync if user is logged in
-          if (user) {
-            const updatedSubscriptions = get().subscriptions
-            scheduleSync(updatedSubscriptions, user.id)
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.message || 'Failed to update subscription')
           }
           
+          // Refetch to ensure data consistency
+          await get().fetchSubscriptions()
           return { error: null }
         } catch (error: any) {
           console.error('Error updating subscription:', error)
-          
-          // Even on error, the local state was already updated
+          set({ error: error.message })
           return { error }
         }
       },
       
-      // Delete a subscription and sync
+      // Delete a subscription
       deleteSubscription: async (id) => {
-        const user = useAuthStore.getState().user
-        
         try {
-          // Update local state first
-          set((state) => {
-            const updatedSubscriptions = state.subscriptions.filter(sub => sub.id !== id)
-            
-            // Save to localStorage immediately
-            localStorage.setItem('subscription-data', JSON.stringify(updatedSubscriptions))
-            
-            return {
-              subscriptions: updatedSubscriptions
-            }
+          const response = await fetch(`${API_BASE_URL}/subscriptions/${id}`, {
+            method: 'DELETE',
+            headers: getHeaders('DELETE'),
           })
-          
-          // Schedule sync if user is logged in
-          if (user) {
-            const updatedSubscriptions = get().subscriptions
-            scheduleSync(updatedSubscriptions, user.id)
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.message || 'Failed to delete subscription')
           }
-          
+
+          // Refetch to reflect the deletion
+          await get().fetchSubscriptions()
           return { error: null }
         } catch (error: any) {
           console.error('Error deleting subscription:', error)
-          
-          // Even on error, the local state was already updated
-          return { error }
-        }
-      },
-      
-      // Sync subscriptions with Supabase (for multi-device sync)
-      syncSubscriptions: async (force = false) => {
-        const user = useAuthStore.getState().user
-        const subscriptions = get().subscriptions
-        
-        if (!user) {
-          return { error: new Error('User not logged in') }
-        }
-        
-        try {
-          set({ syncStatus: 'syncing' })
-          
-          const result = force 
-            ? await forceSync(subscriptions, user.id)
-            : await synchronizeSubscriptions(subscriptions, user.id)
-          
-          if (result.status === 'success') {
-            set({ 
-              subscriptions: result.subscriptions,
-              syncStatus: 'success',
-              error: null
-            })
-          } else {
-            set({ syncStatus: 'error', error: result.error?.message || null })
-            return { error: result.error }
-          }
-          
-          return { error: null }
-        } catch (error: any) {
-          console.error('Error syncing subscriptions:', error)
-          set({ syncStatus: 'error', error: error.message })
+          set({ error: error.message })
           return { error }
         }
       },
 
-      // Reset subscriptions to initial mock data (for development)
-      resetSubscriptions: () => {
-        set(() => {
-          // Also update localStorage
-          localStorage.setItem('subscription-data', JSON.stringify(mockSubscriptions))
-          
-          return {
-            subscriptions: mockSubscriptions
+      // Reset subscriptions by calling the backend endpoint
+      resetSubscriptions: async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/subscriptions/reset`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.message || 'Failed to reset subscriptions');
           }
-        })
+
+          // Refetch to ensure the UI is cleared
+          await get().fetchSubscriptions();
+          return { error: null };
+        } catch (error: any) {
+          console.error('Error resetting subscriptions:', error);
+          set({ error: error.message });
+          return { error };
+        }
       },
       
       // Add a new category option
@@ -572,6 +539,24 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           )
       },
       
+      // Get recently paid subscriptions for the last N days
+      getRecentlyPaid: (days) => {
+        const { subscriptions } = get()
+        const today = new Date()
+        const pastDate = new Date()
+        pastDate.setDate(today.getDate() - days)
+        
+        return subscriptions
+          .filter(sub => {
+            if (!sub.lastBillingDate) return false
+            const billingDate = new Date(sub.lastBillingDate)
+            return billingDate >= pastDate && billingDate <= today
+          })
+          .sort((a, b) => 
+            new Date(b.lastBillingDate!).getTime() - new Date(a.lastBillingDate!).getTime()
+          )
+      },
+      
       // Get spending by category
       getSpendingByCategory: () => {
         const { subscriptions } = get();
@@ -623,9 +608,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     }),
     {
       name: 'subscription-storage',
-      // Update persist configuration to keep UI options but not subscriptions,
-      // as we'll handle subscription storage separately with direct localStorage access
-      // and Supabase synchronization
+      // Persist UI options, but not subscriptions, which are now fetched from the API.
       partialize: (state) => ({
         categories: state.categories,
         paymentMethods: state.paymentMethods,
