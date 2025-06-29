@@ -145,6 +145,9 @@ interface SubscriptionState {
   
   // Get unique categories from subscriptions
   getUniqueCategories: () => CategoryOption[]
+
+  // Auto-renewal processing
+  processAutoRenewals: () => Promise<{ processed: number; errors: number }>
 }
 
 // Initial options
@@ -598,18 +601,56 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Get unique categories from actual subscriptions
       getUniqueCategories: () => {
         const { subscriptions, categories } = get()
-        
+
         // Get all unique category values from subscriptions
         const usedCategoryValues = [...new Set(subscriptions.map(sub => sub.category))]
-        
+
         // Map these to full category objects, or create new ones for custom categories
         return usedCategoryValues.map(value => {
           const existingCategory = categories.find(cat => cat.value === value)
           if (existingCategory) return existingCategory
-          
+
           // For custom categories not in our predefined list
           return { value, label: value.charAt(0).toUpperCase() + value.slice(1) }
         })
+      },
+
+      // Process automatic renewals for subscriptions that are due
+      processAutoRenewals: async () => {
+        const { subscriptions, updateSubscription } = get()
+        let processed = 0
+        let errors = 0
+
+        // Import the utility functions
+        const { isSubscriptionDue, processSubscriptionRenewal } = await import('@/lib/subscription-utils')
+
+        // Find all active subscriptions that are due for renewal
+        const dueSubscriptions = subscriptions.filter(sub =>
+          sub.status === 'active' && isSubscriptionDue(sub.nextBillingDate)
+        )
+
+        console.log(`Found ${dueSubscriptions.length} subscriptions due for renewal`)
+
+        // Process each due subscription
+        for (const subscription of dueSubscriptions) {
+          try {
+            const renewalData = processSubscriptionRenewal(subscription)
+            const result = await updateSubscription(subscription.id, renewalData)
+
+            if (result.error) {
+              console.error(`Failed to renew subscription ${subscription.name}:`, result.error)
+              errors++
+            } else {
+              console.log(`Successfully renewed subscription: ${subscription.name}`)
+              processed++
+            }
+          } catch (error) {
+            console.error(`Error processing renewal for ${subscription.name}:`, error)
+            errors++
+          }
+        }
+
+        return { processed, errors }
       }
     }),
     {

@@ -106,13 +106,33 @@ function HomePage() {
     getRecentlyPaid,
     getSpendingByCategory,
     getUniqueCategories,
+    processAutoRenewals,
     isLoading
   } = useSubscriptionStore()
 
   // Fetch subscriptions when component mounts
   useEffect(() => {
-    fetchSubscriptions()
-    fetchSettings()
+    const initializeData = async () => {
+      await fetchSubscriptions()
+      await fetchSettings()
+
+      // Process auto-renewals after fetching subscriptions
+      try {
+        const result = await processAutoRenewals()
+        if (result.processed > 0) {
+          console.log(`Auto-renewed ${result.processed} subscription(s)`)
+          // Refresh subscriptions after auto-renewal
+          await fetchSubscriptions()
+        }
+        if (result.errors > 0) {
+          console.warn(`Failed to auto-renew ${result.errors} subscription(s)`)
+        }
+      } catch (error) {
+        console.error('Error processing auto-renewals:', error)
+      }
+    }
+
+    initializeData()
   }, [fetchSubscriptions, fetchSettings])
   
   // Get categories actually in use

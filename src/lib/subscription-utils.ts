@@ -132,6 +132,36 @@ export function getStatusVariant(status: SubscriptionStatus): 'default' | 'secon
 }
 
 /**
+ * Check if a subscription is due for renewal (today or overdue)
+ */
+export function isSubscriptionDue(nextBillingDate: string): boolean {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const billingDate = new Date(nextBillingDate)
+  billingDate.setHours(0, 0, 0, 0)
+
+  return billingDate <= today
+}
+
+/**
+ * Process automatic renewal for a subscription that is due
+ */
+export function processSubscriptionRenewal(subscription: Subscription): Partial<Subscription> {
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+
+  // Calculate next billing date based on current next billing date and billing cycle
+  const currentNextBilling = new Date(subscription.nextBillingDate)
+  const newNextBilling = calculateNextBillingDate(currentNextBilling, subscription.billingCycle)
+
+  return {
+    lastBillingDate: todayStr,
+    nextBillingDate: newNextBilling
+  }
+}
+
+/**
  * Get color for subscription status
  */
 export function getStatusColor(status: SubscriptionStatus): string {

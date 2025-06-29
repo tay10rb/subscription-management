@@ -369,6 +369,86 @@ protectedApiRouter.delete('/subscriptions/:id', (req, res) => {
     }
 });
 
+// POST to process auto renewals (Protected)
+protectedApiRouter.post('/subscriptions/auto-renew', (req, res) => {
+    try {
+        // Get all active subscriptions
+        const selectStmt = db.prepare('SELECT * FROM subscriptions WHERE status = ?');
+        const activeSubscriptions = selectStmt.all('active');
+
+        let processed = 0;
+        let errors = 0;
+        const renewedSubscriptions = [];
+
+        // Check each subscription for renewal
+        for (const sub of activeSubscriptions) {
+            try {
+                // Check if subscription is due (today or overdue)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+
+                const billingDate = new Date(sub.next_billing_date);
+                billingDate.setHours(0, 0, 0, 0);
+
+                if (billingDate <= today) {
+                    // Calculate new dates
+                    const todayStr = new Date().toISOString().split('T')[0];
+
+                    // Calculate actual next billing date (one cycle forward)
+                    const nextBillingDate = new Date(sub.next_billing_date);
+                    switch (sub.billing_cycle) {
+                        case 'monthly':
+                            nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+                            break;
+                        case 'yearly':
+                            nextBillingDate.setFullYear(nextBillingDate.getFullYear() + 1);
+                            break;
+                        case 'quarterly':
+                            nextBillingDate.setMonth(nextBillingDate.getMonth() + 3);
+                            break;
+                    }
+                    const newNextBillingStr = nextBillingDate.toISOString().split('T')[0];
+
+                    // Update subscription
+                    const updateStmt = db.prepare(`
+                        UPDATE subscriptions
+                        SET last_billing_date = ?, next_billing_date = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    `);
+
+                    const updateResult = updateStmt.run(todayStr, newNextBillingStr, sub.id);
+
+                    if (updateResult.changes > 0) {
+                        processed++;
+                        renewedSubscriptions.push({
+                            id: sub.id,
+                            name: sub.name,
+                            oldNextBilling: sub.next_billing_date,
+                            newLastBilling: todayStr,
+                            newNextBilling: newNextBillingStr
+                        });
+                    } else {
+                        errors++;
+                    }
+                }
+            } catch (error) {
+                console.error(`Error processing renewal for subscription ${sub.id}:`, error);
+                errors++;
+            }
+        }
+
+        res.json({
+            message: `Auto renewal complete: ${processed} processed, ${errors} errors`,
+            processed,
+            errors,
+            renewedSubscriptions
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // POST to reset all subscriptions (Protected)
 protectedApiRouter.post('/subscriptions/reset', (req, res) => {
     try {
