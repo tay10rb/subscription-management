@@ -1,11 +1,65 @@
 import * as React from "react"
 import { ChevronLeft, ChevronRight } from "lucide-react"
-import { DayPicker } from "react-day-picker"
+import { DayPicker, CaptionProps } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>
+
+// Custom caption component with year/month dropdowns
+function CustomCaption({ displayMonth, displayIndex }: CaptionProps) {
+  const currentYear = new Date().getFullYear()
+  const years = Array.from({ length: 20 }, (_, i) => currentYear - 10 + i)
+  const months = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+  ]
+
+  return (
+    <div className="flex justify-center items-center space-x-2 py-2">
+      <Select
+        value={months[displayMonth.getMonth()]}
+        onValueChange={(month) => {
+          const monthIndex = months.indexOf(month)
+          const newDate = new Date(displayMonth.getFullYear(), monthIndex, 1)
+          // This would need to be connected to the calendar's navigation
+        }}
+      >
+        <SelectTrigger className="w-32 h-8">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {months.map((month) => (
+            <SelectItem key={month} value={month}>
+              {month}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      <Select
+        value={displayMonth.getFullYear().toString()}
+        onValueChange={(year) => {
+          const newDate = new Date(parseInt(year), displayMonth.getMonth(), 1)
+          // This would need to be connected to the calendar's navigation
+        }}
+      >
+        <SelectTrigger className="w-20 h-8">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {years.map((year) => (
+            <SelectItem key={year} value={year.toString()}>
+              {year}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
 
 function Calendar({
   className,
@@ -17,6 +71,15 @@ function Calendar({
     <DayPicker
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
+      components={{
+        Caption: CustomCaption,
+        IconLeft: ({ className, ...props }) => (
+          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
+        ),
+        IconRight: ({ className, ...props }) => (
+          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
+        ),
+      }}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
         month: "space-y-4",
@@ -56,14 +119,6 @@ function Calendar({
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
         ...classNames,
-      }}
-      components={{
-        IconLeft: ({ className, ...props }) => (
-          <ChevronLeft className={cn("h-4 w-4", className)} {...props} />
-        ),
-        IconRight: ({ className, ...props }) => (
-          <ChevronRight className={cn("h-4 w-4", className)} {...props} />
-        ),
       }}
       {...props}
     />

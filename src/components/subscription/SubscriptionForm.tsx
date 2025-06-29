@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react"
-import { Calendar, Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
 import { format } from "date-fns"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Calendar as CalendarComponent } from "@/components/ui/calendar"
+import { DatePicker } from "@/components/ui/date-picker"
 import {
   Dialog,
   DialogContent,
@@ -97,8 +97,6 @@ export function SubscriptionForm({
   const [customPlan, setCustomPlan] = useState("")
 
   // Popover open states
-  const [datePickerOpen, setDatePickerOpen] = useState(false)
-  const [startDatePickerOpen, setStartDatePickerOpen] = useState(false)
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
@@ -547,32 +545,15 @@ export function SubscriptionForm({
                 Next Billing Date
               </Label>
               <div className="col-span-3">
-                <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {form.nextBillingDate
-                        ? format(new Date(form.nextBillingDate), "PPP")
-                        : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={new Date(form.nextBillingDate)}
-                      onSelect={(date) => {
-                        if (date) {
-                          setForm(prev => ({ ...prev, nextBillingDate: format(date, "yyyy-MM-dd") }))
-                          setDatePickerOpen(false)
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker
+                  value={form.nextBillingDate ? new Date(form.nextBillingDate) : undefined}
+                  onChange={(date) => {
+                    if (date) {
+                      setForm(prev => ({ ...prev, nextBillingDate: format(date, "yyyy-MM-dd") }))
+                    }
+                  }}
+                  placeholder="Pick a date"
+                />
               </div>
             </div>
 
@@ -655,32 +636,15 @@ export function SubscriptionForm({
                 Start Date
               </Label>
               <div className="col-span-3">
-                <Popover open={startDatePickerOpen} onOpenChange={setStartDatePickerOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant={"outline"}
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {form.startDate
-                        ? format(new Date(form.startDate), "PPP")
-                        : "Pick a date"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={new Date(form.startDate)}
-                      onSelect={(date) => {
-                        if (date) {
-                          setForm(prev => ({ ...prev, startDate: format(date, "yyyy-MM-dd") }))
-                          setStartDatePickerOpen(false)
-                        }
-                      }}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
+                <DatePicker
+                  value={form.startDate ? new Date(form.startDate) : undefined}
+                  onChange={(date) => {
+                    if (date) {
+                      setForm(prev => ({ ...prev, startDate: format(date, "yyyy-MM-dd") }))
+                    }
+                  }}
+                  placeholder="Pick a date"
+                />
               </div>
             </div>
 
