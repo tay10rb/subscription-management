@@ -92,17 +92,18 @@ function HomePage() {
     }
   }
   
-  const { 
-    subscriptions, 
+  const {
+    subscriptions,
     categories,
-    addSubscription, 
+    addSubscription,
     bulkAddSubscriptions,
-    updateSubscription, 
+    updateSubscription,
     deleteSubscription,
     fetchSubscriptions,
     getTotalMonthlySpending,
     getTotalYearlySpending,
     getUpcomingRenewals,
+    getRecentlyPaid,
     getSpendingByCategory,
     getUniqueCategories,
     isLoading
@@ -326,21 +327,8 @@ function HomePage() {
   const monthlySpending = getTotalMonthlySpending()
   const yearlySpending = getTotalYearlySpending()
   const upcomingRenewals = getUpcomingRenewals(7)
+  const recentlyPaidSubscriptions = getRecentlyPaid(7)
   const spendingByCategory = getSpendingByCategory()
-
-  const today = new Date()
-  const pastDate = new Date()
-  pastDate.setDate(today.getDate() - 7)
-
-  const recentlyPaidSubscriptions = subscriptions
-    .filter(sub => {
-      if (!sub.lastBillingDate) return false
-      const billingDate = new Date(sub.lastBillingDate)
-      return billingDate >= pastDate && billingDate <= today
-    })
-    .sort((a, b) => 
-      new Date(b.lastBillingDate!).getTime() - new Date(a.lastBillingDate!).getTime()
-    )
 
   if (isLoading) {
     return (

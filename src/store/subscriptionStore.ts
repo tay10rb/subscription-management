@@ -524,17 +524,20 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       getUpcomingRenewals: (days) => {
         const { subscriptions } = get()
         const today = new Date()
+        today.setHours(0, 0, 0, 0) // Set to start of day for accurate comparison
         const futureDate = new Date()
         futureDate.setDate(today.getDate() + days)
-        
+        futureDate.setHours(23, 59, 59, 999) // Set to end of day
+
         return subscriptions
           .filter(sub => {
             const billingDate = new Date(sub.nextBillingDate)
-            return sub.status === 'active' && 
-                   billingDate >= today && 
+            billingDate.setHours(0, 0, 0, 0) // Set to start of day for accurate comparison
+            return sub.status === 'active' &&
+                   billingDate >= today &&
                    billingDate <= futureDate
           })
-          .sort((a, b) => 
+          .sort((a, b) =>
             new Date(a.nextBillingDate).getTime() - new Date(b.nextBillingDate).getTime()
           )
       },
@@ -543,16 +546,19 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       getRecentlyPaid: (days) => {
         const { subscriptions } = get()
         const today = new Date()
+        today.setHours(23, 59, 59, 999) // Set to end of day to include today
         const pastDate = new Date()
         pastDate.setDate(today.getDate() - days)
-        
+        pastDate.setHours(0, 0, 0, 0) // Set to start of day
+
         return subscriptions
           .filter(sub => {
             if (!sub.lastBillingDate) return false
             const billingDate = new Date(sub.lastBillingDate)
+            billingDate.setHours(0, 0, 0, 0) // Set to start of day for accurate comparison
             return billingDate >= pastDate && billingDate <= today
           })
-          .sort((a, b) => 
+          .sort((a, b) =>
             new Date(b.lastBillingDate!).getTime() - new Date(a.lastBillingDate!).getTime()
           )
       },
