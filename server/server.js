@@ -284,28 +284,27 @@ protectedApiRouter.put('/subscriptions/:id', (req, res) => {
         const fields = [];
         const values = [];
 
-        // Map frontend camelCase to backend snake_case and check for updates
-        const fieldMapping = {
-            name: 'name',
-            plan: 'plan',
-            billingCycle: 'billing_cycle',
-            nextBillingDate: 'next_billing_date',
-            amount: 'amount',
-            currency: 'currency',
-            paymentMethod: 'payment_method',
-            startDate: 'start_date',
-            status: 'status',
-            category: 'category',
-            notes: 'notes',
-            website: 'website'
-        };
-        
-        // This holds the snake_case version of the updates
+        // Define allowed fields (frontend already sends snake_case via transformToApi)
+        const allowedFields = [
+            'name',
+            'plan',
+            'billing_cycle',
+            'next_billing_date',
+            'amount',
+            'currency',
+            'payment_method',
+            'start_date',
+            'status',
+            'category',
+            'notes',
+            'website'
+        ];
+
+        // Filter updates to only include allowed fields (already in snake_case)
         const snakeCaseUpdates = {};
         for (const key in updates) {
-            if (Object.prototype.hasOwnProperty.call(fieldMapping, key)) {
-                const snakeCaseKey = fieldMapping[key];
-                snakeCaseUpdates[snakeCaseKey] = updates[key];
+            if (allowedFields.includes(key)) {
+                snakeCaseUpdates[key] = updates[key];
             }
         }
 
