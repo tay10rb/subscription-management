@@ -137,8 +137,7 @@ temp/
 # Lock files (we want to keep them for reproducible builds)
 # package-lock.json and yarn.lock should be included
 
-# Development scripts
-start.sh
+# Development scripts (but keep server/start.sh for production)
 dev.sh
 build.sh
 

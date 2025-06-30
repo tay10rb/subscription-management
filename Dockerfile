@@ -56,8 +56,7 @@ COPY --from=backend-builder --chown=nodeuser:nodejs /app/server/node_modules ./s
 COPY --chown=nodeuser:nodejs server/ ./server/
 
 # Make start script executable (ensure it has proper permissions)
-RUN chmod +x ./server/start.sh && \
-    ls -la ./server/start.sh
+RUN chmod +x ./server/start.sh
 
 # Database initialization will be handled by CMD at startup
 
