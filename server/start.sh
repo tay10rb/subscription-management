@@ -21,8 +21,16 @@ if [ ! -f "/app/server/db/database.sqlite" ]; then
         exit 1
     fi
 else
-    echo "📂 Database file exists. Checking tables..."
-    # The server will handle table creation automatically if needed
+    echo "📂 Database file exists. Running migrations..."
+    # Run database migrations to ensure schema is up to date
+    node /app/server/db/migrate.js
+
+    if [ $? -eq 0 ]; then
+        echo "✅ Database migrations completed successfully!"
+    else
+        echo "❌ Database migrations failed!"
+        exit 1
+    fi
 fi
 
 # Check if API_KEY is set

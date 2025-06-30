@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useSearchParams } from "react-router-dom"
 import { ChevronLeft, Download, Upload, Eye, EyeOff } from "lucide-react"
 
 import {
@@ -37,13 +37,18 @@ import {
 } from "@/lib/subscription-utils"
 import { useToast } from "@/hooks/use-toast"
 import { ExchangeRateManager } from "@/components/ExchangeRateManager"
+import { OptionsManager } from "@/components/subscription/OptionsManager"
 
 export function SettingsPage() {
   const navigate = useNavigate()
   const { toast } = useToast()
-  
+  const [searchParams] = useSearchParams()
+
   // Import modal state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false)
+
+  // Get tab from URL params
+  const defaultTab = searchParams.get('tab') || 'general'
 
   // Settings store values
   const {
@@ -142,13 +147,14 @@ export function SettingsPage() {
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
       </div>
 
-      <Tabs defaultValue="general">
+      <Tabs defaultValue={defaultTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="currency">Currency</TabsTrigger>
+          <TabsTrigger value="options">Options</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
@@ -449,6 +455,10 @@ export function SettingsPage() {
 
         <TabsContent value="currency" className="space-y-4">
           <ExchangeRateManager />
+        </TabsContent>
+
+        <TabsContent value="options" className="space-y-4">
+          <OptionsManager />
         </TabsContent>
       </Tabs>
       

@@ -20,11 +20,11 @@ const dbPath = path.resolve(__dirname, 'db', 'database.sqlite');
 // Initialize database with tables if they don't exist
 function initializeDatabase() {
     const db = new Database(dbPath);
-    
+
     try {
         // Enable foreign keys
         db.pragma('foreign_keys = ON');
-        
+
         // Check if tables exist
         const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
         const hasSubscriptions = tables.some(table => table.name === 'subscriptions');
@@ -79,6 +79,28 @@ function initializeDatabase() {
                     UNIQUE(from_currency, to_currency)
                 )
             `);
+
+            // Create categories table
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS categories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    value TEXT NOT NULL UNIQUE,
+                    label TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+
+            // Create payment_methods table
+            db.exec(`
+                CREATE TABLE IF NOT EXISTS payment_methods (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    value TEXT NOT NULL UNIQUE,
+                    label TEXT NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
             
             // Create triggers
             db.exec(`
@@ -114,6 +136,50 @@ function initializeDatabase() {
                 VALUES (1, 'USD', 'system')
             `);
             insertDefaultSettings.run();
+
+            // Insert default categories
+            const defaultCategories = [
+                { value: 'video', label: 'Video Streaming' },
+                { value: 'music', label: 'Music Streaming' },
+                { value: 'software', label: 'Software' },
+                { value: 'cloud', label: 'Cloud Storage' },
+                { value: 'news', label: 'News & Magazines' },
+                { value: 'game', label: 'Games' },
+                { value: 'productivity', label: 'Productivity' },
+                { value: 'education', label: 'Education' },
+                { value: 'finance', label: 'Finance' },
+                { value: 'other', label: 'Other' }
+            ];
+
+            const insertCategory = db.prepare(`
+                INSERT OR IGNORE INTO categories (value, label)
+                VALUES (?, ?)
+            `);
+
+            for (const category of defaultCategories) {
+                insertCategory.run(category.value, category.label);
+            }
+
+            // Insert default payment methods
+            const defaultPaymentMethods = [
+                { value: 'creditcard', label: 'Credit Card' },
+                { value: 'debitcard', label: 'Debit Card' },
+                { value: 'paypal', label: 'PayPal' },
+                { value: 'applepay', label: 'Apple Pay' },
+                { value: 'googlepay', label: 'Google Pay' },
+                { value: 'banktransfer', label: 'Bank Transfer' },
+                { value: 'crypto', label: 'Cryptocurrency' },
+                { value: 'other', label: 'Other' }
+            ];
+
+            const insertPaymentMethod = db.prepare(`
+                INSERT OR IGNORE INTO payment_methods (value, label)
+                VALUES (?, ?)
+            `);
+
+            for (const paymentMethod of defaultPaymentMethods) {
+                insertPaymentMethod.run(paymentMethod.value, paymentMethod.label);
+            }
 
             // Insert default exchange rates (fallback rates)
             const defaultRates = [
@@ -210,12 +276,12 @@ app.get('/api/health', (req, res) => {
   res.json({ message: 'Subscription Management Backend is running!', status: 'healthy' });
 });
 
-// --- API Routers ---
-const apiRouter = express.Router();
-const protectedApiRouter = express.Router();
+    // --- API Routers ---
+    const apiRouter = express.Router();
+    const protectedApiRouter = express.Router();
 
-// Apply auth middleware to the protected router
-protectedApiRouter.use(apiKeyAuth);
+    // Apply auth middleware to the protected router
+    protectedApiRouter.use(apiKeyAuth);
 
 
 // --- Subscription Routes ---
@@ -630,6 +696,176 @@ protectedApiRouter.get('/exchange-rates/status', (req, res) => {
     try {
         const status = exchangeRateScheduler.getStatus();
         res.json(status);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Categories Routes ---
+
+// GET all categories (Public)
+apiRouter.get('/categories', (req, res) => {
+    try {
+        const stmt = db.prepare('SELECT * FROM categories ORDER BY label');
+        const categories = stmt.all();
+        res.json(categories);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST a new category (Protected)
+protectedApiRouter.post('/categories', (req, res) => {
+    try {
+        const { value, label } = req.body;
+
+        if (!value || !label) {
+            return res.status(400).json({ error: 'Value and label are required' });
+        }
+
+        const stmt = db.prepare('INSERT INTO categories (value, label) VALUES (?, ?)');
+        const info = stmt.run(value, label);
+
+        res.status(201).json({
+            id: info.lastInsertRowid,
+            value,
+            label,
+            message: 'Category created successfully'
+        });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            res.status(409).json({ error: 'Category with this value already exists' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// PUT to update a category (Protected)
+protectedApiRouter.put('/categories/:value', (req, res) => {
+    try {
+        const { value: oldValue } = req.params;
+        const { value: newValue, label } = req.body;
+
+        if (!newValue || !label) {
+            return res.status(400).json({ error: 'Value and label are required' });
+        }
+
+        const stmt = db.prepare('UPDATE categories SET value = ?, label = ? WHERE value = ?');
+        const info = stmt.run(newValue, label, oldValue);
+
+        if (info.changes > 0) {
+            res.json({ message: 'Category updated successfully' });
+        } else {
+            res.status(404).json({ error: 'Category not found' });
+        }
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            res.status(409).json({ error: 'Category with this value already exists' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// DELETE a category (Protected)
+protectedApiRouter.delete('/categories/:value', (req, res) => {
+    try {
+        const { value } = req.params;
+
+        const stmt = db.prepare('DELETE FROM categories WHERE value = ?');
+        const info = stmt.run(value);
+
+        if (info.changes > 0) {
+            res.json({ message: 'Category deleted successfully' });
+        } else {
+            res.status(404).json({ error: 'Category not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- Payment Methods Routes ---
+
+// GET all payment methods (Public)
+apiRouter.get('/payment-methods', (req, res) => {
+    try {
+        const stmt = db.prepare('SELECT * FROM payment_methods ORDER BY label');
+        const paymentMethods = stmt.all();
+        res.json(paymentMethods);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST a new payment method (Protected)
+protectedApiRouter.post('/payment-methods', (req, res) => {
+    try {
+        const { value, label } = req.body;
+
+        if (!value || !label) {
+            return res.status(400).json({ error: 'Value and label are required' });
+        }
+
+        const stmt = db.prepare('INSERT INTO payment_methods (value, label) VALUES (?, ?)');
+        const info = stmt.run(value, label);
+
+        res.status(201).json({
+            id: info.lastInsertRowid,
+            value,
+            label,
+            message: 'Payment method created successfully'
+        });
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            res.status(409).json({ error: 'Payment method with this value already exists' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// PUT to update a payment method (Protected)
+protectedApiRouter.put('/payment-methods/:value', (req, res) => {
+    try {
+        const { value: oldValue } = req.params;
+        const { value: newValue, label } = req.body;
+
+        if (!newValue || !label) {
+            return res.status(400).json({ error: 'Value and label are required' });
+        }
+
+        const stmt = db.prepare('UPDATE payment_methods SET value = ?, label = ? WHERE value = ?');
+        const info = stmt.run(newValue, label, oldValue);
+
+        if (info.changes > 0) {
+            res.json({ message: 'Payment method updated successfully' });
+        } else {
+            res.status(404).json({ error: 'Payment method not found' });
+        }
+    } catch (error) {
+        if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            res.status(409).json({ error: 'Payment method with this value already exists' });
+        } else {
+            res.status(500).json({ error: error.message });
+        }
+    }
+});
+
+// DELETE a payment method (Protected)
+protectedApiRouter.delete('/payment-methods/:value', (req, res) => {
+    try {
+        const { value } = req.params;
+
+        const stmt = db.prepare('DELETE FROM payment_methods WHERE value = ?');
+        const info = stmt.run(value);
+
+        if (info.changes > 0) {
+            res.json({ message: 'Payment method deleted successfully' });
+        } else {
+            res.status(404).json({ error: 'Payment method not found' });
+        }
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

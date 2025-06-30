@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react"
-import { Check, ChevronsUpDown } from "lucide-react"
+import { Check, ChevronsUpDown, Settings } from "lucide-react"
 import { format } from "date-fns"
+import { useNavigate } from "react-router-dom"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -41,6 +42,15 @@ import { CurrencySelector } from "@/components/subscription/CurrencySelector"
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
 
+// Utility function to generate a value from a label
+function generateValue(label: string): string {
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .trim()
+}
+
 // Form data type - excludes auto-calculated fields
 type SubscriptionFormData = Omit<Subscription, "id" | "lastBillingDate">
 
@@ -62,14 +72,14 @@ export function SubscriptionForm({
   initialData,
   onSubmit
 }: SubscriptionFormProps) {
+  const navigate = useNavigate()
+
   // Get categories, payment methods and plan options from store
-  const { 
-    categories, 
-    addCategory, 
-    paymentMethods, 
-    addPaymentMethod, 
-    subscriptionPlans, 
-    addSubscriptionPlan 
+  const {
+    categories,
+    addCategory,
+    paymentMethods,
+    addPaymentMethod
   } = useSubscriptionStore()
 
   // State for form data and validation errors
@@ -94,12 +104,10 @@ export function SubscriptionForm({
   // State for custom dropdown values
   const [customCategory, setCustomCategory] = useState("")
   const [customPaymentMethod, setCustomPaymentMethod] = useState("")
-  const [customPlan, setCustomPlan] = useState("")
 
   // Popover open states
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [paymentOpen, setPaymentOpen] = useState(false)
-  const [planOpen, setPlanOpen] = useState(false)
 
   // Initialize form with initial data if provided
   useEffect(() => {
@@ -185,12 +193,12 @@ export function SubscriptionForm({
   const handleCategorySelect = (value: string) => {
     if (value === 'create-new' && customCategory) {
       // Create a new category
-      const formattedCategory = customCategory.toLowerCase().replace(/\s+/g, '-')
+      const formattedCategory = generateValue(customCategory)
       const newCategory = {
         value: formattedCategory,
         label: customCategory.trim()
       }
-      
+
       addCategory(newCategory)
       setForm(prev => ({ ...prev, category: formattedCategory }))
       setCustomCategory("")
@@ -214,12 +222,12 @@ export function SubscriptionForm({
   const handlePaymentMethodSelect = (value: string) => {
     if (value === 'create-new' && customPaymentMethod) {
       // Create a new payment method
-      const formattedPaymentMethod = customPaymentMethod.toLowerCase().replace(/\s+/g, '-')
+      const formattedPaymentMethod = generateValue(customPaymentMethod)
       const newPaymentMethod = {
         value: formattedPaymentMethod,
         label: customPaymentMethod.trim()
       }
-      
+
       addPaymentMethod(newPaymentMethod)
       setForm(prev => ({ ...prev, paymentMethod: formattedPaymentMethod }))
       setCustomPaymentMethod("")
@@ -239,40 +247,7 @@ export function SubscriptionForm({
     }
   }
 
-  // Handle plan selection or creation
-  const handlePlanSelect = (value: string) => {
-    if (value === 'create-new' && customPlan) {
-      // Create a new plan
-      const formattedPlan = form.name 
-        ? `${form.name.toLowerCase()}-${customPlan.toLowerCase().replace(/\s+/g, '-')}` 
-        : customPlan.toLowerCase().replace(/\s+/g, '-')
-      
-      const newPlan = {
-        value: formattedPlan,
-        label: customPlan.trim(),
-        service: form.name || undefined
-      }
-      
-      addSubscriptionPlan(newPlan)
-      setForm(prev => ({ ...prev, plan: customPlan.trim() }))
-      setCustomPlan("")
-    } else {
-      // Find the plan label
-      const plan = subscriptionPlans.find(p => p.value === value)
-      setForm(prev => ({ ...prev, plan: plan ? plan.label : value }))
-    }
-    
-    setPlanOpen(false)
-    
-    // Clear error for this field if any
-    if (errors.plan) {
-      setErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors.plan
-        return newErrors
-      })
-    }
-  }
+
 
   // Submit form
   const handleSubmit = (e: React.FormEvent) => {
@@ -297,19 +272,7 @@ export function SubscriptionForm({
     onOpenChange(false)
   }
 
-  // Get relevant subscription plans for the current service
-  const getRelevantPlans = () => {
-    if (!form.name) return subscriptionPlans
-    
-    const nameLower = form.name.toLowerCase()
-    const servicePlans = subscriptionPlans.filter(
-      plan => plan.service && plan.service.toLowerCase().includes(nameLower)
-    )
-    
-    return servicePlans.length > 0
-      ? servicePlans
-      : subscriptionPlans.filter(plan => !plan.service)
-  }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -350,66 +313,23 @@ export function SubscriptionForm({
                 Plan
               </Label>
               <div className="col-span-3">
-                <Popover open={planOpen} onOpenChange={setPlanOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={planOpen}
-                      className={cn(
-                        "w-full justify-between",
-                        errors.plan ? "border-destructive" : ""
-                      )}
-                    >
-                      {form.plan || "Select plan..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
-                    <Command>
-                      <CommandInput placeholder="Search plan..." />
-                      <CommandEmpty>No plan found.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup heading="Options">
-                          {getRelevantPlans().map((plan) => (
-                            <CommandItem
-                              key={plan.value}
-                              value={plan.value}
-                              onSelect={handlePlanSelect}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  form.plan === plan.label ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {plan.label}
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                        <CommandSeparator />
-                        <CommandGroup>
-                          <div className="flex items-center border-t px-3 py-2">
-                            <Input
-                              placeholder="Add custom plan..."
-                              value={customPlan}
-                              onChange={(e) => setCustomPlan(e.target.value)}
-                              className="flex-1 mr-2"
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={!customPlan}
-                              onClick={() => handlePlanSelect('create-new')}
-                            >
-                              Add
-                            </Button>
-                          </div>
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <Input
+                  id="plan"
+                  value={form.plan}
+                  onChange={(e) => {
+                    setForm(prev => ({ ...prev, plan: e.target.value }))
+                    // Clear error for this field if any
+                    if (errors.plan) {
+                      setErrors(prev => {
+                        const newErrors = { ...prev }
+                        delete newErrors.plan
+                        return newErrors
+                      })
+                    }
+                  }}
+                  placeholder="e.g., Premium, Family, Basic..."
+                  className={errors.plan ? "border-destructive" : ""}
+                />
                 {errors.plan && (
                   <p className="text-destructive text-xs mt-1">{errors.plan}</p>
                 )}
@@ -471,7 +391,7 @@ export function SubscriptionForm({
                               onChange={(e) => setCustomCategory(e.target.value)}
                               className="flex-1 mr-2"
                             />
-                            <Button 
+                            <Button
                               type="button"
                               size="sm"
                               disabled={!customCategory}
@@ -480,6 +400,16 @@ export function SubscriptionForm({
                               Add
                             </Button>
                           </div>
+                          <CommandItem
+                            onSelect={() => {
+                              setCategoryOpen(false)
+                              navigate('/settings?tab=options')
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Settings className="mr-2 h-4 w-4" />
+                            Manage Categories
+                          </CommandItem>
                         </CommandGroup>
                       </CommandList>
                     </Command>
@@ -623,6 +553,16 @@ export function SubscriptionForm({
                               Add
                             </Button>
                           </div>
+                          <CommandItem
+                            onSelect={() => {
+                              setPaymentOpen(false)
+                              navigate('/settings?tab=options')
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Settings className="mr-2 h-4 w-4" />
+                            Manage Payment Methods
+                          </CommandItem>
                         </CommandGroup>
                       </CommandList>
                     </Command>

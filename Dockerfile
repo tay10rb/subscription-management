@@ -55,6 +55,9 @@ WORKDIR /app
 COPY --from=backend-builder --chown=nodeuser:nodejs /app/server/node_modules ./server/node_modules
 COPY --chown=nodeuser:nodejs server/ ./server/
 
+# Make start script executable
+RUN chmod +x ./server/start.sh
+
 # Database initialization will be handled by CMD at startup
 
 # Copy frontend build output to serve as static files
@@ -83,5 +86,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Initialize database if needed, then start the server
-CMD ["sh", "-c", "if [ ! -f /app/server/db/database.sqlite ]; then echo 'Initializing database...' && node /app/server/db/init.js; fi && echo 'Starting server...' && node /app/server/server.js"]
+# Use the start script which handles database initialization and migrations
+CMD ["/app/server/start.sh"]

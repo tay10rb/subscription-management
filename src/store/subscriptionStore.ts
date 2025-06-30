@@ -130,11 +130,19 @@ interface SubscriptionState {
   deleteSubscription: (id: number) => Promise<{ error: any | null }>
   resetSubscriptions: () => void
   fetchSubscriptions: () => Promise<void>
-  
+  fetchCategories: () => Promise<void>
+  fetchPaymentMethods: () => Promise<void>
+
   // Option management
-  addCategory: (category: CategoryOption) => void
-  addPaymentMethod: (paymentMethod: PaymentMethodOption) => void
+  addCategory: (category: CategoryOption) => Promise<void>
+  editCategory: (oldValue: string, newCategory: CategoryOption) => Promise<void>
+  deleteCategory: (value: string) => Promise<void>
+  addPaymentMethod: (paymentMethod: PaymentMethodOption) => Promise<void>
+  editPaymentMethod: (oldValue: string, newPaymentMethod: PaymentMethodOption) => Promise<void>
+  deletePaymentMethod: (value: string) => Promise<void>
   addSubscriptionPlan: (plan: SubscriptionPlanOption) => void
+  editSubscriptionPlan: (oldValue: string, newPlan: SubscriptionPlanOption) => void
+  deleteSubscriptionPlan: (value: string) => void
   
   // Stats and analytics
   getTotalMonthlySpending: () => number
@@ -303,6 +311,34 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           set({ error: error.message, isLoading: false, subscriptions: [] }) // Clear subscriptions on error
         }
       },
+
+      // Fetch categories from API
+      fetchCategories: async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/categories`)
+          if (!response.ok) {
+            throw new Error('Failed to fetch categories')
+          }
+          const data = await response.json()
+          set({ categories: data })
+        } catch (error) {
+          console.error('Error fetching categories:', error)
+        }
+      },
+
+      // Fetch payment methods from API
+      fetchPaymentMethods: async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/payment-methods`)
+          if (!response.ok) {
+            throw new Error('Failed to fetch payment methods')
+          }
+          const data = await response.json()
+          set({ paymentMethods: data })
+        } catch (error) {
+          console.error('Error fetching payment methods:', error)
+        }
+      },
       
       // Add a new subscription
       addSubscription: async (subscription) => {
@@ -452,27 +488,150 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       },
       
       // Add a new category option
-      addCategory: (category) => set((state) => {
-        if (state.categories.some(c => c.value === category.value)) {
-          return state; // Category already exists
+      addCategory: async (category) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/categories`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+            body: JSON.stringify(category)
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to add category');
+          }
+
+          // Refresh categories from server
+          await get().fetchCategories();
+        } catch (error) {
+          console.error('Error adding category:', error);
+          throw error;
         }
-        return { categories: [...state.categories, category] };
-      }),
-      
+      },
+
+      // Edit a category option
+      editCategory: async (oldValue, newCategory) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/categories/${oldValue}`, {
+            method: 'PUT',
+            headers: getHeaders('PUT'),
+            body: JSON.stringify(newCategory)
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update category');
+          }
+
+          // Refresh categories from server
+          await get().fetchCategories();
+        } catch (error) {
+          console.error('Error updating category:', error);
+          throw error;
+        }
+      },
+
+      // Delete a category option
+      deleteCategory: async (value) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/categories/${value}`, {
+            method: 'DELETE',
+            headers: getHeaders('DELETE')
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to delete category');
+          }
+
+          // Refresh categories from server
+          await get().fetchCategories();
+        } catch (error) {
+          console.error('Error deleting category:', error);
+          throw error;
+        }
+      },
+
       // Add a new payment method option
-      addPaymentMethod: (paymentMethod) => set((state) => {
-        if (state.paymentMethods.some(p => p.value === paymentMethod.value)) {
-          return state; // Payment method already exists
+      addPaymentMethod: async (paymentMethod) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/payment-methods`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+            body: JSON.stringify(paymentMethod)
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to add payment method');
+          }
+
+          // Refresh payment methods from server
+          await get().fetchPaymentMethods();
+        } catch (error) {
+          console.error('Error adding payment method:', error);
+          throw error;
         }
-        return { paymentMethods: [...state.paymentMethods, paymentMethod] };
-      }),
-      
+      },
+
+      // Edit a payment method option
+      editPaymentMethod: async (oldValue, newPaymentMethod) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/payment-methods/${oldValue}`, {
+            method: 'PUT',
+            headers: getHeaders('PUT'),
+            body: JSON.stringify(newPaymentMethod)
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to update payment method');
+          }
+
+          // Refresh payment methods from server
+          await get().fetchPaymentMethods();
+        } catch (error) {
+          console.error('Error updating payment method:', error);
+          throw error;
+        }
+      },
+
+      // Delete a payment method option
+      deletePaymentMethod: async (value) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/payment-methods/${value}`, {
+            method: 'DELETE',
+            headers: getHeaders('DELETE')
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to delete payment method');
+          }
+
+          // Refresh payment methods from server
+          await get().fetchPaymentMethods();
+        } catch (error) {
+          console.error('Error deleting payment method:', error);
+          throw error;
+        }
+      },
+
       // Add a new subscription plan option
       addSubscriptionPlan: (plan) => set((state) => {
         if (state.subscriptionPlans.some(p => p.value === plan.value)) {
           return state; // Plan already exists
         }
         return { subscriptionPlans: [...state.subscriptionPlans, plan] };
+      }),
+
+      // Edit a subscription plan option
+      editSubscriptionPlan: (oldValue, newPlan) => set((state) => {
+        const index = state.subscriptionPlans.findIndex(p => p.value === oldValue);
+        if (index === -1) return state; // Plan not found
+
+        const updatedPlans = [...state.subscriptionPlans];
+        updatedPlans[index] = newPlan;
+        return { subscriptionPlans: updatedPlans };
+      }),
+
+      // Delete a subscription plan option
+      deleteSubscriptionPlan: (value) => set((state) => {
+        return { subscriptionPlans: state.subscriptionPlans.filter(p => p.value !== value) };
       }),
       
       // Get total monthly spending
@@ -655,10 +814,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
     }),
     {
       name: 'subscription-storage',
-      // Persist UI options, but not subscriptions, which are now fetched from the API.
+      // Only persist subscription plans now, categories and payment methods are fetched from API
       partialize: (state) => ({
-        categories: state.categories,
-        paymentMethods: state.paymentMethods,
         subscriptionPlans: state.subscriptionPlans,
       })
     }
