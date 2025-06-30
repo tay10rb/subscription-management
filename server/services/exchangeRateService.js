@@ -1,4 +1,5 @@
 const axios = require('axios');
+const logger = require('../utils/logger');
 
 /**
  * 汇率API服务
@@ -61,7 +62,7 @@ class ExchangeRateService {
      */
     async getAllExchangeRates() {
         if (!this.apiKey) {
-            console.warn('TIANAPI_KEY not configured, skipping exchange rate update');
+            logger.warn('TIANAPI_KEY not configured, skipping exchange rate update');
             return [];
         }
 
@@ -80,9 +81,8 @@ class ExchangeRateService {
             if (currency === baseCurrency) continue;
 
             try {
-                console.log(`Fetching exchange rate: ${baseCurrency} -> ${currency}`);
                 const rate = await this.getExchangeRate(baseCurrency, currency);
-                
+
                 rates.push({
                     from_currency: baseCurrency,
                     to_currency: currency,
@@ -92,7 +92,7 @@ class ExchangeRateService {
                 // 添加延迟以避免API限制
                 await this.delay(500); // 500ms延迟
             } catch (error) {
-                console.error(`Failed to fetch rate for ${baseCurrency} -> ${currency}:`, error.message);
+                logger.error(`Failed to fetch rate for ${baseCurrency} -> ${currency}:`, error.message);
                 // 继续处理其他货币，不中断整个过程
             }
         }

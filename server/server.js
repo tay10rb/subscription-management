@@ -675,7 +675,6 @@ apiRouter.get('/exchange-rates/:from/:to', (req, res) => {
 // POST to manually update exchange rates (Protected)
 protectedApiRouter.post('/exchange-rates/update', async (req, res) => {
     try {
-        console.log('🔄 Manual exchange rate update triggered');
         const result = await exchangeRateScheduler.updateExchangeRates();
 
         if (result.success) {

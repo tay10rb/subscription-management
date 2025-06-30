@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Loader2, RefreshCw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
 import { useSettingsStore, CurrencyType } from '@/store/settingsStore';
 import { formatCurrencyAmount } from '@/utils/currency';
+import { logger } from '@/utils/logger';
 
 // Map of currency codes to full names
 const currencyNames: Record<string, string> = {
@@ -38,15 +39,9 @@ export function ExchangeRateManager() {
   const handleUpdateRates = async () => {
     setIsUpdating(true);
     try {
-      console.log('🔄 Starting manual exchange rate update...');
-      console.log('Current exchange rates before update:', exchangeRates);
-
       await updateExchangeRatesFromApi();
-
-      console.log('✅ Exchange rate update completed');
-      console.log('Exchange rates after update:', exchangeRates);
     } catch (error) {
-      console.error('❌ Failed to update exchange rates:', error);
+      logger.error('Failed to update exchange rates:', error);
     } finally {
       setIsUpdating(false);
     }

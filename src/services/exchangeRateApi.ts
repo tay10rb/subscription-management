@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+import { logger } from '@/utils/logger';
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
 export interface ExchangeRate {
   id: number;
@@ -30,7 +32,7 @@ export class ExchangeRateApi {
       }
       return await response.json();
     } catch (error) {
-      console.error('Error fetching exchange rates:', error);
+      logger.error('Error fetching exchange rates:', error);
       throw error;
     }
   }
@@ -46,7 +48,7 @@ export class ExchangeRateApi {
       }
       return await response.json();
     } catch (error) {
-      console.error(`Error fetching exchange rate ${fromCurrency}->${toCurrency}:`, error);
+      logger.error(`Error fetching exchange rate ${fromCurrency}->${toCurrency}:`, error);
       throw error;
     }
   }
@@ -71,7 +73,7 @@ export class ExchangeRateApi {
       
       return await response.json();
     } catch (error) {
-      console.error('Error updating exchange rates:', error);
+      logger.error('Error updating exchange rates:', error);
       throw error;
     }
   }
@@ -93,7 +95,7 @@ export class ExchangeRateApi {
       
       return await response.json();
     } catch (error) {
-      console.error('Error fetching scheduler status:', error);
+      logger.error('Error fetching scheduler status:', error);
       throw error;
     }
   }

@@ -11,6 +11,9 @@ services:
     environment:
       - API_KEY=${API_KEY}
       - NODE_ENV=production
+      - PORT=${PORT:-3001}
+      - TIANAPI_KEY=${TIANAPI_KEY}
+      - LOG_LEVEL=${LOG_LEVEL:-warn}
     restart: unless-stopped
 
 volumes:

@@ -1,5 +1,6 @@
 const cron = require('node-cron');
 const ExchangeRateService = require('./exchangeRateService');
+const logger = require('../utils/logger');
 
 /**
  * 汇率更新调度器
@@ -19,13 +20,12 @@ class ExchangeRateScheduler {
      */
     start() {
         if (this.isRunning) {
-            console.log('Exchange rate scheduler is already running');
+            logger.info('Exchange rate scheduler is already running');
             return;
         }
 
         // 每天凌晨2点执行 (0 2 * * *)
         this.task = cron.schedule('0 2 * * *', async () => {
-            console.log('🔄 Starting scheduled exchange rate update...');
             await this.updateExchangeRates();
         }, {
             scheduled: false,
@@ -34,9 +34,9 @@ class ExchangeRateScheduler {
 
         this.task.start();
         this.isRunning = true;
-        
-        console.log('✅ Exchange rate scheduler started (daily at 2:00 AM CST)');
-        
+
+        logger.info('Exchange rate scheduler started (daily at 2:00 AM CST)');
+
         // 启动时立即执行一次更新（如果数据库中没有最新数据）
         this.checkAndUpdateIfNeeded();
     }
@@ -50,7 +50,7 @@ class ExchangeRateScheduler {
             this.task = null;
         }
         this.isRunning = false;
-        console.log('🛑 Exchange rate scheduler stopped');
+        logger.info('Exchange rate scheduler stopped');
     }
 
     /**
@@ -69,13 +69,10 @@ class ExchangeRateScheduler {
             
             // 如果没有数据或者超过24小时没有更新，则立即更新
             if (!lastUpdateDate || (now - lastUpdateDate) > 24 * 60 * 60 * 1000) {
-                console.log('🔄 Exchange rates are outdated, updating now...');
                 await this.updateExchangeRates();
-            } else {
-                console.log('✅ Exchange rates are up to date');
             }
         } catch (error) {
-            console.error('❌ Error checking exchange rate update status:', error.message);
+            logger.error('Error checking exchange rate update status:', error.message);
         }
     }
 
@@ -84,31 +81,28 @@ class ExchangeRateScheduler {
      */
     async updateExchangeRates() {
         try {
-            console.log('📡 Fetching latest exchange rates from API...');
-            
             // 获取最新汇率
             const rates = await this.exchangeRateService.getAllExchangeRates();
-            
+
             if (rates.length === 0) {
-                console.warn('⚠️ No exchange rates received from API');
+                logger.warn('No exchange rates received from API');
                 return { success: false, message: 'No rates received' };
             }
 
             // 更新数据库
-            const updateCount = await this.updateRatesInDatabase(rates);
-            
-            console.log(`✅ Successfully updated ${updateCount} exchange rates`);
-            return { 
-                success: true, 
+            const updateCount = this.updateRatesInDatabase(rates);
+
+            return {
+                success: true,
                 message: `Updated ${updateCount} exchange rates`,
                 updatedAt: new Date().toISOString()
             };
-            
+
         } catch (error) {
-            console.error('❌ Failed to update exchange rates:', error.message);
-            return { 
-                success: false, 
-                message: error.message 
+            logger.error('Failed to update exchange rates:', error.message);
+            return {
+                success: false,
+                message: error.message
             };
         }
     }

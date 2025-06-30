@@ -39,5 +39,18 @@ if [ -z "$API_KEY" ]; then
     echo "The server may not start properly without an API key."
 fi
 
+# Check if TIANAPI_KEY is set (optional but recommended)
+if [ -z "$TIANAPI_KEY" ]; then
+    echo "ℹ️  INFO: TIANAPI_KEY not set. Exchange rate auto-update will be disabled."
+fi
+
+# Display configuration
+echo "📋 Configuration:"
+echo "   PORT: ${PORT:-3001}"
+echo "   NODE_ENV: ${NODE_ENV:-development}"
+echo "   LOG_LEVEL: ${LOG_LEVEL:-info}"
+echo "   API_KEY: ${API_KEY:+***set***}"
+echo "   TIANAPI_KEY: ${TIANAPI_KEY:+***set***}"
+
 echo "🌟 Starting the application server..."
 exec node /app/server/server.js 

@@ -358,7 +358,6 @@ export function OptionsManager() {
         open={editDialog.open}
         onOpenChange={(open) => setEditDialog(prev => ({ ...prev, open }))}
         title={editDialog.type === 'category' ? 'Category' : editDialog.type === 'payment' ? 'Payment Method' : 'Plan'}
-        currentValue={editDialog.value}
         currentLabel={editDialog.label}
         onSave={handleSaveEdit}
       />

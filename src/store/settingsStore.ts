@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ExchangeRateApi } from '@/services/exchangeRateApi'
+import { logger } from '@/utils/logger'
 import { applyTheme } from '@/lib/theme-sync'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
@@ -111,7 +112,7 @@ export const useSettingsStore = create<SettingsState>()(
             // If settings don't exist, the backend might 404, which is okay.
             // We just use the initial/persisted state.
             if (response.status === 404) {
-              console.warn('Settings not found on backend. Using local/default settings.')
+              logger.warn('Settings not found on backend. Using local/default settings.')
               set({ isLoading: false })
               return
             }
@@ -132,7 +133,7 @@ export const useSettingsStore = create<SettingsState>()(
           get().fetchExchangeRates()
 
         } catch (error: any) {
-          console.error('Error fetching settings:', error)
+          logger.error('Error fetching settings:', error)
           set({ error: error.message, isLoading: false })
         }
       },
@@ -151,11 +152,11 @@ export const useSettingsStore = create<SettingsState>()(
           })
           
           if (!response.ok) {
-            console.error('Failed to save currency setting to backend')
+            logger.error('Failed to save currency setting to backend')
             // Could optionally revert the local change here
           }
         } catch (error: any) {
-          console.error('Error saving currency setting:', error)
+          logger.error('Error saving currency setting:', error)
           // Could optionally revert the local change here
         }
       },
@@ -174,10 +175,10 @@ export const useSettingsStore = create<SettingsState>()(
           })
           
           if (!response.ok) {
-            console.error('Failed to save theme setting to backend')
+            logger.error('Failed to save theme setting to backend')
           }
         } catch (error: any) {
-          console.error('Error saving theme setting:', error)
+          logger.error('Error saving theme setting:', error)
         }
       },
 
@@ -200,21 +201,15 @@ export const useSettingsStore = create<SettingsState>()(
 
       fetchExchangeRates: async () => {
         try {
-          console.log('📡 Fetching exchange rates from API...');
           const rates = await ExchangeRateApi.getAllRates();
-          console.log('📊 Raw rates from API:', rates);
-
           const rateMap = ExchangeRateApi.ratesToMap(rates);
-          console.log('🗺️ Converted rate map:', rateMap);
 
           set({
             exchangeRates: rateMap,
             lastExchangeRateUpdate: new Date().toISOString()
           });
-
-          console.log('✅ Exchange rates updated in store');
         } catch (error: any) {
-          console.error('❌ Error fetching exchange rates:', error);
+          logger.error('Error fetching exchange rates:', error);
           // 保持现有汇率，不更新错误状态，因为这可能在后台运行
         }
       },
@@ -222,8 +217,7 @@ export const useSettingsStore = create<SettingsState>()(
       updateExchangeRatesFromApi: async () => {
         const { apiKey } = get();
         if (!apiKey) {
-          console.warn('No API key available for updating exchange rates');
-          return;
+          throw new Error('API key not configured');
         }
 
         try {
@@ -231,7 +225,7 @@ export const useSettingsStore = create<SettingsState>()(
           // 更新成功后重新获取汇率
           await get().fetchExchangeRates();
         } catch (error: any) {
-          console.error('Error updating exchange rates from API:', error);
+          logger.error('Error updating exchange rates:', error);
           set({ error: error.message });
           throw error;
         }
@@ -257,7 +251,7 @@ export const useSettingsStore = create<SettingsState>()(
 
           return { error: null };
         } catch (error: any) {
-          console.error('Error resetting settings:', error);
+          logger.error('Error resetting settings:', error);
           set({ error: error.message });
           return { error };
         }
