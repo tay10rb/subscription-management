@@ -146,7 +146,6 @@ export function SettingsPage() {
       <Tabs defaultValue={defaultTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="currency">Currency</TabsTrigger>
           <TabsTrigger value="options">Options</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
@@ -191,6 +190,34 @@ export function SettingsPage() {
                   checked={showInactiveSubs}
                   onCheckedChange={setShowInactiveSubs}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Theme Settings</CardTitle>
+              <CardDescription>Customize the look and feel of the app</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div>
+                <Label htmlFor="theme">Theme Mode</Label>
+                <Select
+                  value={theme}
+                  onValueChange={async (value: ThemeType) => await setTheme(value)}
+                >
+                  <SelectTrigger id="theme">
+                    <SelectValue placeholder="Select a theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">Light</SelectItem>
+                    <SelectItem value="dark">Dark</SelectItem>
+                    <SelectItem value="system">System</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Choose between light, dark, or system preference
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -299,35 +326,6 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="appearance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Theme Settings</CardTitle>
-              <CardDescription>Customize the look and feel of the app</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div>
-                <Label htmlFor="theme">Theme Mode</Label>
-                <Select 
-                  value={theme} 
-                  onValueChange={async (value: ThemeType) => await setTheme(value)}
-                >
-                  <SelectTrigger id="theme">
-                    <SelectValue placeholder="Select a theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="light">Light</SelectItem>
-                    <SelectItem value="dark">Dark</SelectItem>
-                    <SelectItem value="system">System</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Choose between light, dark, or system preference
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         <TabsContent value="currency" className="space-y-4">
           <ExchangeRateManager />
