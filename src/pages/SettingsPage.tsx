@@ -150,11 +150,11 @@ export function SettingsPage() {
       <Tabs defaultValue={defaultTab}>
         <TabsList className="mb-4">
           <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
           <TabsTrigger value="appearance">Appearance</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
           <TabsTrigger value="currency">Currency</TabsTrigger>
           <TabsTrigger value="options">Options</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
+          <TabsTrigger value="data">Data</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="space-y-4">
@@ -380,7 +380,15 @@ export function SettingsPage() {
             </CardContent>
           </Card>
         </TabsContent>
-        
+
+        <TabsContent value="currency" className="space-y-4">
+          <ExchangeRateManager />
+        </TabsContent>
+
+        <TabsContent value="options" className="space-y-4">
+          <OptionsManager />
+        </TabsContent>
+   
         <TabsContent value="data" className="space-y-4">
           <Card>
             <CardHeader>
@@ -453,13 +461,6 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="currency" className="space-y-4">
-          <ExchangeRateManager />
-        </TabsContent>
-
-        <TabsContent value="options" className="space-y-4">
-          <OptionsManager />
-        </TabsContent>
       </Tabs>
       
       <ImportModal 

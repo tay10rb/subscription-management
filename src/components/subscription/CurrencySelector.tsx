@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Check, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { currencySymbols } from "@/utils/currency"
+import { useSettingsStore } from "@/store/settingsStore"
 
 // Map of currency codes to full names
 const currencyNames: Record<string, string> = {
@@ -39,13 +40,6 @@ const currencyNames: Record<string, string> = {
   HKD: "Hong Kong Dollar"
 }
 
-// Convert the currency symbols and names to an array for the selector
-const currencies = Object.entries(currencySymbols).map(([code, symbol]) => ({
-  value: code,
-  label: `${code} - ${currencyNames[code] || code}`,
-  symbol
-}))
-
 interface CurrencySelectorProps {
   value: string
   onValueChange: (value: string) => void
@@ -58,6 +52,19 @@ export function CurrencySelector({
   className
 }: CurrencySelectorProps) {
   const [open, setOpen] = useState(false)
+  const { exchangeRates, fetchExchangeRates } = useSettingsStore()
+
+  // Fetch exchange rates on component mount
+  useEffect(() => {
+    fetchExchangeRates()
+  }, [fetchExchangeRates])
+
+  // Generate currencies list based on available exchange rates
+  const currencies = Object.keys(exchangeRates).map((code) => ({
+    value: code,
+    label: `${code} - ${currencyNames[code] || code}`,
+    symbol: currencySymbols[code] || code
+  }))
 
   // Find the selected currency
   const selectedCurrency = currencies.find(
@@ -75,7 +82,7 @@ export function CurrencySelector({
         >
           {selectedCurrency ? (
             <span className="flex items-center gap-2">
-              <span className="text-sm">{selectedCurrency.symbol}</span>
+              <span className="text-sm w-6 text-center">{selectedCurrency.symbol}</span>
               <span>{selectedCurrency.value}</span>
             </span>
           ) : (
@@ -105,7 +112,7 @@ export function CurrencySelector({
                       value === currency.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <span className="mr-2 text-sm">{currency.symbol}</span>
+                  <span className="mr-3 text-sm w-6 text-center">{currency.symbol}</span>
                   <span>{currency.label}</span>
                 </CommandItem>
               ))}

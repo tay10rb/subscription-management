@@ -7,6 +7,17 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { ExchangeRateApi, ExchangeRateStatus } from '@/services/exchangeRateApi';
 import { formatCurrencyAmount } from '@/utils/currency';
 
+// Map of currency codes to full names
+const currencyNames: Record<string, string> = {
+  USD: "US Dollar",
+  EUR: "Euro",
+  GBP: "British Pound",
+  CAD: "Canadian Dollar",
+  AUD: "Australian Dollar",
+  JPY: "Japanese Yen",
+  CNY: "Chinese Yuan"
+};
+
 export function ExchangeRateManager() {
   const { 
     exchangeRates, 
@@ -186,12 +197,15 @@ export function ExchangeRateManager() {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {Object.entries(exchangeRates).map(([currency, rate]) => (
-              <div 
-                key={currency} 
+              <div
+                key={currency}
                 className="flex items-center justify-between p-3 border rounded-lg"
               >
                 <div className="space-y-1">
                   <p className="font-medium">{currency}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {currencyNames[currency] || currency}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     {formatCurrencyAmount(rate, currency, false)}
                   </p>
