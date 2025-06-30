@@ -35,21 +35,13 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-  CommandSeparator,
   CommandList,
 } from "@/components/ui/command"
 import { CurrencySelector } from "@/components/subscription/CurrencySelector"
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
 
-// Utility function to generate a value from a label
-function generateValue(label: string): string {
-  return label
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '') // Remove special characters
-    .replace(/\s+/g, '-') // Replace spaces with hyphens
-    .trim()
-}
+
 
 // Form data type - excludes auto-calculated fields
 type SubscriptionFormData = Omit<Subscription, "id" | "lastBillingDate">
@@ -77,9 +69,7 @@ export function SubscriptionForm({
   // Get categories, payment methods and plan options from store
   const {
     categories,
-    addCategory,
-    paymentMethods,
-    addPaymentMethod
+    paymentMethods
   } = useSubscriptionStore()
 
   // State for form data and validation errors
@@ -101,9 +91,7 @@ export function SubscriptionForm({
   // State for form errors
   const [errors, setErrors] = useState<FormErrors>({})
 
-  // State for custom dropdown values
-  const [customCategory, setCustomCategory] = useState("")
-  const [customPaymentMethod, setCustomPaymentMethod] = useState("")
+
 
   // Popover open states
   const [categoryOpen, setCategoryOpen] = useState(false)
@@ -189,25 +177,11 @@ export function SubscriptionForm({
     }
   }
 
-  // Handle category selection or creation
+  // Handle category selection
   const handleCategorySelect = (value: string) => {
-    if (value === 'create-new' && customCategory) {
-      // Create a new category
-      const formattedCategory = generateValue(customCategory)
-      const newCategory = {
-        value: formattedCategory,
-        label: customCategory.trim()
-      }
-
-      addCategory(newCategory)
-      setForm(prev => ({ ...prev, category: formattedCategory }))
-      setCustomCategory("")
-    } else {
-      setForm(prev => ({ ...prev, category: value }))
-    }
-    
+    setForm(prev => ({ ...prev, category: value }))
     setCategoryOpen(false)
-    
+
     // Clear error for this field if any
     if (errors.category) {
       setErrors(prev => {
@@ -218,25 +192,11 @@ export function SubscriptionForm({
     }
   }
   
-  // Handle payment method selection or creation
+  // Handle payment method selection
   const handlePaymentMethodSelect = (value: string) => {
-    if (value === 'create-new' && customPaymentMethod) {
-      // Create a new payment method
-      const formattedPaymentMethod = generateValue(customPaymentMethod)
-      const newPaymentMethod = {
-        value: formattedPaymentMethod,
-        label: customPaymentMethod.trim()
-      }
-
-      addPaymentMethod(newPaymentMethod)
-      setForm(prev => ({ ...prev, paymentMethod: formattedPaymentMethod }))
-      setCustomPaymentMethod("")
-    } else {
-      setForm(prev => ({ ...prev, paymentMethod: value }))
-    }
-    
+    setForm(prev => ({ ...prev, paymentMethod: value }))
     setPaymentOpen(false)
-    
+
     // Clear error for this field if any
     if (errors.paymentMethod) {
       setErrors(prev => {
@@ -360,12 +320,23 @@ export function SubscriptionForm({
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
+                  <PopoverContent className="w-[300px] p-0">
                     <Command>
                       <CommandInput placeholder="Search category..." />
                       <CommandEmpty>No category found.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup heading="Categories">
+                      <CommandList className="max-h-[300px] overflow-auto">
+                        <CommandGroup>
+                          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                            <span>Categories</span>
+                            <Settings
+                              className="h-4 w-4 cursor-pointer hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setCategoryOpen(false)
+                                navigate('/settings?tab=options')
+                              }}
+                            />
+                          </div>
                           {categories.map((category) => (
                             <CommandItem
                               key={category.value}
@@ -381,35 +352,6 @@ export function SubscriptionForm({
                               {category.label}
                             </CommandItem>
                           ))}
-                        </CommandGroup>
-                        <CommandSeparator />
-                        <CommandGroup>
-                          <div className="flex items-center border-t px-3 py-2">
-                            <Input
-                              placeholder="Add custom category..."
-                              value={customCategory}
-                              onChange={(e) => setCustomCategory(e.target.value)}
-                              className="flex-1 mr-2"
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={!customCategory}
-                              onClick={() => handleCategorySelect('create-new')}
-                            >
-                              Add
-                            </Button>
-                          </div>
-                          <CommandItem
-                            onSelect={() => {
-                              setCategoryOpen(false)
-                              navigate('/settings?tab=options')
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Settings className="mr-2 h-4 w-4" />
-                            Manage Categories
-                          </CommandItem>
                         </CommandGroup>
                       </CommandList>
                     </Command>
@@ -513,12 +455,23 @@ export function SubscriptionForm({
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-full p-0">
+                  <PopoverContent className="w-[300px] p-0">
                     <Command>
                       <CommandInput placeholder="Search payment method..." />
                       <CommandEmpty>No payment method found.</CommandEmpty>
-                      <CommandList>
-                        <CommandGroup heading="Payment Methods">
+                      <CommandList className="max-h-[300px] overflow-auto">
+                        <CommandGroup>
+                          <div className="flex items-center justify-between px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                            <span>Payment Methods</span>
+                            <Settings
+                              className="h-4 w-4 cursor-pointer hover:text-foreground"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setPaymentOpen(false)
+                                navigate('/settings?tab=options')
+                              }}
+                            />
+                          </div>
                           {paymentMethods.map((method) => (
                             <CommandItem
                               key={method.value}
@@ -534,35 +487,6 @@ export function SubscriptionForm({
                               {method.label}
                             </CommandItem>
                           ))}
-                        </CommandGroup>
-                        <CommandSeparator />
-                        <CommandGroup>
-                          <div className="flex items-center border-t px-3 py-2">
-                            <Input
-                              placeholder="Add custom payment method..."
-                              value={customPaymentMethod}
-                              onChange={(e) => setCustomPaymentMethod(e.target.value)}
-                              className="flex-1 mr-2"
-                            />
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={!customPaymentMethod}
-                              onClick={() => handlePaymentMethodSelect('create-new')}
-                            >
-                              Add
-                            </Button>
-                          </div>
-                          <CommandItem
-                            onSelect={() => {
-                              setPaymentOpen(false)
-                              navigate('/settings?tab=options')
-                            }}
-                            className="cursor-pointer"
-                          >
-                            <Settings className="mr-2 h-4 w-4" />
-                            Manage Payment Methods
-                          </CommandItem>
                         </CommandGroup>
                       </CommandList>
                     </Command>
