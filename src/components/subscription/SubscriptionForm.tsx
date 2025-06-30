@@ -369,42 +369,44 @@ export function SubscriptionForm({
                     <Command>
                       <CommandInput placeholder="Search plan..." />
                       <CommandEmpty>No plan found.</CommandEmpty>
-                      <CommandGroup heading="Options">
-                        {getRelevantPlans().map((plan) => (
-                          <CommandItem
-                            key={plan.value}
-                            value={plan.value}
-                            onSelect={handlePlanSelect}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                form.plan === plan.label ? "opacity-100" : "opacity-0"
-                              )}
+                      <CommandList>
+                        <CommandGroup heading="Options">
+                          {getRelevantPlans().map((plan) => (
+                            <CommandItem
+                              key={plan.value}
+                              value={plan.value}
+                              onSelect={handlePlanSelect}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  form.plan === plan.label ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {plan.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        <CommandSeparator />
+                        <CommandGroup>
+                          <div className="flex items-center border-t px-3 py-2">
+                            <Input
+                              placeholder="Add custom plan..."
+                              value={customPlan}
+                              onChange={(e) => setCustomPlan(e.target.value)}
+                              className="flex-1 mr-2"
                             />
-                            {plan.label}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                      <CommandSeparator />
-                      <CommandGroup>
-                        <div className="flex items-center border-t px-3 py-2">
-                          <Input
-                            placeholder="Add custom plan..."
-                            value={customPlan}
-                            onChange={(e) => setCustomPlan(e.target.value)}
-                            className="flex-1 mr-2"
-                          />
-                          <Button 
-                            type="button"
-                            size="sm"
-                            disabled={!customPlan}
-                            onClick={() => handlePlanSelect('create-new')}
-                          >
-                            Add
-                          </Button>
-                        </div>
-                      </CommandGroup>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={!customPlan}
+                              onClick={() => handlePlanSelect('create-new')}
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        </CommandGroup>
+                      </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>
@@ -585,42 +587,44 @@ export function SubscriptionForm({
                     <Command>
                       <CommandInput placeholder="Search payment method..." />
                       <CommandEmpty>No payment method found.</CommandEmpty>
-                      <CommandGroup heading="Payment Methods">
-                        {paymentMethods.map((method) => (
-                          <CommandItem
-                            key={method.value}
-                            value={method.value}
-                            onSelect={handlePaymentMethodSelect}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                form.paymentMethod === method.value ? "opacity-100" : "opacity-0"
-                              )}
+                      <CommandList>
+                        <CommandGroup heading="Payment Methods">
+                          {paymentMethods.map((method) => (
+                            <CommandItem
+                              key={method.value}
+                              value={method.value}
+                              onSelect={handlePaymentMethodSelect}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  form.paymentMethod === method.value ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              {method.label}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                        <CommandSeparator />
+                        <CommandGroup>
+                          <div className="flex items-center border-t px-3 py-2">
+                            <Input
+                              placeholder="Add custom payment method..."
+                              value={customPaymentMethod}
+                              onChange={(e) => setCustomPaymentMethod(e.target.value)}
+                              className="flex-1 mr-2"
                             />
-                            {method.label}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                      <CommandSeparator />
-                      <CommandGroup>
-                        <div className="flex items-center border-t px-3 py-2">
-                          <Input
-                            placeholder="Add custom payment method..."
-                            value={customPaymentMethod}
-                            onChange={(e) => setCustomPaymentMethod(e.target.value)}
-                            className="flex-1 mr-2"
-                          />
-                          <Button 
-                            type="button"
-                            size="sm"
-                            disabled={!customPaymentMethod}
-                            onClick={() => handlePaymentMethodSelect('create-new')}
-                          >
-                            Add
-                          </Button>
-                        </div>
-                      </CommandGroup>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={!customPaymentMethod}
+                              onClick={() => handlePaymentMethodSelect('create-new')}
+                            >
+                              Add
+                            </Button>
+                          </div>
+                        </CommandGroup>
+                      </CommandList>
                     </Command>
                   </PopoverContent>
                 </Popover>

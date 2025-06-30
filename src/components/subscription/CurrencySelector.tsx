@@ -9,6 +9,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from "@/components/ui/command"
 import {
   Popover,
@@ -51,13 +52,13 @@ interface CurrencySelectorProps {
   className?: string
 }
 
-export function CurrencySelector({ 
-  value, 
-  onValueChange, 
-  className 
+export function CurrencySelector({
+  value,
+  onValueChange,
+  className
 }: CurrencySelectorProps) {
   const [open, setOpen] = useState(false)
-  
+
   // Find the selected currency
   const selectedCurrency = currencies.find(
     (currency) => currency.value === value
@@ -87,27 +88,29 @@ export function CurrencySelector({
         <Command>
           <CommandInput placeholder="Search currency..." />
           <CommandEmpty>No currency found.</CommandEmpty>
-          <CommandGroup className="max-h-60 overflow-y-auto">
-            {currencies.map((currency) => (
-              <CommandItem
-                key={currency.value}
-                value={currency.value}
-                onSelect={(currentValue) => {
-                  onValueChange(currentValue)
-                  setOpen(false)
-                }}
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    value === currency.value ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <span className="mr-2 text-sm">{currency.symbol}</span>
-                <span>{currency.label}</span>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          <CommandList className="max-h-60">
+            <CommandGroup>
+              {currencies.map((currency) => (
+                <CommandItem
+                  key={currency.value}
+                  value={currency.value}
+                  onSelect={(currentValue) => {
+                    onValueChange(currentValue)
+                    setOpen(false)
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === currency.value ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <span className="mr-2 text-sm">{currency.symbol}</span>
+                  <span>{currency.label}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>

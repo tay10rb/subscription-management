@@ -55,13 +55,41 @@ CommandInput.displayName = CommandPrimitive.Input.displayName
 const CommandList = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.List>
->(({ className, ...props }, ref) => (
-  <CommandPrimitive.List
-    ref={ref}
-    className={cn("max-h-[300px] overflow-y-auto overflow-x-hidden", className)}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const listRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    const element = listRef.current
+    if (!element) return
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+
+      // 减小滚动步长，让滚动更平滑
+      const scrollStep = e.deltaY * 0.3
+      element.scrollTop += scrollStep
+    }
+
+    element.addEventListener('wheel', handleWheel, { passive: false })
+    return () => element.removeEventListener('wheel', handleWheel)
+  }, [])
+
+  return (
+    <CommandPrimitive.List
+      ref={(node) => {
+        listRef.current = node
+        if (typeof ref === 'function') {
+          ref(node)
+        } else if (ref) {
+          ref.current = node
+        }
+      }}
+      className={cn("max-h-[300px] overflow-y-scroll overflow-x-hidden", className)}
+      {...props}
+    />
+  )
+})
 
 CommandList.displayName = CommandPrimitive.List.displayName
 

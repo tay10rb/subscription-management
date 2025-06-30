@@ -6,4 +6,4 @@ dist
 .env.development
 
 .devv
-subscription-management/server/db/database.sqlite
+server/db/database.sqlite
