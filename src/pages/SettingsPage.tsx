@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 
-import { useSettingsStore, ThemeType, DefaultViewType, CurrencyType } from "@/store/settingsStore"
+import { useSettingsStore, ThemeType, DefaultViewType } from "@/store/settingsStore"
 import { ImportModal } from "@/components/imports/ImportModal"
 import { useSubscriptionStore } from "@/store/subscriptionStore"
 import {
@@ -60,8 +60,6 @@ export function SettingsPage() {
     setDefaultView,
     showInactiveSubs,
     setShowInactiveSubs,
-    showOriginalCurrency,
-    setShowOriginalCurrency,
     enableEmailNotifications,
     setEnableEmailNotifications,
     emailAddress,
@@ -72,8 +70,6 @@ export function SettingsPage() {
     setNotificationFrequency,
     enableBrowserNotifications,
     setEnableBrowserNotifications,
-    currency,
-    setCurrency,
 
     resetSettings,
     isLoading,
@@ -166,8 +162,8 @@ export function SettingsPage() {
             <CardContent className="space-y-6">
               <div>
                 <Label htmlFor="default-view">Default View</Label>
-                <Select 
-                  value={defaultView} 
+                <Select
+                  value={defaultView}
                   onValueChange={(value: DefaultViewType) => setDefaultView(value)}
                 >
                   <SelectTrigger id="default-view">
@@ -190,58 +186,10 @@ export function SettingsPage() {
                     Display inactive subscriptions in your subscription list
                   </p>
                 </div>
-                <Switch 
-                  id="show-inactive" 
+                <Switch
+                  id="show-inactive"
                   checked={showInactiveSubs}
                   onCheckedChange={setShowInactiveSubs}
-                />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Currency</CardTitle>
-              <CardDescription>
-                Set your preferred currency for expense calculation
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <Label htmlFor="currency">Default Currency</Label>
-                <Select 
-                  value={currency} 
-                  onValueChange={async (value: CurrencyType) => await setCurrency(value)}
-                >
-                  <SelectTrigger id="currency">
-                    <SelectValue placeholder="Select a currency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD - US Dollar</SelectItem>
-                    <SelectItem value="EUR">EUR - Euro</SelectItem>
-                    <SelectItem value="GBP">GBP - British Pound</SelectItem>
-                    <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
-                    <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
-                    <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                    <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Your preferred currency for displaying subscription costs
-                </p>
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label className="text-base">Show in original currency</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Always display the original subscription currency alongside converted values
-                  </p>
-                </div>
-                <Switch 
-                  id="show-original" 
-                  checked={showOriginalCurrency}
-                  onCheckedChange={setShowOriginalCurrency}
                 />
               </div>
             </CardContent>
