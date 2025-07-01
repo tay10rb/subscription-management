@@ -1,0 +1,10 @@
+{
+  "snapshot": "POPULATED_FROM_SETTINGS",
+  "install": "npm install && cd server && npm install",
+  "terminals": [
+    {
+      "name": "Full Stack Dev",
+      "command": "cp env.example .env 2>/dev/null || true && cd server && npm run db:init && npm start &; cd .. && npm run dev"
+    }
+  ]
+}

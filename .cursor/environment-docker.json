@@ -1,0 +1,19 @@
+{
+  "snapshot": "POPULATED_FROM_SETTINGS",
+  "install": "npm install && cd server && npm install && cd .. && echo 'Dependencies installed successfully'",
+  "start": "sudo service docker start && echo 'Docker service started' && if [ ! -f .env ]; then cp env.example .env && echo 'Created .env from env.example'; fi",
+  "terminals": [
+    {
+      "name": "Development Mode",
+      "command": "echo 'Starting development servers...' && npm run dev &; cd server && npm run db:init && npm start"
+    },
+    {
+      "name": "Docker Build & Run",
+      "command": "echo 'Docker terminal ready. Use: docker-compose up --build'"
+    },
+    {
+      "name": "Database Management",
+      "command": "echo 'Database terminal ready. Use: cd server && npm run db:init or npm run db:reset'"
+    }
+  ]
+}

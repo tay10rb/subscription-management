@@ -7,3 +7,7 @@ dist
 
 .devv
 server/db/database.sqlite
+
+# Cursor Background Agent (optional - you may want to commit these)
+# .cursor/environment-local.json
+# .cursor/secrets.json
