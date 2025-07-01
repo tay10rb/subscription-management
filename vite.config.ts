@@ -11,5 +11,23 @@ export default defineConfig(() => {
         "@": path.resolve(__dirname, "./src"),
       },
     },
+    build: {
+      // Disable minification that might cause CSP issues
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          // Disable eval usage
+          unsafe_eval: false,
+        },
+      },
+      // Ensure proper chunking for production
+      rollupOptions: {
+        output: {
+          manualChunks: undefined,
+        },
+      },
+    },
+    // Configure for production deployment
+    base: '/',
   }
 })

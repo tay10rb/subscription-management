@@ -874,8 +874,13 @@ protectedApiRouter.delete('/payment-methods/:value', (req, res) => {
 app.use('/api', apiRouter);
 app.use('/api', protectedApiRouter);
 
-// Frontend route handler: serve index.html for root path
-app.get('/', (req, res) => {
+// SPA fallback: serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  // Skip API routes
+  if (req.path.startsWith('/api')) {
+    return res.status(404).json({ message: 'API endpoint not found' });
+  }
+
   const indexPath = path.join(__dirname, '..', 'public', 'index.html');
   res.sendFile(indexPath, (err) => {
     if (err) {
