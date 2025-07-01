@@ -144,13 +144,15 @@ export function SettingsPage() {
       </div>
 
       <Tabs defaultValue={defaultTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="currency">Currency</TabsTrigger>
-          <TabsTrigger value="options">Options</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="data">Data</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto mb-4 sm:overflow-visible">
+          <TabsList className="mb-4 min-w-max sm:min-w-0">
+            <TabsTrigger value="general" className="text-xs sm:text-sm px-2 sm:px-3">General</TabsTrigger>
+            <TabsTrigger value="currency" className="text-xs sm:text-sm px-2 sm:px-3">Currency</TabsTrigger>
+            <TabsTrigger value="options" className="text-xs sm:text-sm px-2 sm:px-3">Options</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs sm:text-sm px-1 sm:px-3">Notifications</TabsTrigger>
+            <TabsTrigger value="data" className="text-xs sm:text-sm px-2 sm:px-3">Data</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="general" className="space-y-4">
           <Card>

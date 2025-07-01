@@ -363,9 +363,9 @@ function HomePage() {
 
   return (
     <>
-      <div className="flex justify-between mb-4">
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <Button onClick={() => setShowAddForm(true)}>
+      <div className="flex flex-col sm:flex-row sm:justify-between gap-4 mb-4">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h2>
+        <Button onClick={() => setShowAddForm(true)} className="w-full sm:w-auto">
           <Plus className="h-4 w-4 mr-2" />
           Add Subscription
         </Button>
@@ -402,8 +402,8 @@ function HomePage() {
             />
           </div>
           
-          <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-            <RecentlyPaid 
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
+            <RecentlyPaid
               subscriptions={recentlyPaidSubscriptions}
               onViewAll={() => {
                 setCurrentView("active")
@@ -411,14 +411,14 @@ function HomePage() {
               }}
             />
 
-            <UpcomingRenewals 
+            <UpcomingRenewals
               subscriptions={upcomingRenewals}
               onViewAll={() => {
                 setCurrentView("active")
                 setActiveTab("subscriptions")
-              }} 
+              }}
             />
-            
+
             <CategoryBreakdown data={spendingByCategory} />
           </div>
         </TabsContent>

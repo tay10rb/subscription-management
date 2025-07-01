@@ -16,6 +16,12 @@ export interface MonthlyExpense {
   subscriptionCount: number
 }
 
+export interface YearlyExpense {
+  year: number
+  amount: number
+  subscriptionCount: number
+}
+
 export interface CategoryExpense {
   category: string
   amount: number
@@ -102,31 +108,31 @@ export function getMonthlyExpenses(
   targetCurrency: string
 ): MonthlyExpense[] {
   const monthlyMap = new Map<string, { amount: number; subscriptions: Set<number> }>()
-  
+
   subscriptions.forEach(subscription => {
     const expenseData = generateExpenseData(subscription, startDate, endDate, targetCurrency)
-    
+
     expenseData.forEach(expense => {
       const date = new Date(expense.date)
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-      
+
       if (!monthlyMap.has(monthKey)) {
         monthlyMap.set(monthKey, { amount: 0, subscriptions: new Set() })
       }
-      
+
       const monthData = monthlyMap.get(monthKey)!
       monthData.amount += expense.amount
       monthData.subscriptions.add(subscription.id)
     })
   })
-  
+
   return Array.from(monthlyMap.entries())
     .map(([monthKey, data]) => {
       const [year, month] = monthKey.split('-')
       return {
-        month: new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', { 
-          month: 'short', 
-          year: 'numeric' 
+        month: new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', {
+          month: 'short',
+          year: 'numeric'
         }),
         year: parseInt(year),
         amount: data.amount,
@@ -137,6 +143,43 @@ export function getMonthlyExpenses(
       if (a.year !== b.year) return a.year - b.year
       return new Date(a.month + ' 1, ' + a.year).getMonth() - new Date(b.month + ' 1, ' + b.year).getMonth()
     })
+}
+
+/**
+ * Get yearly expense summary for a given period
+ */
+export function getYearlyExpenses(
+  subscriptions: Subscription[],
+  startDate: Date,
+  endDate: Date,
+  targetCurrency: string
+): YearlyExpense[] {
+  const yearlyMap = new Map<number, { amount: number; subscriptions: Set<number> }>()
+
+  subscriptions.forEach(subscription => {
+    const expenseData = generateExpenseData(subscription, startDate, endDate, targetCurrency)
+
+    expenseData.forEach(expense => {
+      const date = new Date(expense.date)
+      const year = date.getFullYear()
+
+      if (!yearlyMap.has(year)) {
+        yearlyMap.set(year, { amount: 0, subscriptions: new Set() })
+      }
+
+      const yearData = yearlyMap.get(year)!
+      yearData.amount += expense.amount
+      yearData.subscriptions.add(subscription.id)
+    })
+  })
+
+  return Array.from(yearlyMap.entries())
+    .map(([year, data]) => ({
+      year,
+      amount: data.amount,
+      subscriptionCount: data.subscriptions.size
+    }))
+    .sort((a, b) => a.year - b.year)
 }
 
 /**

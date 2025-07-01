@@ -57,23 +57,23 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
       </CardHeader>
       <CardContent>
         {data.length === 0 ? (
-          <div className="flex items-center justify-center h-[300px] text-muted-foreground">
+          <div className="flex items-center justify-center h-[200px] sm:h-[250px] lg:h-[300px] text-muted-foreground">
             No category data available
           </div>
         ) : (
-          <div className="grid gap-8 lg:grid-cols-[1fr_1.2fr]">
+          <div className="grid gap-4 lg:gap-8 lg:grid-cols-[1fr_1.2fr]">
             {/* Chart */}
-            <div className="flex items-center min-h-[400px]">
-              <ChartContainer config={chartConfig} className="h-[400px] w-full max-w-[400px]">
+            <div className="flex items-center min-h-[250px] sm:min-h-[300px] lg:min-h-[400px]">
+              <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] lg:h-[400px] w-full max-w-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 30, right: 40, bottom: 30, left: 40 }}>
+                  <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
                     <Pie
                       data={chartData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       label={({ percentage }) => `${percentage.toFixed(1)}%`}
-                      outerRadius={140}
+                      outerRadius="80%"
                       innerRadius={0}
                       fill="#8884d8"
                       dataKey="amount"

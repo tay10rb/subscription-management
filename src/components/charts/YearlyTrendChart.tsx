@@ -2,11 +2,11 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tool
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { formatCurrency } from "@/lib/subscription-utils"
-import { MonthlyExpense } from "@/lib/expense-analytics"
+import { YearlyExpense } from "@/lib/expense-analytics"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
-interface ExpenseTrendChartProps {
-  data: MonthlyExpense[]
+interface YearlyTrendChartProps {
+  data: YearlyExpense[]
   currency: string
   className?: string
 }
@@ -14,11 +14,11 @@ interface ExpenseTrendChartProps {
 const chartConfig = {
   amount: {
     label: "Amount",
-    color: "hsl(var(--chart-1))",
+    color: "hsl(var(--chart-2))",
   },
 } satisfies ChartConfig
 
-export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendChartProps) {
+export function YearlyTrendChart({ data, currency, className }: YearlyTrendChartProps) {
   // Calculate trend
   const trend = data.length >= 2 
     ? ((data[data.length - 1].amount - data[0].amount) / data[0].amount) * 100
@@ -31,8 +31,8 @@ export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendCha
     <Card className={className}>
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
-          <CardTitle className="text-lg">Expense Trends</CardTitle>
-          <CardDescription>Monthly spending over time</CardDescription>
+          <CardTitle className="text-lg">Yearly Trends</CardTitle>
+          <CardDescription>Annual spending over time</CardDescription>
         </div>
         {data.length >= 2 && (
           <div className="flex items-center gap-2 text-sm">
@@ -46,7 +46,7 @@ export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendCha
       <CardContent>
         {data.length === 0 ? (
           <div className="flex items-center justify-center h-[300px] text-muted-foreground">
-            No expense data available
+            No yearly data available
           </div>
         ) : (
           <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px]">
@@ -54,13 +54,10 @@ export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendCha
               <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
-                  dataKey="month"
+                  dataKey="year"
                   className="text-xs fill-muted-foreground"
                   tick={{ fontSize: 10 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                  interval={0}
+                  height={40}
                 />
                 <YAxis
                   className="text-xs fill-muted-foreground"
@@ -71,7 +68,7 @@ export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendCha
                 <Tooltip
                   content={({ active, payload, label }) => {
                     if (active && payload && payload.length) {
-                      const data = payload[0].payload as MonthlyExpense
+                      const data = payload[0].payload as YearlyExpense
                       return (
                         <div className="rounded-lg border bg-background p-3 shadow-md">
                           <div className="grid gap-2">

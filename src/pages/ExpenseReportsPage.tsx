@@ -1,16 +1,17 @@
 import { useState, useMemo } from 'react'
 import { useSubscriptionStore } from "@/store/subscriptionStore"
 import { useSettingsStore } from "@/store/settingsStore"
-import { 
-  getMonthlyExpenses, 
-  getCategoryExpenses, 
+import {
+  getMonthlyExpenses,
+  getYearlyExpenses,
+  getCategoryExpenses,
   getExpenseMetrics,
-  getExpensesByPaymentMethod,
   getDateRangePresets
 } from "@/lib/expense-analytics"
 import { ExpenseTrendChart } from "@/components/charts/ExpenseTrendChart"
+import { YearlyTrendChart } from "@/components/charts/YearlyTrendChart"
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart"
-import { ExpenseBarChart } from "@/components/charts/ExpenseBarChart"
+
 import { ExpenseMetrics } from "@/components/charts/ExpenseMetrics"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -18,16 +19,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CalendarIcon, Download, Filter, RefreshCw } from "lucide-react"
-import { formatCurrency } from "@/lib/subscription-utils"
+
 
 export function ExpenseReportsPage() {
-  const { subscriptions, categories, paymentMethods } = useSubscriptionStore()
+  const { subscriptions, categories } = useSubscriptionStore()
   const { currency: userCurrency } = useSettingsStore()
   
   // Filter states
   const [selectedDateRange, setSelectedDateRange] = useState('Last 12 Months')
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-  const [selectedPaymentMethods, setSelectedPaymentMethods] = useState<string[]>([])
+
   const [selectedStatus, setSelectedStatus] = useState<string>('active')
   
   // Get date range presets
@@ -48,14 +49,11 @@ export function ExpenseReportsPage() {
         return false
       }
       
-      // Payment method filter
-      if (selectedPaymentMethods.length > 0 && !selectedPaymentMethods.includes(subscription.paymentMethod)) {
-        return false
-      }
+
       
       return true
     })
-  }, [subscriptions, selectedStatus, selectedCategories, selectedPaymentMethods])
+  }, [subscriptions, selectedStatus, selectedCategories])
   
   // Calculate expense data
   const monthlyExpenses = useMemo(() => 
@@ -63,17 +61,17 @@ export function ExpenseReportsPage() {
     [filteredSubscriptions, currentDateRange, userCurrency]
   )
   
-  const categoryExpenses = useMemo(() => 
+  const categoryExpenses = useMemo(() =>
     getCategoryExpenses(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
     [filteredSubscriptions, currentDateRange, userCurrency]
   )
-  
-  const paymentMethodExpenses = useMemo(() => 
-    getExpensesByPaymentMethod(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
+
+  const yearlyExpenses = useMemo(() =>
+    getYearlyExpenses(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
     [filteredSubscriptions, currentDateRange, userCurrency]
   )
-  
-  const expenseMetrics = useMemo(() => 
+
+  const expenseMetrics = useMemo(() =>
     getExpenseMetrics(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
     [filteredSubscriptions, currentDateRange, userCurrency]
   )
@@ -84,10 +82,7 @@ export function ExpenseReportsPage() {
     return category?.label || categoryValue
   }
   
-  const getPaymentMethodLabel = (methodValue: string) => {
-    const method = paymentMethods.find(m => m.value === methodValue)
-    return method?.label || methodValue
-  }
+
   
   const toggleCategoryFilter = (categoryValue: string) => {
     setSelectedCategories(prev => 
@@ -97,17 +92,10 @@ export function ExpenseReportsPage() {
     )
   }
   
-  const togglePaymentMethodFilter = (methodValue: string) => {
-    setSelectedPaymentMethods(prev => 
-      prev.includes(methodValue) 
-        ? prev.filter(m => m !== methodValue)
-        : [...prev, methodValue]
-    )
-  }
+
   
   const clearAllFilters = () => {
     setSelectedCategories([])
-    setSelectedPaymentMethods([])
     setSelectedStatus('active')
   }
   
@@ -121,17 +109,17 @@ export function ExpenseReportsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Expense Reports</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Expense Reports</h1>
           <p className="text-muted-foreground">
             Comprehensive analysis of your subscription expenses
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={exportData}>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+          <Button variant="outline" onClick={exportData} className="w-full sm:w-auto">
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
-          <Button variant="outline" onClick={clearAllFilters}>
+          <Button variant="outline" onClick={clearAllFilters} className="w-full sm:w-auto">
             <RefreshCw className="h-4 w-4 mr-2" />
             Reset Filters
           </Button>
@@ -203,24 +191,7 @@ export function ExpenseReportsPage() {
               </Select>
             </div>
 
-            {/* Payment Methods */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Payment Methods</label>
-              <Select onValueChange={togglePaymentMethodFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Add payment filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  {paymentMethods
-                    .filter(method => !selectedPaymentMethods.includes(method.value))
-                    .map(method => (
-                      <SelectItem key={method.value} value={method.value}>
-                        {method.label}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
+
           </div>
 
           {/* Category Filters */}
@@ -242,24 +213,7 @@ export function ExpenseReportsPage() {
             </div>
           )}
 
-          {/* Payment Method Filters */}
-          {selectedPaymentMethods.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Selected Payment Methods</label>
-              <div className="flex flex-wrap gap-2">
-                {selectedPaymentMethods.map(methodValue => (
-                  <Badge 
-                    key={methodValue} 
-                    variant="secondary" 
-                    className="cursor-pointer"
-                    onClick={() => togglePaymentMethodFilter(methodValue)}
-                  >
-                    {getPaymentMethodLabel(methodValue)} ×
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
+
         </CardContent>
       </Card>
 
@@ -268,18 +222,22 @@ export function ExpenseReportsPage() {
 
       {/* Charts */}
       <Tabs defaultValue="trends" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="trends">Trends</TabsTrigger>
           <TabsTrigger value="categories">Categories</TabsTrigger>
-          <TabsTrigger value="monthly">Monthly</TabsTrigger>
-          <TabsTrigger value="methods">Payment Methods</TabsTrigger>
         </TabsList>
 
         <TabsContent value="trends" className="space-y-4">
-          <ExpenseTrendChart 
-            data={monthlyExpenses} 
-            currency={userCurrency}
-          />
+          <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
+            <ExpenseTrendChart
+              data={monthlyExpenses}
+              currency={userCurrency}
+            />
+            <YearlyTrendChart
+              data={yearlyExpenses}
+              currency={userCurrency}
+            />
+          </div>
         </TabsContent>
 
         <TabsContent value="categories" className="space-y-4">
@@ -289,38 +247,7 @@ export function ExpenseReportsPage() {
           />
         </TabsContent>
 
-        <TabsContent value="monthly" className="space-y-4">
-          <ExpenseBarChart 
-            data={monthlyExpenses} 
-            currency={userCurrency}
-            title="Monthly Expense Analysis"
-            description="Detailed monthly breakdown with statistics"
-          />
-        </TabsContent>
 
-        <TabsContent value="methods" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Payment Method Analysis</CardTitle>
-              <CardDescription>Expenses breakdown by payment method</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {paymentMethodExpenses.map(method => (
-                  <div key={method.paymentMethod} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div>
-                      <div className="font-medium">{getPaymentMethodLabel(method.paymentMethod)}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {method.subscriptionCount} subscription{method.subscriptionCount !== 1 ? 's' : ''}
-                      </div>
-                    </div>
-                    <div className="font-medium">{formatCurrency(method.amount, userCurrency)}</div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
       </Tabs>
     </div>
   )
