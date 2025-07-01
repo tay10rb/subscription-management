@@ -875,12 +875,14 @@ app.use('/api', apiRouter);
 app.use('/api', protectedApiRouter);
 
 // SPA fallback: serve index.html for all non-API routes
-app.get('*', (req, res) => {
+// Use a more specific pattern to avoid path-to-regexp issues
+app.use((req, res, next) => {
   // Skip API routes
   if (req.path.startsWith('/api')) {
-    return res.status(404).json({ message: 'API endpoint not found' });
+    return next();
   }
 
+  // For all other routes, serve the index.html (SPA fallback)
   const indexPath = path.join(__dirname, '..', 'public', 'index.html');
   res.sendFile(indexPath, (err) => {
     if (err) {
