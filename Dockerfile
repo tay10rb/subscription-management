@@ -1,7 +1,6 @@
 # Build stage for frontend
 FROM node:20-alpine AS frontend-builder
 
-# Set working directory for frontend
 WORKDIR /app
 
 # Copy frontend package files
@@ -29,14 +28,13 @@ FROM node:20-alpine AS backend-builder
 # Install build dependencies for native modules
 RUN apk add --no-cache python3 make g++
 
-# Set working directory for backend
 WORKDIR /app/server
 
 # Copy backend package files
 COPY server/package*.json ./
 
-# Install backend dependencies
-RUN npm install --only=production
+# Install backend dependencies (production only)
+RUN npm install --omit=dev
 
 # Production stage
 FROM node:20-alpine AS production
@@ -48,27 +46,21 @@ RUN apk add --no-cache dumb-init
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nodeuser -u 1001
 
-# Set working directory
 WORKDIR /app
 
-# Copy backend application and dependencies
-COPY --from=backend-builder --chown=nodeuser:nodejs /app/server/node_modules ./server/node_modules
+# Copy server application files
 COPY --chown=nodeuser:nodejs server/ ./server/
 
-# Make start script executable (ensure it has proper permissions)
-RUN chmod +x ./server/start.sh
+# Copy backend dependencies from builder stage
+COPY --from=backend-builder --chown=nodeuser:nodejs /app/server/node_modules ./server/node_modules
 
-# Database initialization will be handled by CMD at startup
-
-# Copy frontend build output to serve as static files
+# Copy frontend build output
 COPY --from=frontend-builder --chown=nodeuser:nodejs /app/dist ./public
 
-# Ensure database directory has correct permissions
-RUN chown -R nodeuser:nodejs ./server/db && \
-    chmod 755 ./server/db && \
-    if [ -f ./server/db/database.sqlite ]; then \
-        chmod 644 ./server/db/database.sqlite; \
-    fi
+# Set proper permissions
+RUN chmod +x ./server/start.sh && \
+    chown -R nodeuser:nodejs ./server/db && \
+    chmod 755 ./server/db
 
 # Switch to non-root user
 USER nodeuser
@@ -76,9 +68,9 @@ USER nodeuser
 # Expose port
 EXPOSE 3001
 
-# Set environment to production
-ENV NODE_ENV=production
-ENV LOG_LEVEL=warn
+# Set environment variables
+ENV NODE_ENV=production \
+    LOG_LEVEL=warn
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
@@ -87,5 +79,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]
 
-# Use the start script which handles database initialization and migrations
-CMD ["/app/server/start.sh"]
+# Start the application
+CMD ["sh", "/app/server/start.sh"]

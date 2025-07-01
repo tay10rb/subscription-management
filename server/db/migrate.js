@@ -4,7 +4,7 @@ const path = require('path');
 const DatabaseMigrations = require('./migrations');
 
 async function runMigrations() {
-  const dbPath = path.join(__dirname, 'database.sqlite');
+  const dbPath = process.env.DATABASE_PATH || path.join(__dirname, 'database.sqlite');
   const migrations = new DatabaseMigrations(dbPath);
 
   try {

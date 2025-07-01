@@ -15,7 +15,7 @@ app.use(cors());
 app.use(express.json());
 
 // Database setup
-const dbPath = path.resolve(__dirname, 'db', 'database.sqlite');
+const dbPath = process.env.DATABASE_PATH || path.resolve(__dirname, 'db', 'database.sqlite');
 
 // Initialize database with tables if they don't exist
 function initializeDatabase() {

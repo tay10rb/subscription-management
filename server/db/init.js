@@ -5,7 +5,7 @@ const crypto = require('crypto');
 // Load environment variables
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
-const dbPath = path.resolve(__dirname, 'database.sqlite');
+const dbPath = process.env.DATABASE_PATH || path.resolve(__dirname, 'database.sqlite');
 
 console.log('Initializing database...');
 console.log('Database path:', dbPath);
