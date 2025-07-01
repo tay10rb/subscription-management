@@ -12,14 +12,8 @@ export default defineConfig(() => {
       },
     },
     build: {
-      // Disable minification that might cause CSP issues
-      minify: 'terser',
-      terserOptions: {
-        compress: {
-          // Disable eval usage
-          unsafe_eval: false,
-        },
-      },
+      // Use esbuild for faster builds and better CSP compatibility
+      minify: 'esbuild' as const,
       // Ensure proper chunking for production
       rollupOptions: {
         output: {
