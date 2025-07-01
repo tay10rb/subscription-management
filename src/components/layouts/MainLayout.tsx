@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 import {
   Home,
   Settings,
+  BarChart3,
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -31,7 +32,14 @@ export function MainLayout({ children }: MainLayoutProps) {
                 Dashboard
               </Button>
             </Link>
-            
+
+            <Link to="/expense-reports">
+              <Button variant={location.pathname === '/expense-reports' ? "default" : "ghost"} size="sm">
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Reports
+              </Button>
+            </Link>
+
             <Link to="/settings">
               <Button variant={location.pathname === '/settings' ? "default" : "ghost"} size="sm">
                 <Settings className="h-4 w-4 mr-2" />
