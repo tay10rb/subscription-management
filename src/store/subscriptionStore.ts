@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { convertCurrency } from '@/utils/currency'
 import { useSettingsStore } from './settingsStore'
+import { isSubscriptionDue, processSubscriptionRenewal } from '@/lib/subscription-utils'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
 
@@ -779,9 +780,6 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         const { subscriptions, updateSubscription } = get()
         let processed = 0
         let errors = 0
-
-        // Import the utility functions
-        const { isSubscriptionDue, processSubscriptionRenewal } = await import('@/lib/subscription-utils')
 
         // Find all active subscriptions that are due for renewal
         const dueSubscriptions = subscriptions.filter(sub =>

@@ -17,9 +17,24 @@ export default defineConfig(() => {
       // Ensure proper chunking for production
       rollupOptions: {
         output: {
-          manualChunks: undefined,
+          manualChunks: {
+            // Vendor libraries
+            'vendor-react': ['react', 'react-dom'],
+            'vendor-ui': ['@radix-ui/react-dialog', '@radix-ui/react-dropdown-menu', '@radix-ui/react-select', '@radix-ui/react-tabs'],
+            'vendor-charts': ['recharts'],
+            'vendor-utils': ['zustand', 'date-fns', 'lucide-react'],
+            // App chunks
+            'charts': [
+              './src/components/charts/CategoryPieChart.tsx',
+              './src/components/charts/ExpenseMetrics.tsx',
+              './src/components/charts/ExpenseTrendChart.tsx',
+              './src/components/charts/YearlyTrendChart.tsx'
+            ]
+          },
         },
       },
+      // Increase chunk size warning limit since we're optimizing
+      chunkSizeWarningLimit: 1000,
     },
     // Configure for production deployment
     base: '/',
