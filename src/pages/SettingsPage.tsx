@@ -138,7 +138,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <>
       <div className="flex items-center justify-between pb-4">
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
       </div>
@@ -411,11 +411,11 @@ export function SettingsPage() {
 
       </Tabs>
       
-      <ImportModal 
-        open={isImportModalOpen} 
+      <ImportModal
+        open={isImportModalOpen}
         onOpenChange={setIsImportModalOpen}
         onImport={handleImportData}
       />
-    </div>
+    </>
   )
 }
