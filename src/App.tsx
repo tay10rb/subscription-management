@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router-dom"
 import HomePage from "./pages/HomePage"
+import { SubscriptionsPage } from "./pages/SubscriptionsPage"
 import { SettingsPage } from "./pages/SettingsPage"
 import { ExpenseReportsPage } from "./pages/ExpenseReportsPage"
 import { Toaster } from "./components/ui/toaster"
@@ -12,6 +13,7 @@ function App() {
       <MainLayout>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/subscriptions" element={<SubscriptionsPage />} />
           <Route path="/expense-reports" element={<ExpenseReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
