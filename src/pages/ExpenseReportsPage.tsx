@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useSubscriptionStore } from "@/store/subscriptionStore"
 import { useSettingsStore } from "@/store/settingsStore"
 import {
@@ -18,19 +18,30 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarIcon, Download, Filter, RefreshCw } from "lucide-react"
+import { CalendarIcon, Filter, RefreshCw } from "lucide-react"
 
 
 export function ExpenseReportsPage() {
-  const { subscriptions, categories } = useSubscriptionStore()
-  const { currency: userCurrency } = useSettingsStore()
+  const { subscriptions, categories, fetchSubscriptions, fetchCategories } = useSubscriptionStore()
+  const { currency: userCurrency, fetchSettings } = useSettingsStore()
   
   // Filter states
   const [selectedDateRange, setSelectedDateRange] = useState('Last 12 Months')
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
 
   const [selectedStatus, setSelectedStatus] = useState<string>('active')
-  
+
+  // Fetch data when component mounts
+  useEffect(() => {
+    const initializeData = async () => {
+      await fetchSubscriptions()
+      await fetchCategories()
+      await fetchSettings()
+    }
+
+    initializeData()
+  }, [fetchSubscriptions, fetchCategories, fetchSettings])
+
   // Get date range presets
   const dateRangePresets = getDateRangePresets()
   const currentDateRange = dateRangePresets.find(preset => preset.label === selectedDateRange) 
@@ -99,10 +110,7 @@ export function ExpenseReportsPage() {
     setSelectedStatus('active')
   }
   
-  const exportData = () => {
-    // TODO: Implement export functionality
-    console.log('Export expense data')
-  }
+
 
   return (
     <div className="space-y-6">
@@ -114,28 +122,26 @@ export function ExpenseReportsPage() {
             Comprehensive analysis of your subscription expenses
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-          <Button variant="outline" onClick={exportData} className="w-full sm:w-auto">
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" onClick={clearAllFilters} className="w-full sm:w-auto">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Reset Filters
-          </Button>
-        </div>
       </div>
 
       {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters
-          </CardTitle>
-          <CardDescription>
-            Customize your expense analysis with filters
-          </CardDescription>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Filter className="h-5 w-5" />
+                Filters
+              </CardTitle>
+              <CardDescription>
+                Customize your expense analysis with filters
+              </CardDescription>
+            </div>
+            <Button variant="outline" onClick={clearAllFilters} size="sm" className="w-full sm:w-auto">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Reset Filters
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
