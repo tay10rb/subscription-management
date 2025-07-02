@@ -1,6 +1,5 @@
-import { Subscription, BillingCycle } from "@/store/subscriptionStore"
+import { Subscription } from "@/store/subscriptionStore"
 import { convertCurrency } from "@/utils/currency"
-import { useSettingsStore } from "@/store/settingsStore"
 
 export interface ExpenseData {
   date: string
@@ -64,7 +63,50 @@ export function calculateMonthlyAmount(subscription: Subscription, targetCurrenc
 }
 
 /**
- * Generate expense data for a subscription over a date range
+ * Checks if a subscription should be included in a given month's expense calculation
+ * based on the following billing logic rules:
+ *
+ * 1. 服务期内 (Next payment > 当前月份): 只要订阅已经开始，这个月就应该计入费用
+ * 2. 当月开始并到期 (Next payment = 当前月份 且 startDate = 当前月份): 这个月也应该计入费用
+ * 3. 当月到期但非当月开始 (Next payment = 当前月份 但 startDate < 当前月份): 不计入本月费用
+ */
+export function isSubscriptionActiveInMonth(
+  subscription: Subscription,
+  targetMonth: Date
+): boolean {
+  if (subscription.status !== 'active') {
+    return false;
+  }
+
+  const subStart = new Date(subscription.startDate);
+  const nextBilling = new Date(subscription.nextBillingDate);
+
+  // Normalize all dates to the first of the month to compare months easily
+  const targetMonthStart = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
+  const nextBillingMonthStart = new Date(nextBilling.getFullYear(), nextBilling.getMonth(), 1);
+  const subStartMonthStart = new Date(subStart.getFullYear(), subStart.getMonth(), 1);
+
+  // Rule 1: 服务期内 (Next payment > 当前月份)
+  // 只要订阅已经开始，这个月就应该计入费用
+  if (nextBillingMonthStart > targetMonthStart) {
+    return targetMonthStart >= subStartMonthStart;
+  }
+
+  // Rule 2: 当月开始并到期 (Next payment = 当前月份 且 startDate = 当前月份)
+  // 这个月也应该计入费用
+  if (nextBillingMonthStart.getTime() === targetMonthStart.getTime()) {
+    return subStartMonthStart.getTime() === targetMonthStart.getTime();
+  }
+
+  // Rule 3: 当月到期但非当月开始 (Next payment = 当前月份 但 startDate < 当前月份)
+  // 不计入本月费用 (已经在上面的条件中处理，这里返回 false)
+  return false;
+}
+
+/**
+ * Generate expense data for a subscription over a date range.
+ * It iterates through each month in the range and includes the subscription's
+ * prorated monthly cost if it was active in that month.
  */
 export function generateExpenseData(
   subscription: Subscription,
@@ -73,26 +115,29 @@ export function generateExpenseData(
   targetCurrency: string
 ): ExpenseData[] {
   const expenses: ExpenseData[] = []
-  const monthlyAmount = calculateMonthlyAmount(subscription, targetCurrency)
   
-  // Only include active subscriptions
+  // Skip non-active subscriptions immediately
   if (subscription.status !== 'active') {
     return expenses
   }
+
+  const monthlyAmount = calculateMonthlyAmount(subscription, targetCurrency)
+
+  // Iterate through each month in the given date range
+  let currentMonth = new Date(startDate.getFullYear(), startDate.getMonth(), 1)
   
-  const subscriptionStart = new Date(subscription.startDate)
-  const current = new Date(Math.max(subscriptionStart.getTime(), startDate.getTime()))
-  
-  while (current <= endDate) {
-    expenses.push({
-      date: current.toISOString().split('T')[0],
-      amount: monthlyAmount,
-      category: subscription.category,
-      subscription
-    })
+  while (currentMonth <= endDate) {
+    if (isSubscriptionActiveInMonth(subscription, currentMonth)) {
+      expenses.push({
+        date: `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`,
+        amount: monthlyAmount,
+        category: subscription.category,
+        subscription
+      })
+    }
     
-    // Move to next month
-    current.setMonth(current.getMonth() + 1)
+    // Move to the next month
+    currentMonth.setMonth(currentMonth.getMonth() + 1)
   }
   
   return expenses
@@ -344,8 +389,8 @@ export function getDateRangePresets(): Array<{ label: string; startDate: Date; e
     },
     {
       label: 'Last 12 Months',
-      startDate: new Date(currentYear - 1, currentMonth, 1),
-      endDate: now
+      startDate: new Date(currentYear, currentMonth - 11, 1),
+      endDate: now // 修复：使用当前日期作为结束日期，确保包含当前月份
     },
     {
       label: 'This Year',
