@@ -55,25 +55,25 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
         <CardTitle className="text-lg">Spending by Category</CardTitle>
         <CardDescription>Breakdown of expenses by subscription category</CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 sm:px-6">
         {data.length === 0 ? (
           <div className="flex items-center justify-center h-[200px] sm:h-[250px] lg:h-[300px] text-muted-foreground">
             No category data available
           </div>
         ) : (
-          <div className="grid gap-4 lg:gap-8 lg:grid-cols-[1fr_1.2fr]">
+          <div className="space-y-6 lg:space-y-0 lg:grid lg:gap-8 lg:grid-cols-[1fr_1.2fr]">
             {/* Chart */}
-            <div className="flex items-center min-h-[250px] sm:min-h-[300px] lg:min-h-[400px]">
-              <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] lg:h-[400px] w-full max-w-[400px]">
+            <div className="flex items-center justify-center min-h-[250px] sm:min-h-[300px] lg:min-h-[400px] w-full">
+              <ChartContainer config={chartConfig} className="h-[280px] sm:h-[350px] lg:h-[400px] w-full max-w-[400px] mx-auto overflow-hidden">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 10, right: 10, bottom: 10, left: 10 }}>
+                  <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                     <Pie
                       data={chartData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       label={({ percentage }) => `${percentage.toFixed(1)}%`}
-                      outerRadius="80%"
+                      outerRadius="85%"
                       innerRadius={0}
                       fill="#8884d8"
                       dataKey="amount"
@@ -122,25 +122,25 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
             </div>
 
             {/* Legend */}
-            <div className="flex flex-col justify-center">
+            <div className="flex flex-col justify-center w-full min-w-0">
               <h4 className="font-medium text-sm text-muted-foreground mb-4">Category Breakdown</h4>
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {chartData.map((item) => (
-                  <div key={item.category} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors">
-                    <div className="flex items-center gap-3">
+                  <div key={item.category} className="flex items-center justify-between p-2 sm:p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors min-w-0">
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                       <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
+                        className="w-3 h-3 sm:w-4 sm:h-4 rounded-full flex-shrink-0"
                         style={{ backgroundColor: item.color }}
                       />
-                      <div>
-                        <div className="font-medium text-sm">{item.label}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-xs sm:text-sm truncate">{item.label}</div>
                         <div className="text-xs text-muted-foreground">
                           {item.subscriptionCount} service{item.subscriptionCount !== 1 ? 's' : ''}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <div className="font-semibold text-sm">
+                    <div className="text-right flex-shrink-0 ml-2">
+                      <div className="font-semibold text-xs sm:text-sm">
                         {formatCurrency(item.amount, currency)}
                       </div>
                       <div className="text-xs text-muted-foreground">

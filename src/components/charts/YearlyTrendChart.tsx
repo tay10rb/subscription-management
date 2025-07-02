@@ -43,27 +43,36 @@ export function YearlyTrendChart({ data, currency, className }: YearlyTrendChart
           </div>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-2 sm:px-6">
         {data.length === 0 ? (
           <div className="flex items-center justify-center h-[300px] text-muted-foreground">
             No yearly data available
           </div>
         ) : (
-          <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px]">
+          <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] w-full overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
+              <LineChart 
+                data={data} 
+                margin={{ 
+                  top: 25, 
+                  right: 15, 
+                  left: 5, 
+                  bottom: 15 // Balanced margin
+                }}
+              >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="year"
                   className="text-xs fill-muted-foreground"
                   tick={{ fontSize: 10 }}
                   height={40}
+                  tickMargin={10}
                 />
                 <YAxis
                   className="text-xs fill-muted-foreground"
                   tick={{ fontSize: 10 }}
-                  tickFormatter={(value) => formatCurrency(value, currency, false)}
-                  width={50}
+                  tickFormatter={(value) => formatCurrency(value, currency)}
+                  width={60}
                 />
                 <Tooltip
                   content={({ active, payload, label }) => {
