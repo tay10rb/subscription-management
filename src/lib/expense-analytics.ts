@@ -175,19 +175,22 @@ export function getMonthlyExpenses(
     .map(([monthKey, data]) => {
       const [year, month] = monthKey.split('-')
       return {
+        monthKey, // 保留原始的 monthKey 用于排序
         month: new Date(parseInt(year), parseInt(month) - 1).toLocaleDateString('en-US', {
           month: 'short',
           year: 'numeric'
         }),
         year: parseInt(year),
+        monthNumber: parseInt(month), // 添加月份数字用于排序
         amount: data.amount,
         subscriptionCount: data.subscriptions.size
       }
     })
     .sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year
-      return new Date(a.month + ' 1, ' + a.year).getMonth() - new Date(b.month + ' 1, ' + b.year).getMonth()
+      return a.monthNumber - b.monthNumber
     })
+    .map(({ monthKey, monthNumber, ...rest }) => rest) // 移除临时字段
 }
 
 /**
