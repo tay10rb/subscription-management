@@ -126,8 +126,7 @@ export const useSettingsStore = create<SettingsState>()(
           }
 
           set({ ...loadedSettings, isLoading: false })
-          applyTheme(loadedSettings.theme)
-          localStorage.setItem('vite-ui-theme', loadedSettings.theme)
+          // Don't apply theme here - let next-themes handle it
 
           // 获取汇率数据
           get().fetchExchangeRates()
@@ -163,9 +162,9 @@ export const useSettingsStore = create<SettingsState>()(
       
       setTheme: async (theme) => {
         set({ theme })
-        applyTheme(theme)
-        localStorage.setItem('vite-ui-theme', theme)
-        
+        // Don't apply theme here - let next-themes handle it
+        // localStorage is also handled by next-themes
+
         // Sync to backend
         try {
           const response = await fetch(`${API_BASE_URL}/settings`, {
@@ -173,7 +172,7 @@ export const useSettingsStore = create<SettingsState>()(
             headers: getHeaders(),
             body: JSON.stringify({ theme })
           })
-          
+
           if (!response.ok) {
             logger.error('Failed to save theme setting to backend')
           }
@@ -245,9 +244,7 @@ export const useSettingsStore = create<SettingsState>()(
 
           // Reset local state to initial settings
           set({ ...initialSettings });
-          // Also apply the default theme
-          applyTheme(initialSettings.theme);
-          localStorage.setItem('vite-ui-theme', initialSettings.theme);
+          // Don't apply theme here - let next-themes handle it
 
           return { error: null };
         } catch (error: any) {

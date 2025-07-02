@@ -4,22 +4,23 @@ import { Moon, Sun } from "lucide-react"
 import { useTheme } from "next-themes"
 import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
-import { applyTheme } from "@/lib/theme-sync"
+import { useSettingsStore } from "@/store/settingsStore"
 
 export function ModeToggle() {
   const { theme, setTheme } = useTheme()
+  const { setTheme: setStoreTheme } = useSettingsStore()
   const [mounted, setMounted] = useState(false)
-  
+
   // Only show the toggle after mounting to avoid hydration mismatch
   useEffect(() => {
     setMounted(true)
   }, [])
-  
-  const toggleTheme = () => {
+
+  const toggleTheme = async () => {
     const newTheme = theme === "dark" ? "light" : "dark";
     setTheme(newTheme);
-    // Apply the theme directly to DOM for immediate effect
-    applyTheme(newTheme);
+    // Also update the settings store to keep them in sync
+    await setStoreTheme(newTheme as any);
   }
 
   // Don't render anything until mounted to prevent hydration mismatch

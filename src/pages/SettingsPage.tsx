@@ -38,6 +38,7 @@ import {
 import { useToast } from "@/hooks/use-toast"
 import { ExchangeRateManager } from "@/components/ExchangeRateManager"
 import { OptionsManager } from "@/components/subscription/OptionsManager"
+import { useTheme } from "next-themes"
 
 export function SettingsPage() {
   const navigate = useNavigate()
@@ -49,6 +50,9 @@ export function SettingsPage() {
 
   // Get tab from URL params
   const defaultTab = searchParams.get('tab') || 'general'
+
+  // Theme from next-themes
+  const { setTheme: setNextTheme } = useTheme()
 
   // Settings store values
   const {
@@ -206,7 +210,11 @@ export function SettingsPage() {
                 <Label htmlFor="theme">Theme Mode</Label>
                 <Select
                   value={theme}
-                  onValueChange={async (value: ThemeType) => await setTheme(value)}
+                  onValueChange={async (value: ThemeType) => {
+                    // Update both stores to keep them in sync
+                    await setTheme(value)
+                    setNextTheme(value)
+                  }}
                 >
                   <SelectTrigger id="theme">
                     <SelectValue placeholder="Select a theme" />

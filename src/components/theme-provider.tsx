@@ -2,23 +2,33 @@
 
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
-import { applyTheme, setupSystemThemeListener } from "@/lib/theme-sync"
+import { useSettingsStore } from "@/store/settingsStore"
+
+function ThemeSync() {
+  const { theme, fetchSettings } = useSettingsStore()
+
+  React.useEffect(() => {
+    // Fetch settings on app start to sync with backend
+    fetchSettings()
+  }, [fetchSettings])
+
+  return null
+}
 
 export function ThemeProvider({
   children,
   ...props
 }: React.ComponentProps<typeof NextThemesProvider>) {
-  
-  // Apply theme immediately on mount and set up system theme listener
-  React.useEffect(() => {
-    const theme = localStorage.getItem(props.storageKey || 'theme') as any || props.defaultTheme || 'system';
-    applyTheme(theme);
-    
-    // Set up listener for system theme changes
-    const cleanup = setupSystemThemeListener();
-    
-    return cleanup;
-  }, [props.defaultTheme, props.storageKey]);
-  
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>
+  return (
+    <NextThemesProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+      {...props}
+    >
+      <ThemeSync />
+      {children}
+    </NextThemesProvider>
+  )
 }

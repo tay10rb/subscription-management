@@ -36,8 +36,8 @@ export function StatCard({ title, value, description, icon: Icon, trend }: StatC
             <span
               className={
                 trend.positive !== false
-                  ? "text-emerald-500"
-                  : "text-rose-500"
+                  ? "text-success"
+                  : "text-destructive"
               }
             >
               {trend.positive !== false ? "+" : "-"}

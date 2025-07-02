@@ -11,18 +11,19 @@ interface CategoryPieChartProps {
   className?: string
 }
 
-// Define colors for different categories
+// Define colors for different categories - using CSS variables for theme support
 const COLORS = [
   "hsl(var(--chart-1))",
   "hsl(var(--chart-2))",
   "hsl(var(--chart-3))",
   "hsl(var(--chart-4))",
   "hsl(var(--chart-5))",
-  "hsl(12 76% 61%)",
-  "hsl(173 58% 39%)",
-  "hsl(197 37% 24%)",
-  "hsl(43 74% 66%)",
-  "hsl(27 87% 67%)",
+  // Fallback colors that work in both light and dark modes
+  "hsl(var(--chart-1))",
+  "hsl(var(--chart-2))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
 ]
 
 export function CategoryPieChart({ data, currency, className }: CategoryPieChartProps) {
@@ -75,7 +76,7 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
                       label={({ percentage }) => `${percentage.toFixed(1)}%`}
                       outerRadius="85%"
                       innerRadius={0}
-                      fill="#8884d8"
+                      fill="hsl(var(--chart-1))"
                       dataKey="amount"
                       stroke="none"
                     >
