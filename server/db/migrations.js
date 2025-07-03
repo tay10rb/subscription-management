@@ -14,6 +14,11 @@ class DatabaseMigrations {
         version: 2,
         name: 'add_categories_and_payment_methods',
         up: () => this.migration_002_add_categories_and_payment_methods()
+      },
+      {
+        version: 3,
+        name: 'add_renewal_type_to_subscriptions',
+        up: () => this.migration_003_add_renewal_type_to_subscriptions()
       }
     ];
   }
@@ -183,6 +188,20 @@ class DatabaseMigrations {
     for (const paymentMethod of defaultPaymentMethods) {
       insertPaymentMethod.run(paymentMethod.value, paymentMethod.label);
     }
+  }
+
+  // Migration 003: Add renewal_type field to subscriptions table
+  migration_003_add_renewal_type_to_subscriptions() {
+    console.log('📝 Adding renewal_type field to subscriptions table...');
+
+    // Add renewal_type column to subscriptions table
+    this.db.exec(`
+      ALTER TABLE subscriptions
+      ADD COLUMN renewal_type TEXT NOT NULL DEFAULT 'manual'
+      CHECK (renewal_type IN ('auto', 'manual'))
+    `);
+
+    console.log('✅ renewal_type field added successfully');
   }
 
   close() {

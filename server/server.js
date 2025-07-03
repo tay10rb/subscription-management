@@ -49,6 +49,7 @@ function initializeDatabase() {
                     start_date DATE,
                     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'cancelled')),
                     category TEXT NOT NULL DEFAULT 'other',
+                    renewal_type TEXT NOT NULL DEFAULT 'manual' CHECK (renewal_type IN ('auto', 'manual')),
                     notes TEXT,
                     website TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -326,6 +327,7 @@ protectedApiRouter.post('/subscriptions', (req, res) => {
             start_date,
             status,
             category,
+            renewal_type,
             notes,
             website
         } = req.body;
@@ -334,10 +336,10 @@ protectedApiRouter.post('/subscriptions', (req, res) => {
         const last_billing_date = calculateLastBillingDate(next_billing_date, start_date, billing_cycle);
 
         const stmt = db.prepare(`
-            INSERT INTO subscriptions (name, plan, billing_cycle, next_billing_date, last_billing_date, amount, currency, payment_method, start_date, status, category, notes, website)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO subscriptions (name, plan, billing_cycle, next_billing_date, last_billing_date, amount, currency, payment_method, start_date, status, category, renewal_type, notes, website)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
-        const info = stmt.run(name, plan, billing_cycle, next_billing_date, last_billing_date, amount, currency, payment_method, start_date, status, category, notes, website);
+        const info = stmt.run(name, plan, billing_cycle, next_billing_date, last_billing_date, amount, currency, payment_method, start_date, status, category, renewal_type || 'manual', notes, website);
         res.status(201).json({ id: info.lastInsertRowid });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -351,8 +353,8 @@ protectedApiRouter.post('/subscriptions/bulk', (req, res) => {
     }
 
     const insert = db.prepare(`
-        INSERT INTO subscriptions (name, plan, billing_cycle, next_billing_date, last_billing_date, amount, currency, payment_method, start_date, status, category, notes, website)
-        VALUES (@name, @plan, @billing_cycle, @next_billing_date, @last_billing_date, @amount, @currency, @payment_method, @start_date, @status, @category, @notes, @website)
+        INSERT INTO subscriptions (name, plan, billing_cycle, next_billing_date, last_billing_date, amount, currency, payment_method, start_date, status, category, renewal_type, notes, website)
+        VALUES (@name, @plan, @billing_cycle, @next_billing_date, @last_billing_date, @amount, @currency, @payment_method, @start_date, @status, @category, @renewal_type, @notes, @website)
     `);
 
     const insertMany = db.transaction((subscriptions) => {
@@ -362,7 +364,8 @@ protectedApiRouter.post('/subscriptions/bulk', (req, res) => {
                 const last_billing_date = calculateLastBillingDate(sub.next_billing_date, sub.start_date, sub.billing_cycle);
                 insert.run({
                     ...sub,
-                    last_billing_date
+                    last_billing_date,
+                    renewal_type: sub.renewal_type || 'manual'
                 });
                 insertedCount++;
             } catch (error) {
@@ -410,6 +413,7 @@ protectedApiRouter.put('/subscriptions/:id', (req, res) => {
             'start_date',
             'status',
             'category',
+            'renewal_type',
             'notes',
             'website'
         ];

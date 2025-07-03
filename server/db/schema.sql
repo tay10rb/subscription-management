@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     start_date DATE,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'cancelled')),
     category TEXT NOT NULL DEFAULT 'other',
+    renewal_type TEXT NOT NULL DEFAULT 'manual' CHECK (renewal_type IN ('auto', 'manual')),
     notes TEXT,
     website TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,

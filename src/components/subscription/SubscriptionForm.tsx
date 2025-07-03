@@ -84,6 +84,7 @@ export function SubscriptionForm({
     startDate: format(new Date(), "yyyy-MM-dd"),
     status: "active",
     category: "",
+    renewalType: "manual",
     notes: "",
     website: ""
   })
@@ -120,6 +121,7 @@ export function SubscriptionForm({
           startDate: format(new Date(), "yyyy-MM-dd"),
           status: "active",
           category: "",
+          renewalType: "manual",
           notes: "",
           website: ""
         })
@@ -521,8 +523,8 @@ export function SubscriptionForm({
               <Label htmlFor="status" className="text-right">
                 Status
               </Label>
-              <Select 
-                value={form.status} 
+              <Select
+                value={form.status}
                 onValueChange={(value: "active" | "trial" | "cancelled") => handleSelectChange("status", value)}
               >
                 <SelectTrigger className="col-span-3">
@@ -532,6 +534,25 @@ export function SubscriptionForm({
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="trial">Trial</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Renewal Type */}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="renewalType" className="text-right">
+                Renewal Type
+              </Label>
+              <Select
+                value={form.renewalType}
+                onValueChange={(value: "auto" | "manual") => handleSelectChange("renewalType", value)}
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue placeholder="Select renewal type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automatic Renewal</SelectItem>
+                  <SelectItem value="manual">Manual Renewal</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -52,6 +52,7 @@ const transformFromApi = (sub: any): Subscription => {
     startDate: sub.start_date,
     status: sub.status,
     category: sub.category,
+    renewalType: sub.renewal_type || 'manual',
     notes: sub.notes,
     website: sub.website,
   }
@@ -71,6 +72,7 @@ const transformToApi = (sub: Partial<Subscription>) => {
   if (sub.startDate !== undefined) result.start_date = sub.startDate
   if (sub.status !== undefined) result.status = sub.status
   if (sub.category !== undefined) result.category = sub.category
+  if (sub.renewalType !== undefined) result.renewal_type = sub.renewalType
   if (sub.notes !== undefined) result.notes = sub.notes
   if (sub.website !== undefined) result.website = sub.website
   return result
@@ -78,6 +80,7 @@ const transformToApi = (sub: Partial<Subscription>) => {
 
 export type SubscriptionStatus = 'active' | 'trial' | 'cancelled'
 export type BillingCycle = 'monthly' | 'yearly' | 'quarterly'
+export type RenewalType = 'auto' | 'manual'
 // Updated to allow custom categories
 export type SubscriptionCategory = 'video' | 'music' | 'software' | 'cloud' | 'news' | 'game' | 'other' | string
 
@@ -94,6 +97,7 @@ export interface Subscription {
   startDate: string
   status: SubscriptionStatus
   category: SubscriptionCategory
+  renewalType: RenewalType
   notes: string
   website?: string
 }
@@ -216,6 +220,7 @@ const mockSubscriptions: Subscription[] = [
     startDate: '2023-01-15',
     status: 'active',
     category: 'video',
+    renewalType: 'auto',
     notes: 'Family account',
     website: 'https://netflix.com'
   },
@@ -232,6 +237,7 @@ const mockSubscriptions: Subscription[] = [
     startDate: '2022-05-10',
     status: 'active',
     category: 'music',
+    renewalType: 'auto',
     notes: 'Shared with 5 people'
   },
   {
@@ -247,6 +253,7 @@ const mockSubscriptions: Subscription[] = [
     startDate: '2023-01-20',
     status: 'active',
     category: 'software',
+    renewalType: 'manual',
     notes: '6 users, 1TB storage each',
     website: 'https://microsoft.com'
   },
@@ -263,6 +270,7 @@ const mockSubscriptions: Subscription[] = [
     startDate: '2022-08-01',
     status: 'active',
     category: 'cloud',
+    renewalType: 'auto',
     notes: 'Personal storage'
   },
   {
@@ -278,6 +286,7 @@ const mockSubscriptions: Subscription[] = [
     startDate: '2023-02-15',
     status: 'active',
     category: 'video',
+    renewalType: 'manual',
     notes: 'No ads, background play'
   }
 ]

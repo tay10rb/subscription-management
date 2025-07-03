@@ -81,6 +81,7 @@ CREATE TABLE subscriptions (
     start_date DATE,                       -- 开始日期
     status TEXT NOT NULL DEFAULT 'active', -- 状态: active/inactive/cancelled
     category TEXT NOT NULL DEFAULT 'other', -- 分类
+    renewal_type TEXT NOT NULL DEFAULT 'manual', -- 续费类型: auto/manual
     notes TEXT,                            -- 备注
     website TEXT,                          -- 官网
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -249,7 +250,8 @@ Content-Type: application/json
   "payment_method": "Credit Card",
   "start_date": "2025-06-01",
   "status": "active",
-  "category": "music"
+  "category": "music",
+  "renewal_type": "auto"
 }
 ```
 
@@ -261,7 +263,8 @@ Content-Type: application/json
 
 {
   "amount": 12.99,
-  "plan": "Premium Plus"
+  "plan": "Premium Plus",
+  "renewal_type": "manual"
 }
 ```
 

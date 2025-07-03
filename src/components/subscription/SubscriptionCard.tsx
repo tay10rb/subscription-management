@@ -1,12 +1,14 @@
-import { 
+import {
   Calendar,
-  CreditCard, 
+  CreditCard,
   ExternalLink,
   MoreVertical,
   Pencil,
   Trash2,
   Ban,
-  Tag
+  Tag,
+  RotateCcw,
+  Hand
 } from "lucide-react"
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
@@ -46,17 +48,18 @@ export function SubscriptionCard({
   onDelete,
   onStatusChange
 }: SubscriptionCardProps) {
-  const { 
+  const {
     id,
-    name, 
-    plan, 
-    amount, 
+    name,
+    plan,
+    amount,
     currency,
-    nextBillingDate, 
+    nextBillingDate,
     billingCycle,
     paymentMethod,
     status,
     category,
+    renewalType,
     website
   } = subscription
   
@@ -171,6 +174,14 @@ export function SubscriptionCard({
           <div className="flex items-center gap-2 text-muted-foreground">
             <CreditCard className="h-4 w-4" />
             <span>{paymentMethodLabel}</span>
+          </div>
+          <div className="flex items-center gap-2 text-muted-foreground">
+            {renewalType === 'auto' ? (
+              <RotateCcw className="h-4 w-4" />
+            ) : (
+              <Hand className="h-4 w-4" />
+            )}
+            <span>{renewalType === 'auto' ? 'Automatic Renewal' : 'Manual Renewal'}</span>
           </div>
         </div>
       </CardContent>

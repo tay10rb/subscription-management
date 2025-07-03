@@ -243,6 +243,7 @@ export function exportSubscriptionsToCSV(subscriptions: Subscription[]): string 
     'startDate',
     'status',
     'category',
+    'renewalType',
     'notes',
     'website'
   ].join(',')
@@ -260,6 +261,7 @@ export function exportSubscriptionsToCSV(subscriptions: Subscription[]): string 
       sub.startDate,
       sub.status,
       sub.category,
+      sub.renewalType,
       `"${(sub.notes || '').replace(/"/g, '""')}"`,
       `"${(sub.website || '').replace(/"/g, '""')}"`
     ].join(',')
@@ -338,7 +340,35 @@ export function parseCSVToSubscriptions(
       if (!['monthly', 'yearly', 'quarterly'].includes(subscription.billingCycle)) {
         throw new Error(`Invalid billingCycle value: ${subscription.billingCycle}. Must be 'monthly', 'yearly', or 'quarterly'.`)
       }
-      
+
+      // Validate renewal type (optional field with default)
+      if (subscription.renewalType && !['auto', 'manual'].includes(subscription.renewalType)) {
+        throw new Error(`Invalid renewalType value: ${subscription.renewalType}. Must be 'auto' or 'manual'.`)
+      }
+
+      // Set default values for optional fields
+      if (!subscription.renewalType) {
+        subscription.renewalType = 'manual'
+      }
+      if (!subscription.plan) {
+        subscription.plan = ''
+      }
+      if (!subscription.paymentMethod) {
+        subscription.paymentMethod = ''
+      }
+      if (!subscription.startDate) {
+        subscription.startDate = subscription.nextBillingDate
+      }
+      if (!subscription.category) {
+        subscription.category = 'other'
+      }
+      if (!subscription.notes) {
+        subscription.notes = ''
+      }
+      if (!subscription.website) {
+        subscription.website = ''
+      }
+
       subscriptions.push(subscription as Omit<Subscription, 'id' | 'lastBillingDate'>)
     } catch (error: any) {
       errors.push(`Line ${i + 1}: ${error.message}`)
