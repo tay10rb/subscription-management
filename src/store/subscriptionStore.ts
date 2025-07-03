@@ -127,7 +127,7 @@ interface SubscriptionState {
   subscriptionPlans: SubscriptionPlanOption[]
   isLoading: boolean
   error: string | null
-  
+
   // CRUD operations
   addSubscription: (subscription: Omit<Subscription, 'id' | 'lastBillingDate'>) => Promise<{ error: any | null }>
   bulkAddSubscriptions: (subscriptions: Omit<Subscription, 'id' | 'lastBillingDate'>[]) => Promise<{ error: any | null }>
@@ -137,6 +137,11 @@ interface SubscriptionState {
   fetchSubscriptions: () => Promise<void>
   fetchCategories: () => Promise<void>
   fetchPaymentMethods: () => Promise<void>
+
+  // Renewal operations
+  processAutoRenewals: () => Promise<{ processed: number; errors: number }>
+  processExpiredSubscriptions: () => Promise<{ processed: number; errors: number }>
+  manualRenewSubscription: (id: number) => Promise<{ error: any | null; renewalData: any | null }>
 
   // Option management
   addCategory: (category: CategoryOption) => Promise<void>
@@ -158,9 +163,6 @@ interface SubscriptionState {
   
   // Get unique categories from subscriptions
   getUniqueCategories: () => CategoryOption[]
-
-  // Auto-renewal processing
-  processAutoRenewals: () => Promise<{ processed: number; errors: number }>
 }
 
 // Initial options
@@ -786,37 +788,75 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
       // Process automatic renewals for subscriptions that are due
       processAutoRenewals: async () => {
-        const { subscriptions, updateSubscription } = get()
-        let processed = 0
-        let errors = 0
+        try {
+          const response = await fetch(`${API_BASE_URL}/subscriptions/auto-renew`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+          })
 
-        // Find all active subscriptions that are due for renewal
-        const dueSubscriptions = subscriptions.filter(sub =>
-          sub.status === 'active' && isSubscriptionDue(sub.nextBillingDate)
-        )
-
-        console.log(`Found ${dueSubscriptions.length} subscriptions due for renewal`)
-
-        // Process each due subscription
-        for (const subscription of dueSubscriptions) {
-          try {
-            const renewalData = processSubscriptionRenewal(subscription)
-            const result = await updateSubscription(subscription.id, renewalData)
-
-            if (result.error) {
-              console.error(`Failed to renew subscription ${subscription.name}:`, result.error)
-              errors++
-            } else {
-              console.log(`Successfully renewed subscription: ${subscription.name}`)
-              processed++
-            }
-          } catch (error) {
-            console.error(`Error processing renewal for ${subscription.name}:`, error)
-            errors++
+          if (!response.ok) {
+            throw new Error('Failed to process auto renewals')
           }
-        }
 
-        return { processed, errors }
+          const result = await response.json()
+
+          // Refresh subscriptions to get updated data
+          await get().fetchSubscriptions()
+
+          return { processed: result.processed, errors: result.errors }
+        } catch (error: any) {
+          console.error('Error processing auto renewals:', error)
+          return { processed: 0, errors: 1 }
+        }
+      },
+
+      // Process expired manual subscriptions
+      processExpiredSubscriptions: async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/subscriptions/process-expired`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+          })
+
+          if (!response.ok) {
+            throw new Error('Failed to process expired subscriptions')
+          }
+
+          const result = await response.json()
+
+          // Refresh subscriptions to get updated data
+          await get().fetchSubscriptions()
+
+          return { processed: result.processed, errors: result.errors }
+        } catch (error: any) {
+          console.error('Error processing expired subscriptions:', error)
+          return { processed: 0, errors: 1 }
+        }
+      },
+
+      // Manual renewal for a specific subscription
+      manualRenewSubscription: async (id: number) => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/subscriptions/${id}/manual-renew`, {
+            method: 'POST',
+            headers: getHeaders('POST'),
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            throw new Error(errorData.error || 'Failed to renew subscription')
+          }
+
+          const result = await response.json()
+
+          // Refresh subscriptions to get updated data
+          await get().fetchSubscriptions()
+
+          return { error: null, renewalData: result.renewalData }
+        } catch (error: any) {
+          console.error('Error renewing subscription:', error)
+          return { error: error.message, renewalData: null }
+        }
       }
     }),
     {

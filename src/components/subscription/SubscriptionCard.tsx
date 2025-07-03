@@ -40,13 +40,15 @@ interface SubscriptionCardProps {
   onEdit: (id: number) => void
   onDelete: (id: number) => void
   onStatusChange: (id: number, status: 'active' | 'cancelled') => void
+  onManualRenew?: (id: number) => void
 }
 
-export function SubscriptionCard({ 
+export function SubscriptionCard({
   subscription,
   onEdit,
   onDelete,
-  onStatusChange
+  onStatusChange,
+  onManualRenew
 }: SubscriptionCardProps) {
   const {
     id,
@@ -185,20 +187,34 @@ export function SubscriptionCard({
           </div>
         </div>
       </CardContent>
-      
-      {website && (
-        <CardFooter className="flex-shrink-0">
-          <Button 
-            variant="ghost" 
-            size="sm" 
+
+      <CardFooter className="flex-shrink-0 flex-col gap-2">
+        {/* Manual renewal button for manual renewal subscriptions */}
+        {renewalType === 'manual' && status === 'active' && onManualRenew && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onManualRenew(id)}
+          >
+            <RotateCcw className="mr-2 h-4 w-4" />
+            Renew Now
+          </Button>
+        )}
+
+        {/* Website link */}
+        {website && (
+          <Button
+            variant="ghost"
+            size="sm"
             className="w-full justify-start px-2 text-muted-foreground"
             onClick={() => window.open(website, '_blank')}
           >
             <ExternalLink className="mr-2 h-4 w-4" />
             Visit website
           </Button>
-        </CardFooter>
-      )}
+        )}
+      </CardFooter>
     </Card>
   )
 }

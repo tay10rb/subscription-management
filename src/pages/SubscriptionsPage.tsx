@@ -68,6 +68,8 @@ export function SubscriptionsPage() {
     fetchSubscriptions,
     getUniqueCategories,
     processAutoRenewals,
+    processExpiredSubscriptions,
+    manualRenewSubscription,
     isLoading
   } = useSubscriptionStore()
 
@@ -77,19 +79,30 @@ export function SubscriptionsPage() {
       await fetchSubscriptions()
       await fetchSettings()
 
-      // Process auto-renewals after fetching subscriptions
+      // Process auto-renewals and expired subscriptions after fetching
       try {
-        const result = await processAutoRenewals()
-        if (result.processed > 0) {
-          console.log(`Auto-renewed ${result.processed} subscription(s)`)
-          // Refresh subscriptions after auto-renewal
+        const autoRenewalResult = await processAutoRenewals()
+        if (autoRenewalResult.processed > 0) {
+          console.log(`Auto-renewed ${autoRenewalResult.processed} subscription(s)`)
+        }
+        if (autoRenewalResult.errors > 0) {
+          console.warn(`Failed to auto-renew ${autoRenewalResult.errors} subscription(s)`)
+        }
+
+        const expiredResult = await processExpiredSubscriptions()
+        if (expiredResult.processed > 0) {
+          console.log(`Cancelled ${expiredResult.processed} expired subscription(s)`)
+        }
+        if (expiredResult.errors > 0) {
+          console.warn(`Failed to cancel ${expiredResult.errors} expired subscription(s)`)
+        }
+
+        // Refresh subscriptions after processing
+        if (autoRenewalResult.processed > 0 || expiredResult.processed > 0) {
           await fetchSubscriptions()
         }
-        if (result.errors > 0) {
-          console.warn(`Failed to auto-renew ${result.errors} subscription(s)`)
-        }
       } catch (error) {
-        console.error('Error processing auto-renewals:', error)
+        console.error('Error processing renewals:', error)
       }
     }
 
@@ -208,9 +221,9 @@ export function SubscriptionsPage() {
   const handleStatusChange = async (id: number, status: SubscriptionStatus) => {
     const subscription = subscriptions.find(sub => sub.id === id)
     if (!subscription) return
-    
+
     const { error } = await updateSubscription(id, { status })
-    
+
     if (error) {
       toast({
         title: "Error updating status",
@@ -219,10 +232,32 @@ export function SubscriptionsPage() {
       })
       return
     }
-    
+
     toast({
       title: status === "active" ? "Subscription activated" : "Subscription cancelled",
       description: `${subscription.name} has been ${status === "active" ? "activated" : "cancelled"}.`
+    })
+  }
+
+  // Handler for manual renewal
+  const handleManualRenew = async (id: number) => {
+    const subscription = subscriptions.find(sub => sub.id === id)
+    if (!subscription) return
+
+    const { error, renewalData } = await manualRenewSubscription(id)
+
+    if (error) {
+      toast({
+        title: "Error renewing subscription",
+        description: error,
+        variant: "destructive"
+      })
+      return
+    }
+
+    toast({
+      title: "Subscription renewed successfully",
+      description: `${subscription.name} has been renewed. Next billing date: ${renewalData?.newNextBilling}`
     })
   }
 
@@ -643,6 +678,7 @@ export function SubscriptionsPage() {
               onEdit={() => setEditingSubscription(subscription)}
               onDelete={() => handleDeleteSubscription(subscription.id)}
               onStatusChange={handleStatusChange}
+              onManualRenew={handleManualRenew}
             />
           ))}
         </div>

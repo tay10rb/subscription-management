@@ -490,16 +490,16 @@ protectedApiRouter.delete('/subscriptions/:id', (req, res) => {
 // POST to process auto renewals (Protected)
 protectedApiRouter.post('/subscriptions/auto-renew', (req, res) => {
     try {
-        // Get all active subscriptions
-        const selectStmt = db.prepare('SELECT * FROM subscriptions WHERE status = ?');
-        const activeSubscriptions = selectStmt.all('active');
+        // Get all active subscriptions with auto renewal
+        const selectStmt = db.prepare('SELECT * FROM subscriptions WHERE status = ? AND renewal_type = ?');
+        const activeAutoRenewalSubscriptions = selectStmt.all('active', 'auto');
 
         let processed = 0;
         let errors = 0;
         const renewedSubscriptions = [];
 
         // Check each subscription for renewal
-        for (const sub of activeSubscriptions) {
+        for (const sub of activeAutoRenewalSubscriptions) {
             try {
                 // Check if subscription is due (today or overdue)
                 const today = new Date();
@@ -561,6 +561,144 @@ protectedApiRouter.post('/subscriptions/auto-renew', (req, res) => {
             errors,
             renewedSubscriptions
         });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST to process expired manual subscriptions (Protected)
+protectedApiRouter.post('/subscriptions/process-expired', (req, res) => {
+    try {
+        // Get all active manual subscriptions that are overdue
+        const selectStmt = db.prepare('SELECT * FROM subscriptions WHERE status = ? AND renewal_type = ?');
+        const activeManualSubscriptions = selectStmt.all('active', 'manual');
+
+        let processed = 0;
+        let errors = 0;
+        const expiredSubscriptions = [];
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        // Check each manual subscription for expiration
+        for (const sub of activeManualSubscriptions) {
+            try {
+                const billingDate = new Date(sub.next_billing_date);
+                billingDate.setHours(0, 0, 0, 0);
+
+                // If billing date has passed, mark as cancelled
+                if (billingDate < today) {
+                    const updateStmt = db.prepare(`
+                        UPDATE subscriptions
+                        SET status = 'cancelled', updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    `);
+
+                    const updateResult = updateStmt.run(sub.id);
+
+                    if (updateResult.changes > 0) {
+                        processed++;
+                        expiredSubscriptions.push({
+                            id: sub.id,
+                            name: sub.name,
+                            expiredDate: sub.next_billing_date
+                        });
+                    } else {
+                        errors++;
+                    }
+                }
+            } catch (error) {
+                console.error(`Error processing expiration for subscription ${sub.id}:`, error);
+                errors++;
+            }
+        }
+
+        res.json({
+            message: `Expired subscriptions processed: ${processed} expired, ${errors} errors`,
+            processed,
+            errors,
+            expiredSubscriptions
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// POST to manually renew a subscription (Protected)
+protectedApiRouter.post('/subscriptions/:id/manual-renew', (req, res) => {
+    try {
+        const { id } = req.params;
+
+        // Get the subscription
+        const getStmt = db.prepare('SELECT * FROM subscriptions WHERE id = ?');
+        const subscription = getStmt.get(id);
+
+        if (!subscription) {
+            return res.status(404).json({ error: 'Subscription not found' });
+        }
+
+        if (subscription.renewal_type !== 'manual') {
+            return res.status(400).json({ error: 'Only manual renewal subscriptions can be manually renewed' });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const todayStr = today.toISOString().split('T')[0];
+
+        const currentNextBilling = new Date(subscription.next_billing_date);
+        currentNextBilling.setHours(0, 0, 0, 0);
+
+        let newNextBilling;
+
+        // If renewing before the due date, calculate from the original due date
+        // If renewing after the due date, calculate from today
+        const baseDate = currentNextBilling >= today ? currentNextBilling : today;
+
+        switch (subscription.billing_cycle) {
+            case 'monthly':
+                newNextBilling = new Date(baseDate);
+                newNextBilling.setMonth(newNextBilling.getMonth() + 1);
+                break;
+            case 'yearly':
+                newNextBilling = new Date(baseDate);
+                newNextBilling.setFullYear(newNextBilling.getFullYear() + 1);
+                break;
+            case 'quarterly':
+                newNextBilling = new Date(baseDate);
+                newNextBilling.setMonth(newNextBilling.getMonth() + 3);
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid billing cycle' });
+        }
+
+        const newNextBillingStr = newNextBilling.toISOString().split('T')[0];
+
+        // Update subscription
+        const updateStmt = db.prepare(`
+            UPDATE subscriptions
+            SET last_billing_date = ?, next_billing_date = ?, status = 'active', updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `);
+
+        const updateResult = updateStmt.run(todayStr, newNextBillingStr, id);
+
+        if (updateResult.changes > 0) {
+            res.json({
+                message: 'Subscription renewed successfully',
+                renewalData: {
+                    id: subscription.id,
+                    name: subscription.name,
+                    oldNextBilling: subscription.next_billing_date,
+                    newLastBilling: todayStr,
+                    newNextBilling: newNextBillingStr,
+                    renewedEarly: currentNextBilling >= today
+                }
+            });
+        } else {
+            res.status(500).json({ error: 'Failed to update subscription' });
+        }
 
     } catch (error) {
         res.status(500).json({ error: error.message });
