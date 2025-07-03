@@ -1,7 +1,6 @@
 import {
   Calendar,
   CreditCard,
-  ExternalLink,
   MoreVertical,
   Pencil,
   Trash2,
@@ -20,11 +19,10 @@ import {
 } from "@/lib/subscription-utils"
 import { formatWithUserCurrency } from "@/utils/currency"
 
-import { 
-  Card, 
-  CardContent, 
-  CardFooter, 
-  CardHeader 
+import {
+  Card,
+  CardContent,
+  CardHeader
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -41,6 +39,7 @@ interface SubscriptionCardProps {
   onDelete: (id: number) => void
   onStatusChange: (id: number, status: 'active' | 'cancelled') => void
   onManualRenew?: (id: number) => void
+  onViewDetails?: (subscription: Subscription) => void
 }
 
 export function SubscriptionCard({
@@ -48,7 +47,8 @@ export function SubscriptionCard({
   onEdit,
   onDelete,
   onStatusChange,
-  onManualRenew
+  onManualRenew,
+  onViewDetails
 }: SubscriptionCardProps) {
   const {
     id,
@@ -101,7 +101,10 @@ export function SubscriptionCard({
   }
 
   return (
-    <Card className="w-full">
+    <Card
+      className="w-full cursor-pointer hover:shadow-md transition-shadow"
+      onClick={() => onViewDetails?.(subscription)}
+    >
       <CardHeader className="pb-2 flex flex-row items-start justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -114,7 +117,12 @@ export function SubscriptionCard({
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={(e) => e.stopPropagation()}
+            >
               <MoreVertical className="h-4 w-4" />
               <span className="sr-only">Open menu</span>
             </Button>
@@ -146,7 +154,7 @@ export function SubscriptionCard({
         </DropdownMenu>
       </CardHeader>
       
-      <CardContent className="pb-2 flex-1 flex flex-col">
+      <CardContent className="flex-1 flex flex-col">
         <div className="flex justify-between items-center mb-2">
           <div className="font-medium">{formatWithUserCurrency(amount, currency)}</div>
           <Badge variant={getBillingCycleBadgeVariant()}>
@@ -188,33 +196,7 @@ export function SubscriptionCard({
         </div>
       </CardContent>
 
-      <CardFooter className="flex-shrink-0 flex-col gap-2">
-        {/* Manual renewal button for manual renewal subscriptions */}
-        {renewalType === 'manual' && status === 'active' && onManualRenew && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => onManualRenew(id)}
-          >
-            <RotateCcw className="mr-2 h-4 w-4" />
-            Renew Now
-          </Button>
-        )}
 
-        {/* Website link */}
-        {website && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start px-2 text-muted-foreground"
-            onClick={() => window.open(website, '_blank')}
-          >
-            <ExternalLink className="mr-2 h-4 w-4" />
-            Visit website
-          </Button>
-        )}
-      </CardFooter>
     </Card>
   )
 }

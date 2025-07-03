@@ -41,6 +41,7 @@ import { exportSubscriptionsToCSV } from "@/lib/subscription-utils"
 
 import { SubscriptionCard } from "@/components/subscription/SubscriptionCard"
 import { SubscriptionForm } from "@/components/subscription/SubscriptionForm"
+import { SubscriptionDetailDialog } from "@/components/subscription/SubscriptionDetailDialog"
 import { ImportModal } from "@/components/imports/ImportModal"
 
 export function SubscriptionsPage() {
@@ -54,6 +55,7 @@ export function SubscriptionsPage() {
   const [categoryFilterOpen, setCategoryFilterOpen] = useState(false)
   const [billingCycleFilterOpen, setBillingCycleFilterOpen] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [detailSubscription, setDetailSubscription] = useState<Subscription | null>(null)
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
 
   const { fetchSettings } = useSettingsStore()
@@ -646,7 +648,36 @@ export function SubscriptionsPage() {
       )}
 
       {/* Subscriptions Grid */}
-      {sortedSubscriptions.length === 0 ? (
+      {isLoading ? (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Loading skeleton cards */}
+          {Array.from({ length: 6 }).map((_, index) => (
+            <div key={index} className="rounded-xl border bg-card shadow animate-pulse">
+              <div className="p-6 pb-2">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="space-y-2">
+                    <div className="h-5 bg-muted rounded w-24"></div>
+                    <div className="h-4 bg-muted rounded w-16"></div>
+                  </div>
+                  <div className="h-6 bg-muted rounded w-16"></div>
+                </div>
+              </div>
+              <div className="px-6 pb-6 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="h-6 bg-muted rounded w-20"></div>
+                  <div className="h-5 bg-muted rounded w-16"></div>
+                </div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded w-32"></div>
+                  <div className="h-4 bg-muted rounded w-40"></div>
+                  <div className="h-4 bg-muted rounded w-28"></div>
+                  <div className="h-4 bg-muted rounded w-36"></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : sortedSubscriptions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Calendar className="h-12 w-12 text-muted-foreground opacity-50 mb-4" />
           <h3 className="text-lg font-medium mb-1">No subscriptions found</h3>
@@ -679,6 +710,7 @@ export function SubscriptionsPage() {
               onDelete={() => handleDeleteSubscription(subscription.id)}
               onStatusChange={handleStatusChange}
               onManualRenew={handleManualRenew}
+              onViewDetails={(subscription) => setDetailSubscription(subscription)}
             />
           ))}
         </div>
@@ -698,6 +730,24 @@ export function SubscriptionsPage() {
           ? (data) => handleUpdateSubscription(editingSubscription.id, data)
           : handleAddSubscription
         }
+      />
+
+      <SubscriptionDetailDialog
+        subscription={detailSubscription}
+        open={detailSubscription !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailSubscription(null)
+          }
+        }}
+        onEdit={(id) => {
+          const subscription = subscriptions.find(s => s.id === id)
+          if (subscription) {
+            setEditingSubscription(subscription)
+            setDetailSubscription(null)
+          }
+        }}
+        onManualRenew={handleManualRenew}
       />
 
       <ImportModal
