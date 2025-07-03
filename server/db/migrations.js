@@ -19,6 +19,16 @@ class DatabaseMigrations {
         version: 3,
         name: 'add_renewal_type_to_subscriptions',
         up: () => this.migration_003_add_renewal_type_to_subscriptions()
+      },
+      {
+        version: 4,
+        name: 'create_payment_history_table',
+        up: () => this.migration_004_create_payment_history_table()
+      },
+      {
+        version: 5,
+        name: 'migrate_existing_subscriptions_to_payment_history',
+        up: () => this.migration_005_migrate_existing_subscriptions_to_payment_history()
       }
     ];
   }
@@ -202,6 +212,152 @@ class DatabaseMigrations {
     `);
 
     console.log('✅ renewal_type field added successfully');
+  }
+
+  // Migration 004: Create payment_history table
+  migration_004_create_payment_history_table() {
+    console.log('📝 Creating payment_history table');
+
+    // Create payment_history table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS payment_history (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        subscription_id INTEGER NOT NULL,
+        payment_date DATE NOT NULL,
+        amount_paid DECIMAL(10, 2) NOT NULL,
+        currency TEXT NOT NULL,
+        billing_period_start DATE NOT NULL,
+        billing_period_end DATE NOT NULL,
+        status TEXT NOT NULL DEFAULT 'succeeded' CHECK (status IN ('succeeded', 'failed', 'refunded')),
+        notes TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (subscription_id) REFERENCES subscriptions (id) ON DELETE CASCADE
+      )
+    `);
+
+    // Create indexes for better performance
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_payment_history_subscription_id
+      ON payment_history (subscription_id)
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_payment_history_payment_date
+      ON payment_history (payment_date)
+    `);
+
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_payment_history_billing_period
+      ON payment_history (billing_period_start, billing_period_end)
+    `);
+
+    console.log('✅ Created payment_history table with indexes');
+  }
+
+  // Migration 005: Migrate existing subscriptions to payment_history
+  migration_005_migrate_existing_subscriptions_to_payment_history() {
+    console.log('📝 Migrating existing subscriptions to payment_history...');
+
+    // Get all existing subscriptions
+    const subscriptions = this.db.prepare(`
+      SELECT id, start_date, billing_cycle, amount, currency, last_billing_date, status
+      FROM subscriptions
+      WHERE start_date IS NOT NULL
+    `).all();
+
+    console.log(`Found ${subscriptions.length} subscriptions to migrate`);
+
+    const insertPayment = this.db.prepare(`
+      INSERT INTO payment_history (
+        subscription_id, payment_date, amount_paid, currency,
+        billing_period_start, billing_period_end, status, notes
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    let migratedCount = 0;
+
+    for (const sub of subscriptions) {
+      try {
+        const payments = this.generateHistoricalPayments(sub);
+
+        for (const payment of payments) {
+          insertPayment.run(
+            sub.id,
+            payment.payment_date,
+            sub.amount,
+            sub.currency,
+            payment.billing_period_start,
+            payment.billing_period_end,
+            'succeeded',
+            'Migrated from existing subscription data'
+          );
+          migratedCount++;
+        }
+      } catch (error) {
+        console.error(`Error migrating subscription ${sub.id}:`, error);
+      }
+    }
+
+    console.log(`✅ Migrated ${migratedCount} payment records for ${subscriptions.length} subscriptions`);
+  }
+
+  // Helper method to generate historical payments based on subscription data
+  generateHistoricalPayments(subscription) {
+    const payments = [];
+    const startDate = new Date(subscription.start_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // If subscription is cancelled and has no last_billing_date, only create initial payment
+    if (subscription.status === 'cancelled' && !subscription.last_billing_date) {
+      const billingPeriodEnd = this.calculateNextBillingDate(startDate, subscription.billing_cycle);
+      payments.push({
+        payment_date: startDate.toISOString().split('T')[0],
+        billing_period_start: startDate.toISOString().split('T')[0],
+        billing_period_end: billingPeriodEnd.toISOString().split('T')[0]
+      });
+      return payments;
+    }
+
+    // Generate payments from start_date to last_billing_date or today
+    let currentDate = new Date(startDate);
+    const endDate = subscription.last_billing_date ?
+      new Date(subscription.last_billing_date) : today;
+
+    while (currentDate <= endDate) {
+      const nextBillingDate = this.calculateNextBillingDate(currentDate, subscription.billing_cycle);
+
+      payments.push({
+        payment_date: currentDate.toISOString().split('T')[0],
+        billing_period_start: currentDate.toISOString().split('T')[0],
+        billing_period_end: nextBillingDate.toISOString().split('T')[0]
+      });
+
+      currentDate = new Date(nextBillingDate);
+    }
+
+    return payments;
+  }
+
+  // Helper method to calculate next billing date
+  calculateNextBillingDate(date, billingCycle) {
+    const nextDate = new Date(date);
+
+    switch (billingCycle) {
+      case 'monthly':
+        nextDate.setMonth(nextDate.getMonth() + 1);
+        break;
+      case 'yearly':
+        nextDate.setFullYear(nextDate.getFullYear() + 1);
+        break;
+      case 'quarterly':
+        nextDate.setMonth(nextDate.getMonth() + 3);
+        break;
+      default:
+        throw new Error(`Unknown billing cycle: ${billingCycle}`);
+    }
+
+    return nextDate;
   }
 
   close() {
