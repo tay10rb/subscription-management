@@ -139,9 +139,12 @@ interface SubscriptionState {
   fetchPaymentMethods: () => Promise<void>
 
   // Renewal operations
-  processAutoRenewals: () => Promise<{ processed: number; errors: number }>
-  processExpiredSubscriptions: () => Promise<{ processed: number; errors: number }>
+  processAutoRenewals: (skipRefresh?: boolean) => Promise<{ processed: number; errors: number }>
+  processExpiredSubscriptions: (skipRefresh?: boolean) => Promise<{ processed: number; errors: number }>
   manualRenewSubscription: (id: number) => Promise<{ error: any | null; renewalData: any | null }>
+
+  // Combined initialization
+  initializeWithRenewals: () => Promise<void>
 
   // Option management
   addCategory: (category: CategoryOption) => Promise<void>
@@ -787,7 +790,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       },
 
       // Process automatic renewals for subscriptions that are due
-      processAutoRenewals: async () => {
+      processAutoRenewals: async (skipRefresh = false) => {
         try {
           const response = await fetch(`${API_BASE_URL}/subscriptions/auto-renew`, {
             method: 'POST',
@@ -800,8 +803,10 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
           const result = await response.json()
 
-          // Refresh subscriptions to get updated data
-          await get().fetchSubscriptions()
+          // Only refresh subscriptions if not skipped and there were changes
+          if (!skipRefresh && result.processed > 0) {
+            await get().fetchSubscriptions()
+          }
 
           return { processed: result.processed, errors: result.errors }
         } catch (error: any) {
@@ -811,7 +816,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       },
 
       // Process expired manual subscriptions
-      processExpiredSubscriptions: async () => {
+      processExpiredSubscriptions: async (skipRefresh = false) => {
         try {
           const response = await fetch(`${API_BASE_URL}/subscriptions/process-expired`, {
             method: 'POST',
@@ -824,8 +829,10 @@ export const useSubscriptionStore = create<SubscriptionState>()(
 
           const result = await response.json()
 
-          // Refresh subscriptions to get updated data
-          await get().fetchSubscriptions()
+          // Only refresh subscriptions if not skipped and there were changes
+          if (!skipRefresh && result.processed > 0) {
+            await get().fetchSubscriptions()
+          }
 
           return { processed: result.processed, errors: result.errors }
         } catch (error: any) {
@@ -856,6 +863,43 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         } catch (error: any) {
           console.error('Error renewing subscription:', error)
           return { error: error.message, renewalData: null }
+        }
+      },
+
+      // Combined initialization method to reduce API calls
+      initializeWithRenewals: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          // First fetch subscriptions
+          await get().fetchSubscriptions()
+
+          // Then process renewals without additional fetches
+          const [autoRenewalResult, expiredResult] = await Promise.all([
+            get().processAutoRenewals(true), // Skip refresh
+            get().processExpiredSubscriptions(true) // Skip refresh
+          ])
+
+          // Only fetch once more if there were any changes
+          if (autoRenewalResult.processed > 0 || expiredResult.processed > 0) {
+            await get().fetchSubscriptions()
+
+            if (autoRenewalResult.processed > 0) {
+              console.log(`Auto-renewed ${autoRenewalResult.processed} subscription(s)`)
+            }
+            if (expiredResult.processed > 0) {
+              console.log(`Cancelled ${expiredResult.processed} expired subscription(s)`)
+            }
+          }
+
+          if (autoRenewalResult.errors > 0) {
+            console.warn(`Failed to auto-renew ${autoRenewalResult.errors} subscription(s)`)
+          }
+          if (expiredResult.errors > 0) {
+            console.warn(`Failed to cancel ${expiredResult.errors} expired subscription(s)`)
+          }
+        } catch (error: any) {
+          console.error('Error during initialization:', error)
+          set({ error: error.message, isLoading: false })
         }
       }
     }),

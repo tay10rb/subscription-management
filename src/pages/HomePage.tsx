@@ -38,7 +38,7 @@ function HomePage() {
     getUpcomingRenewals,
     getRecentlyPaid,
     getSpendingByCategory,
-    processAutoRenewals,
+    initializeWithRenewals,
     isLoading
   } = useSubscriptionStore()
 
@@ -47,26 +47,11 @@ function HomePage() {
   const [yearlySpending, setYearlySpending] = useState<number>(0)
   const [isLoadingSpending, setIsLoadingSpending] = useState(false)
 
-  // Fetch subscriptions when component mounts
+  // Initialize subscriptions and process renewals
   useEffect(() => {
     const initializeData = async () => {
-      await fetchSubscriptions()
       await fetchSettings()
-
-      // Process auto-renewals after fetching subscriptions
-      try {
-        const result = await processAutoRenewals()
-        if (result.processed > 0) {
-          console.log(`Auto-renewed ${result.processed} subscription(s)`)
-          // Refresh subscriptions after auto-renewal
-          await fetchSubscriptions()
-        }
-        if (result.errors > 0) {
-          console.warn(`Failed to auto-renew ${result.errors} subscription(s)`)
-        }
-      } catch (error) {
-        console.error('Error processing auto-renewals:', error)
-      }
+      await initializeWithRenewals()
     }
 
     initializeData()

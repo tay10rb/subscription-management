@@ -69,43 +69,16 @@ export function SubscriptionsPage() {
     deleteSubscription,
     fetchSubscriptions,
     getUniqueCategories,
-    processAutoRenewals,
-    processExpiredSubscriptions,
+    initializeWithRenewals,
     manualRenewSubscription,
     isLoading
   } = useSubscriptionStore()
 
-  // Fetch subscriptions when component mounts
+  // Initialize subscriptions and process renewals
   useEffect(() => {
     const initializeData = async () => {
-      await fetchSubscriptions()
       await fetchSettings()
-
-      // Process auto-renewals and expired subscriptions after fetching
-      try {
-        const autoRenewalResult = await processAutoRenewals()
-        if (autoRenewalResult.processed > 0) {
-          console.log(`Auto-renewed ${autoRenewalResult.processed} subscription(s)`)
-        }
-        if (autoRenewalResult.errors > 0) {
-          console.warn(`Failed to auto-renew ${autoRenewalResult.errors} subscription(s)`)
-        }
-
-        const expiredResult = await processExpiredSubscriptions()
-        if (expiredResult.processed > 0) {
-          console.log(`Cancelled ${expiredResult.processed} expired subscription(s)`)
-        }
-        if (expiredResult.errors > 0) {
-          console.warn(`Failed to cancel ${expiredResult.errors} expired subscription(s)`)
-        }
-
-        // Refresh subscriptions after processing
-        if (autoRenewalResult.processed > 0 || expiredResult.processed > 0) {
-          await fetchSubscriptions()
-        }
-      } catch (error) {
-        console.error('Error processing renewals:', error)
-      }
+      await initializeWithRenewals()
     }
 
     initializeData()
