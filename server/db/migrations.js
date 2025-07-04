@@ -29,6 +29,11 @@ class DatabaseMigrations {
         version: 5,
         name: 'migrate_existing_subscriptions_to_payment_history',
         up: () => this.migration_005_migrate_existing_subscriptions_to_payment_history()
+      },
+      {
+        version: 6,
+        name: 'create_monthly_expenses_table',
+        up: () => this.migration_006_create_monthly_expenses_table()
       }
     ];
   }
@@ -358,6 +363,63 @@ class DatabaseMigrations {
     }
 
     return nextDate;
+  }
+
+  // Migration 006: Create monthly_expenses table
+  migration_006_create_monthly_expenses_table() {
+    console.log('📝 Creating monthly_expenses table');
+
+    // Create monthly_expenses table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS monthly_expenses (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        month_key TEXT NOT NULL UNIQUE,
+        year INTEGER NOT NULL,
+        month INTEGER NOT NULL,
+        payment_history_ids TEXT NOT NULL DEFAULT '[]',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes for better performance
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_monthly_expenses_month_key ON monthly_expenses(month_key);
+      CREATE INDEX IF NOT EXISTS idx_monthly_expenses_year_month ON monthly_expenses(year, month);
+    `);
+
+    // Get all supported currencies from exchange_rates table
+    const currencies = this.db.prepare(`
+      SELECT DISTINCT to_currency FROM exchange_rates
+      WHERE from_currency = 'USD'
+      ORDER BY to_currency
+    `).all();
+
+    // Add currency columns dynamically
+    for (const currency of currencies) {
+      const columnName = `amount_${currency.to_currency.toLowerCase()}`;
+      try {
+        this.db.exec(`ALTER TABLE monthly_expenses ADD COLUMN ${columnName} DECIMAL(15, 2) DEFAULT 0.00`);
+        console.log(`✅ Added column: ${columnName}`);
+      } catch (error) {
+        // Column might already exist, ignore error
+        if (!error.message.includes('duplicate column name')) {
+          console.warn(`⚠️ Warning adding column ${columnName}:`, error.message);
+        }
+      }
+    }
+
+    // Create trigger to automatically update updated_at timestamp
+    this.db.exec(`
+      CREATE TRIGGER IF NOT EXISTS monthly_expenses_updated_at
+      AFTER UPDATE ON monthly_expenses
+      FOR EACH ROW
+      BEGIN
+        UPDATE monthly_expenses SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+      END
+    `);
+
+    console.log('✅ Monthly expenses table created successfully');
   }
 
   close() {

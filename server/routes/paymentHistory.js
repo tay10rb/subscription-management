@@ -1,4 +1,6 @@
 const express = require('express');
+const MonthlyExpenseUpdater = require('../utils/monthlyExpenseUpdater');
+const logger = require('../utils/logger');
 
 function createPaymentHistoryRoutes(db) {
     const router = express.Router();
@@ -230,6 +232,25 @@ function createProtectedPaymentHistoryRoutes(db) {
                 billing_period_start, billing_period_end, status, notes
             );
 
+            // Update monthly expenses if payment is successful
+            if (status === 'succeeded') {
+                try {
+                    const monthlyExpenseUpdater = new MonthlyExpenseUpdater(db.name);
+                    monthlyExpenseUpdater.handlePaymentInsert(info.lastInsertRowid)
+                        .then(() => {
+                            logger.info(`Monthly expenses updated for new payment ${info.lastInsertRowid}`);
+                        })
+                        .catch(error => {
+                            logger.error(`Failed to update monthly expenses for payment ${info.lastInsertRowid}:`, error.message);
+                        })
+                        .finally(() => {
+                            monthlyExpenseUpdater.close();
+                        });
+                } catch (error) {
+                    logger.error('Failed to initialize monthly expense updater:', error.message);
+                }
+            }
+
             res.status(201).json({
                 id: info.lastInsertRowid,
                 message: 'Payment history record created successfully'
@@ -254,8 +275,8 @@ function createProtectedPaymentHistoryRoutes(db) {
                 notes
             } = req.body;
 
-            // Check if payment record exists
-            const checkStmt = db.prepare('SELECT id FROM payment_history WHERE id = ?');
+            // Check if payment record exists and get current status
+            const checkStmt = db.prepare('SELECT id, status FROM payment_history WHERE id = ?');
             const existingPayment = checkStmt.get(id);
 
             if (!existingPayment) {
@@ -320,6 +341,26 @@ function createProtectedPaymentHistoryRoutes(db) {
             const result = stmt.run(...params);
 
             if (result.changes > 0) {
+                // Update monthly expenses if status changed or other relevant fields changed
+                try {
+                    const monthlyExpenseUpdater = new MonthlyExpenseUpdater(db.name);
+                    const oldStatus = existingPayment.status;
+                    const newStatus = status !== undefined ? status : oldStatus;
+
+                    monthlyExpenseUpdater.handlePaymentUpdate(parseInt(id), oldStatus, newStatus)
+                        .then(() => {
+                            logger.info(`Monthly expenses updated for payment ${id}`);
+                        })
+                        .catch(error => {
+                            logger.error(`Failed to update monthly expenses for payment ${id}:`, error.message);
+                        })
+                        .finally(() => {
+                            monthlyExpenseUpdater.close();
+                        });
+                } catch (error) {
+                    logger.error('Failed to initialize monthly expense updater:', error.message);
+                }
+
                 res.json({ message: 'Payment history record updated successfully' });
             } else {
                 res.status(500).json({ error: 'Failed to update payment record' });
@@ -339,6 +380,23 @@ function createProtectedPaymentHistoryRoutes(db) {
             const result = stmt.run(id);
 
             if (result.changes > 0) {
+                // Update monthly expenses after deletion
+                try {
+                    const monthlyExpenseUpdater = new MonthlyExpenseUpdater(db.name);
+                    monthlyExpenseUpdater.handlePaymentDelete(parseInt(id))
+                        .then(() => {
+                            logger.info(`Monthly expenses updated after deleting payment ${id}`);
+                        })
+                        .catch(error => {
+                            logger.error(`Failed to update monthly expenses after deleting payment ${id}:`, error.message);
+                        })
+                        .finally(() => {
+                            monthlyExpenseUpdater.close();
+                        });
+                } catch (error) {
+                    logger.error('Failed to initialize monthly expense updater:', error.message);
+                }
+
                 res.json({ message: 'Payment history record deleted successfully' });
             } else {
                 res.status(404).json({ error: 'Payment record not found' });

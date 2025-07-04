@@ -380,6 +380,216 @@ Delete a payment history record.
 
 ---
 
+## Monthly Expenses
+
+### GET /monthly-expenses
+Get monthly expense data with optional filters.
+
+**Query Parameters:**
+- `start_year` (optional): Start year (default: current year)
+- `start_month` (optional): Start month 1-12 (default: 1)
+- `end_year` (optional): End year (default: current year)
+- `end_month` (optional): End month 1-12 (default: 12)
+- `currency` (optional): Return only specific currency amount
+
+**Response:**
+```json
+{
+  "expenses": [
+    {
+      "id": 28,
+      "monthKey": "202506",
+      "year": 2025,
+      "month": 6,
+      "paymentHistoryIds": [38, 2, 1, 11, 35, 9],
+      "amounts": {
+        "AUD": 25.02,
+        "CAD": 22.33,
+        "CNY": 170.22,
+        "EUR": 13.98,
+        "GBP": 12.04,
+        "JPY": 2383.51,
+        "USD": 23.77
+      },
+      "createdAt": "2025-07-03T23:45:56.000Z",
+      "updatedAt": "2025-07-03T23:45:57.000Z"
+    }
+  ],
+  "summary": {
+    "totalRecords": 1,
+    "dateRange": {
+      "startYear": 2025,
+      "startMonth": 6,
+      "endYear": 2025,
+      "endMonth": 6
+    },
+    "currency": "ALL"
+  }
+}
+```
+
+**With specific currency:**
+```bash
+GET /monthly-expenses?start_year=2025&start_month=6&end_month=6&currency=USD
+```
+
+**Response:**
+```json
+{
+  "expenses": [
+    {
+      "id": 28,
+      "monthKey": "202506",
+      "year": 2025,
+      "month": 6,
+      "paymentHistoryIds": [38, 2, 1, 11, 35, 9],
+      "amount": 23.77,
+      "currency": "USD",
+      "createdAt": "2025-07-03T23:45:56.000Z",
+      "updatedAt": "2025-07-03T23:45:57.000Z"
+    }
+  ],
+  "summary": {
+    "totalRecords": 1,
+    "dateRange": {
+      "startYear": 2025,
+      "startMonth": 6,
+      "endYear": 2025,
+      "endMonth": 6
+    },
+    "currency": "USD"
+  }
+}
+```
+
+### GET /monthly-expenses/:monthKey
+Get detailed monthly expense data for a specific month.
+
+**Parameters:**
+- `monthKey` (path): Month key in format YYYYMM (e.g., "202506")
+
+**Response:**
+```json
+{
+  "id": 28,
+  "monthKey": "202506",
+  "year": 2025,
+  "month": 6,
+  "paymentHistoryIds": [38, 2, 1, 11, 35, 9],
+  "amounts": {
+    "AUD": 25.02,
+    "CAD": 22.33,
+    "CNY": 170.22,
+    "EUR": 13.98,
+    "GBP": 12.04,
+    "JPY": 2383.51,
+    "USD": 23.77
+  },
+  "paymentDetails": [
+    {
+      "id": 38,
+      "subscriptionId": 19,
+      "subscriptionName": "Spotify",
+      "subscriptionPlan": "Premium",
+      "paymentDate": "2024-10-15",
+      "amountPaid": 9.99,
+      "currency": "USD",
+      "billingPeriod": {
+        "start": "2024-10-15",
+        "end": "2025-10-15"
+      },
+      "status": "succeeded"
+    }
+  ],
+  "createdAt": "2025-07-03T23:45:56.000Z",
+  "updatedAt": "2025-07-03T23:45:57.000Z"
+}
+```
+
+### GET /monthly-expenses/summary/totals
+Get monthly expenses summary and totals.
+
+**Query Parameters:**
+- `start_year` (optional): Start year (default: current year)
+- `start_month` (optional): Start month 1-12 (default: 1)
+- `end_year` (optional): End year (default: current year)
+- `end_month` (optional): End month 1-12 (default: 12)
+- `currency` (optional): Currency for calculations (default: USD)
+
+**Response:**
+```json
+{
+  "summary": {
+    "totalAmount": 285.24,
+    "currency": "USD",
+    "monthCount": 12,
+    "averageMonthly": 23.77,
+    "dateRange": {
+      "startYear": 2025,
+      "startMonth": 1,
+      "endYear": 2025,
+      "endMonth": 12
+    }
+  },
+  "monthlyTotals": [
+    {
+      "monthKey": "202501",
+      "year": 2025,
+      "month": 1,
+      "amount": 16.42,
+      "paymentCount": 7
+    },
+    {
+      "monthKey": "202502",
+      "year": 2025,
+      "month": 2,
+      "amount": 18.95,
+      "paymentCount": 5
+    }
+  ]
+}
+```
+
+### POST /monthly-expenses/recalculate 🔒
+Recalculate all monthly expense data from payment history.
+
+**Response:**
+```json
+{
+  "message": "Monthly expenses recalculated successfully",
+  "timestamp": "2025-07-04T00:00:00.000Z"
+}
+```
+
+### POST /monthly-expenses/process-payment/:paymentId 🔒
+Process a specific payment for monthly expenses calculation.
+
+**Parameters:**
+- `paymentId` (path): Payment history record ID
+
+**Response:**
+```json
+{
+  "message": "Payment 123 processed for monthly expenses",
+  "timestamp": "2025-07-04T00:00:00.000Z"
+}
+```
+
+### DELETE /monthly-expenses/:monthKey 🔒
+Delete a monthly expense record.
+
+**Parameters:**
+- `monthKey` (path): Month key in format YYYYMM
+
+**Response:**
+```json
+{
+  "message": "Monthly expense record deleted successfully"
+}
+```
+
+---
+
 ## Analytics
 
 ### GET /analytics/monthly-revenue
@@ -785,6 +995,12 @@ Delete a payment method.
 - The API automatically calculates `last_billing_date` when creating or updating subscriptions
 - Payment history records are automatically created for subscription renewals and reactivations
 - Exchange rates are updated daily at 2:00 AM CST using the TianAPI service
+- Monthly expenses are automatically calculated and updated when payment history changes
+- Monthly expenses support prorated calculations for different billing cycles:
+  - **Monthly subscriptions**: Allocated to the payment date month
+  - **Quarterly subscriptions**: Prorated across 3 months from billing period start
+  - **Yearly subscriptions**: Prorated across 12 months from billing period start
+- All currency amounts in monthly expenses are automatically converted using current exchange rates
 
 ---
 
@@ -815,4 +1031,27 @@ curl -X POST http://localhost:3001/api/subscriptions \
 
 ```bash
 curl "http://localhost:3001/api/analytics/monthly-revenue?start_date=2025-01-01&end_date=2025-12-31&currency=USD"
+```
+
+### Getting Monthly Expenses
+
+```bash
+# Get monthly expenses for 2025
+curl "http://localhost:3001/api/monthly-expenses?start_year=2025&start_month=1&end_month=12"
+
+# Get monthly expenses in USD only
+curl "http://localhost:3001/api/monthly-expenses?start_year=2025&currency=USD"
+
+# Get specific month details
+curl "http://localhost:3001/api/monthly-expenses/202506"
+
+# Get monthly expenses summary
+curl "http://localhost:3001/api/monthly-expenses/summary/totals?start_year=2025&currency=USD"
+```
+
+### Recalculating Monthly Expenses
+
+```bash
+curl -X POST http://localhost:3001/protected-api/monthly-expenses/recalculate \
+  -H "X-API-KEY: your-api-key"
 ```
