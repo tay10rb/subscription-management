@@ -107,6 +107,7 @@ export function ImportModal({
               startDate: sub.startDate,
               status: sub.status,
               category: sub.category,
+              renewalType: sub.renewalType || 'manual',
               notes: sub.notes,
               website: sub.website,
             })))
@@ -124,6 +125,7 @@ export function ImportModal({
                 startDate: sub.startDate || new Date().toISOString().split('T')[0],
                 status: sub.status || 'active',
                 category: sub.category || 'other',
+                renewalType: sub.renewalType || 'manual',
                 notes: sub.notes || '',
                 website: sub.website || '',
               })))
@@ -143,6 +145,7 @@ export function ImportModal({
               startDate: sub.startDate || new Date().toISOString().split('T')[0],
               status: sub.status || 'active',
               category: sub.category || 'other',
+              renewalType: sub.renewalType || 'manual',
               notes: sub.notes || '',
               website: sub.website || '',
             })))
