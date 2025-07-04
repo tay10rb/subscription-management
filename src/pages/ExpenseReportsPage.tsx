@@ -45,7 +45,7 @@ export function ExpenseReportsPage() {
     }
 
     initializeData()
-  }, [fetchSubscriptions, fetchCategories, fetchSettings])
+  }, []) // Remove dependencies to prevent infinite re-renders
 
   // Get date range presets
   const dateRangePresets = getDateRangePresets()

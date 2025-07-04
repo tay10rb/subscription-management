@@ -70,7 +70,7 @@ function HomePage() {
     }
 
     initializeData()
-  }, [fetchSubscriptions, fetchSettings])
+  }, []) // Remove dependencies to prevent infinite re-renders
 
   // Load spending data from API
   useEffect(() => {

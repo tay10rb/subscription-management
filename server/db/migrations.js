@@ -3,6 +3,7 @@ const path = require('path');
 
 class DatabaseMigrations {
   constructor(dbPath) {
+    this.dbPath = dbPath;
     this.db = new Database(dbPath);
     this.migrations = [
       {
@@ -34,6 +35,11 @@ class DatabaseMigrations {
         version: 6,
         name: 'create_monthly_expenses_table',
         up: () => this.migration_006_create_monthly_expenses_table()
+      },
+      {
+        version: 7,
+        name: 'initialize_monthly_expenses_data',
+        up: () => this.migration_007_initialize_monthly_expenses_data()
       }
     ];
   }
@@ -420,6 +426,25 @@ class DatabaseMigrations {
     `);
 
     console.log('✅ Monthly expenses table created successfully');
+  }
+
+  // Migration 007: Initialize monthly_expenses data from payment_history
+  migration_007_initialize_monthly_expenses_data() {
+    console.log('📝 Initializing monthly_expenses data from payment_history...');
+
+    try {
+      // Import MonthlyExpenseService to use its recalculation logic
+      const MonthlyExpenseService = require('../services/monthlyExpenseService');
+      const monthlyExpenseService = new MonthlyExpenseService(this.dbPath);
+
+      // Use the existing recalculation method to populate the table
+      monthlyExpenseService.recalculateAllMonthlyExpenses();
+
+      console.log('✅ Monthly expenses data initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to initialize monthly expenses data:', error.message);
+      throw error;
+    }
   }
 
   close() {

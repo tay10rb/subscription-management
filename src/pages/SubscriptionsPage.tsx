@@ -109,7 +109,7 @@ export function SubscriptionsPage() {
     }
 
     initializeData()
-  }, [fetchSubscriptions, fetchSettings])
+  }, []) // Remove dependencies to prevent infinite re-renders
   
   // Get categories actually in use
   const usedCategories = getUniqueCategories()

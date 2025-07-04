@@ -89,7 +89,7 @@ export function SettingsPage() {
 
   useEffect(() => {
     fetchSettings()
-  }, [fetchSettings])
+  }, []) // Remove dependencies to prevent infinite re-renders
   
   // When the API key from the store changes, update the local state
   useEffect(() => {
