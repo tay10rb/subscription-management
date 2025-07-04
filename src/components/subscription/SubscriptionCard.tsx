@@ -128,23 +128,35 @@ export function SubscriptionCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onEdit(id)}>
+            <DropdownMenuItem onClick={(e) => {
+              e.stopPropagation()
+              onEdit(id)
+            }}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit
             </DropdownMenuItem>
             {status === 'active' ? (
-              <DropdownMenuItem onClick={() => onStatusChange(id, 'cancelled')}>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation()
+                onStatusChange(id, 'cancelled')
+              }}>
                 <Ban className="mr-2 h-4 w-4" />
                 Cancel
               </DropdownMenuItem>
             ) : (
-              <DropdownMenuItem onClick={() => onStatusChange(id, 'active')}>
+              <DropdownMenuItem onClick={(e) => {
+                e.stopPropagation()
+                onStatusChange(id, 'active')
+              }}>
                 <Calendar className="mr-2 h-4 w-4" />
                 Reactivate
               </DropdownMenuItem>
             )}
-            <DropdownMenuItem 
-              onClick={() => onDelete(id)}
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete(id)
+              }}
               className="text-destructive focus:text-destructive"
             >
               <Trash2 className="mr-2 h-4 w-4" />
