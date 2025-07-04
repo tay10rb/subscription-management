@@ -2,7 +2,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tool
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { formatCurrency } from "@/lib/subscription-utils"
-import { MonthlyExpense } from "@/lib/expense-analytics"
+import { MonthlyExpense } from "@/lib/expense-analytics-api"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
 interface ExpenseTrendChartProps {

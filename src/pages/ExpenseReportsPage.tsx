@@ -2,12 +2,17 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSubscriptionStore } from "@/store/subscriptionStore"
 import { useSettingsStore } from "@/store/settingsStore"
 import {
-  getMonthlyExpenses,
-  getYearlyExpenses,
   getCategoryExpenses,
-  getExpenseMetrics,
   getDateRangePresets
 } from "@/lib/expense-analytics"
+import {
+  getApiMonthlyExpenses,
+  getApiExpenseMetricsWithSubscriptions,
+  calculateYearlyExpensesFromMonthly,
+  MonthlyExpense,
+  ExpenseMetrics as ExpenseMetricsType,
+  YearlyExpense
+} from "@/lib/expense-analytics-api"
 import { ExpenseTrendChart } from "@/components/charts/ExpenseTrendChart"
 import { YearlyTrendChart } from "@/components/charts/YearlyTrendChart"
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart"
@@ -44,8 +49,10 @@ export function ExpenseReportsPage() {
 
   // Get date range presets
   const dateRangePresets = getDateRangePresets()
-  const currentDateRange = dateRangePresets.find(preset => preset.label === selectedDateRange) 
-    || dateRangePresets[2] // Default to Last 12 Months
+  const currentDateRange = useMemo(() => {
+    return dateRangePresets.find(preset => preset.label === selectedDateRange)
+      || dateRangePresets[2] // Default to Last 12 Months
+  }, [selectedDateRange])
   
   // Filter subscriptions based on selected filters
   const filteredSubscriptions = useMemo(() => {
@@ -66,26 +73,53 @@ export function ExpenseReportsPage() {
     })
   }, [subscriptions, selectedStatus, selectedCategories])
   
-  // Calculate expense data
-  const monthlyExpenses = useMemo(() => 
-    getMonthlyExpenses(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
-    [filteredSubscriptions, currentDateRange, userCurrency]
-  )
-  
+  // State for API data
+  const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([])
+  const [yearlyExpenses, setYearlyExpenses] = useState<YearlyExpense[]>([])
+  const [expenseMetrics, setExpenseMetrics] = useState<ExpenseMetricsType | null>(null)
+  const [isLoadingExpenses, setIsLoadingExpenses] = useState(false)
+  const [expenseError, setExpenseError] = useState<string | null>(null)
+
+  // Calculate category expenses (still using local calculation as it's subscription-based)
   const categoryExpenses = useMemo(() =>
     getCategoryExpenses(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
     [filteredSubscriptions, currentDateRange, userCurrency]
   )
 
-  const yearlyExpenses = useMemo(() =>
-    getYearlyExpenses(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
-    [filteredSubscriptions, currentDateRange, userCurrency]
-  )
+  // Load expense data from API
+  useEffect(() => {
+    const loadExpenseData = async () => {
+      setIsLoadingExpenses(true)
+      setExpenseError(null)
 
-  const expenseMetrics = useMemo(() =>
-    getExpenseMetrics(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
-    [filteredSubscriptions, currentDateRange, userCurrency]
-  )
+      try {
+        // Fetch monthly expenses and metrics from API
+        const monthlyData = await getApiMonthlyExpenses(currentDateRange.startDate, currentDateRange.endDate, userCurrency);
+
+        // Calculate metrics using detailed payment data
+        const metricsData = await getApiExpenseMetricsWithSubscriptions(
+          currentDateRange.startDate,
+          currentDateRange.endDate,
+          userCurrency
+        );
+
+        setMonthlyExpenses(monthlyData)
+        setExpenseMetrics(metricsData)
+
+        // Calculate yearly expenses from monthly data
+        const yearlyData = calculateYearlyExpensesFromMonthly(monthlyData)
+        setYearlyExpenses(yearlyData)
+
+      } catch (error) {
+        console.error('Failed to load expense data:', error)
+        setExpenseError(error instanceof Error ? error.message : 'Failed to load expense data')
+      } finally {
+        setIsLoadingExpenses(false)
+      }
+    }
+
+    loadExpenseData()
+  }, [currentDateRange, userCurrency])
   
   // Helper functions
   const getCategoryLabel = (categoryValue: string) => {
@@ -223,38 +257,63 @@ export function ExpenseReportsPage() {
         </CardContent>
       </Card>
 
+      {/* Loading and Error States */}
+      {isLoadingExpenses && (
+        <Card>
+          <CardContent className="flex items-center justify-center h-32">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+              <p className="text-sm text-muted-foreground">Loading expense data...</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {expenseError && (
+        <Card>
+          <CardContent className="flex items-center justify-center h-32">
+            <div className="text-center">
+              <p className="text-sm text-destructive mb-2">Failed to load expense data</p>
+              <p className="text-xs text-muted-foreground">{expenseError}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Metrics Overview */}
-      <ExpenseMetrics metrics={expenseMetrics} currency={userCurrency} />
+      {expenseMetrics && !isLoadingExpenses && (
+        <ExpenseMetrics metrics={expenseMetrics} currency={userCurrency} />
+      )}
 
       {/* Charts */}
-      <Tabs defaultValue="trends" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="trends">Trends</TabsTrigger>
-          <TabsTrigger value="categories">Categories</TabsTrigger>
-        </TabsList>
+      {!isLoadingExpenses && !expenseError && (
+        <Tabs defaultValue="trends" className="space-y-4">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="trends">Trends</TabsTrigger>
+            <TabsTrigger value="categories">Categories</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="trends" className="space-y-4">
-          <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
-            <ExpenseTrendChart
-              data={monthlyExpenses}
+          <TabsContent value="trends" className="space-y-4">
+            <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
+              <ExpenseTrendChart
+                data={monthlyExpenses}
+                currency={userCurrency}
+              />
+              <YearlyTrendChart
+                data={yearlyExpenses}
+                currency={userCurrency}
+              />
+            </div>
+          </TabsContent>
+
+          <TabsContent value="categories" className="space-y-4">
+            <CategoryPieChart
+              data={categoryExpenses}
               currency={userCurrency}
             />
-            <YearlyTrendChart
-              data={yearlyExpenses}
-              currency={userCurrency}
-            />
-          </div>
-        </TabsContent>
-
-        <TabsContent value="categories" className="space-y-4">
-          <CategoryPieChart
-            data={categoryExpenses}
-            currency={userCurrency}
-          />
-        </TabsContent>
-
-
-      </Tabs>
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   )
 }

@@ -13,6 +13,7 @@ import {
 } from "@/store/subscriptionStore"
 import { useSettingsStore } from "@/store/settingsStore"
 import { formatCurrency } from "@/lib/subscription-utils"
+import { getCurrentMonthSpending, getCurrentYearSpending } from "@/lib/expense-analytics-api"
 
 import { SubscriptionForm } from "@/components/subscription/SubscriptionForm"
 import { StatCard } from "@/components/dashboard/StatCard"
@@ -34,14 +35,17 @@ function HomePage() {
     bulkAddSubscriptions,
     updateSubscription,
     fetchSubscriptions,
-    getTotalMonthlySpending,
-    getTotalYearlySpending,
     getUpcomingRenewals,
     getRecentlyPaid,
     getSpendingByCategory,
     processAutoRenewals,
     isLoading
   } = useSubscriptionStore()
+
+  // State for API-based spending data
+  const [monthlySpending, setMonthlySpending] = useState<number>(0)
+  const [yearlySpending, setYearlySpending] = useState<number>(0)
+  const [isLoadingSpending, setIsLoadingSpending] = useState(false)
 
   // Fetch subscriptions when component mounts
   useEffect(() => {
@@ -67,10 +71,31 @@ function HomePage() {
 
     initializeData()
   }, [fetchSubscriptions, fetchSettings])
-  
 
+  // Load spending data from API
+  useEffect(() => {
+    const loadSpendingData = async () => {
+      setIsLoadingSpending(true)
 
+      try {
+        const [currentMonth, currentYear] = await Promise.all([
+          getCurrentMonthSpending(userCurrency),
+          getCurrentYearSpending(userCurrency)
+        ])
 
+        setMonthlySpending(currentMonth)
+        setYearlySpending(currentYear)
+      } catch (error) {
+        console.error('Failed to load spending data:', error)
+      } finally {
+        setIsLoadingSpending(false)
+      }
+    }
+
+    if (userCurrency) {
+      loadSpendingData()
+    }
+  }, [userCurrency])
 
   // Handler for updating subscription
   const handleUpdateSubscription = async (id: number, data: Omit<Subscription, "id" | "lastBillingDate">) => {
@@ -116,15 +141,13 @@ function HomePage() {
   };
 
 
-  
-  // Get data for dashboard
-  const monthlySpending = getTotalMonthlySpending()
-  const yearlySpending = getTotalYearlySpending()
+
+  // Get data for dashboard (non-API data)
   const upcomingRenewals = getUpcomingRenewals(7)
   const recentlyPaidSubscriptions = getRecentlyPaid(7)
   const spendingByCategory = getSpendingByCategory()
 
-  if (isLoading) {
+  if (isLoading || isLoadingSpending) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-16rem)]">
         <div className="text-center">
@@ -147,16 +170,16 @@ function HomePage() {
       {/* Dashboard Content */}
       <div className="space-y-6">
           <div className="grid gap-4 md:grid-cols-3">
-            <StatCard 
-              title="Monthly Spending" 
+            <StatCard
+              title="Monthly Spending"
               value={formatCurrency(monthlySpending, userCurrency)}
-              description="Total active subscriptions"
+              description="Current month expenses"
               icon={CreditCard}
             />
-            <StatCard 
-              title="Yearly Spending" 
+            <StatCard
+              title="Yearly Spending"
               value={formatCurrency(yearlySpending, userCurrency)}
-              description="Projected annual cost"
+              description="Current year total expenses"
               icon={DollarSign}
             />
             <StatCard 

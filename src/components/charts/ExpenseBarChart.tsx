@@ -2,7 +2,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Toolti
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { formatCurrency } from "@/lib/subscription-utils"
-import { MonthlyExpense } from "@/lib/expense-analytics"
+import { MonthlyExpense } from "@/lib/expense-analytics-api"
 
 interface ExpenseBarChartProps {
   data: MonthlyExpense[]

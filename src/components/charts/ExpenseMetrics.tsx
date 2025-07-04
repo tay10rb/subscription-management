@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/subscription-utils"
-import { ExpenseMetrics as ExpenseMetricsType } from "@/lib/expense-analytics"
+import { ExpenseMetrics as ExpenseMetricsType } from "@/lib/expense-analytics-api"
 import { 
   DollarSign, 
   TrendingUp, 

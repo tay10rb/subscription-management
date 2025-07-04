@@ -2,7 +2,7 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { formatCurrency } from "@/lib/subscription-utils"
-import { CategoryExpense } from "@/lib/expense-analytics"
+import { CategoryExpense } from "@/lib/expense-analytics-api"
 import { useSubscriptionStore } from "@/store/subscriptionStore"
 
 interface CategoryPieChartProps {
