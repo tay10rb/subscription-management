@@ -40,6 +40,11 @@ class DatabaseMigrations {
         version: 7,
         name: 'initialize_monthly_expenses_data',
         up: () => this.migration_007_initialize_monthly_expenses_data()
+      },
+      {
+        version: 8,
+        name: 'add_category_breakdown_to_monthly_expenses',
+        up: () => this.migration_008_add_category_breakdown_to_monthly_expenses()
       }
     ];
   }
@@ -443,6 +448,36 @@ class DatabaseMigrations {
       console.log('✅ Monthly expenses data initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize monthly expenses data:', error.message);
+      throw error;
+    }
+  }
+
+  // Migration 008: Add category_breakdown column to monthly_expenses table
+  migration_008_add_category_breakdown_to_monthly_expenses() {
+    console.log('📝 Adding category_breakdown column to monthly_expenses table');
+
+    try {
+      // Add category_breakdown column
+      this.db.exec(`
+        ALTER TABLE monthly_expenses
+        ADD COLUMN category_breakdown TEXT DEFAULT '{}'
+      `);
+
+      console.log('✅ Added category_breakdown column to monthly_expenses table');
+
+      // Initialize category_breakdown data for existing records
+      console.log('📝 Initializing category_breakdown data for existing records...');
+
+      // Update all existing records to have empty category_breakdown
+      this.db.exec(`
+        UPDATE monthly_expenses
+        SET category_breakdown = '{}'
+        WHERE category_breakdown IS NULL
+      `);
+
+      console.log('✅ Category breakdown data initialized successfully');
+    } catch (error) {
+      console.error('❌ Failed to add category_breakdown column:', error.message);
       throw error;
     }
   }

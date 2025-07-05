@@ -38,6 +38,7 @@ function createMonthlyExpensesRoutes(db) {
                     month: expense.month,
                     paymentHistoryIds: JSON.parse(expense.payment_history_ids || '[]'),
                     amounts: {},
+                    categoryBreakdown: {},
                     createdAt: expense.created_at,
                     updatedAt: expense.updated_at
                 };
@@ -50,11 +51,27 @@ function createMonthlyExpensesRoutes(db) {
                     }
                 });
 
+                // 解析分类明细
+                try {
+                    result.categoryBreakdown = JSON.parse(expense.category_breakdown || '{}');
+                } catch (error) {
+                    console.warn('Failed to parse category_breakdown:', error.message);
+                    result.categoryBreakdown = {};
+                }
+
                 // 如果指定了特定货币，只返回该货币
                 if (currency) {
                     const currencyKey = currency.toUpperCase();
                     result.amount = result.amounts[currencyKey] || 0;
                     result.currency = currencyKey;
+
+                    // 为分类明细也只返回指定货币
+                    Object.keys(result.categoryBreakdown).forEach(category => {
+                        if (result.categoryBreakdown[category].amounts) {
+                            result.categoryBreakdown[category].amount = result.categoryBreakdown[category].amounts[currencyKey] || 0;
+                            result.categoryBreakdown[category].currency = currencyKey;
+                        }
+                    });
                 }
 
                 return result;
@@ -100,6 +117,7 @@ function createMonthlyExpensesRoutes(db) {
                 month: expense.month,
                 paymentHistoryIds: JSON.parse(expense.payment_history_ids || '[]'),
                 amounts: {},
+                categoryBreakdown: {},
                 createdAt: expense.created_at,
                 updatedAt: expense.updated_at
             };
@@ -111,6 +129,14 @@ function createMonthlyExpensesRoutes(db) {
                     result.amounts[currencyCode] = parseFloat(expense[key]) || 0;
                 }
             });
+
+            // 解析分类明细
+            try {
+                result.categoryBreakdown = JSON.parse(expense.category_breakdown || '{}');
+            } catch (error) {
+                console.warn('Failed to parse category_breakdown:', error.message);
+                result.categoryBreakdown = {};
+            }
 
             // 获取相关的payment_history记录详情
             if (result.paymentHistoryIds.length > 0) {

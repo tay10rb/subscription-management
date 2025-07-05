@@ -212,24 +212,31 @@ class MonthlyExpenseService {
             });
         });
 
+        // 检查是否存在 category_breakdown 列
+        const hasBreakdownColumn = this.checkCategoryBreakdownColumn();
+
+        // 计算分类明细（如果支持的话）
+        const categoryBreakdown = hasBreakdownColumn ? this.calculateCategoryBreakdown(paymentData, currencies) : null;
+
         // 构建插入语句
-        const columns = ['month_key', 'year', 'month', 'payment_history_ids', ...Object.keys(currencyAmounts)];
+        const columns = ['month_key', 'year', 'month', 'payment_history_ids'];
+        const values = [monthKey, year, month, JSON.stringify(paymentData.map(p => p.paymentId))];
+
+        if (hasBreakdownColumn) {
+            columns.push('category_breakdown');
+            values.push(JSON.stringify(categoryBreakdown));
+        }
+
+        columns.push(...Object.keys(currencyAmounts));
+        values.push(...Object.values(currencyAmounts));
+
         const placeholders = columns.map(() => '?').join(', ');
-        
-        const paymentIds = JSON.stringify(paymentData.map(p => p.paymentId));
-        const values = [
-            monthKey, 
-            year, 
-            month, 
-            paymentIds,
-            ...Object.values(currencyAmounts)
-        ];
 
         const stmt = this.db.prepare(`
             INSERT INTO monthly_expenses (${columns.join(', ')})
             VALUES (${placeholders})
         `);
-        
+
         stmt.run(...values);
         logger.info(`Created monthly expense record for ${monthKey}`);
     }
@@ -280,23 +287,48 @@ class MonthlyExpenseService {
             });
         }
 
+        // 重新计算分类明细
+        const allPaymentData = [];
+        if (allPaymentIds.length > 0) {
+            const placeholders = allPaymentIds.map(() => '?').join(',');
+            const paymentsStmt = this.db.prepare(`
+                SELECT * FROM payment_history
+                WHERE id IN (${placeholders}) AND status = 'succeeded'
+            `);
+            const allPayments = paymentsStmt.all(...allPaymentIds);
+
+            // 处理所有支付记录，获取当前月份的数据
+            allPayments.forEach(payment => {
+                const processedData = this.processPaymentRecord(payment);
+                const relevantMonth = processedData.find(p => p.monthKey === existing.month_key);
+                if (relevantMonth) {
+                    allPaymentData.push(relevantMonth);
+                }
+            });
+        }
+
+        // 检查是否存在 category_breakdown 列
+        const hasBreakdownColumn = this.checkCategoryBreakdownColumn();
+        const categoryBreakdown = hasBreakdownColumn ? this.calculateCategoryBreakdown(allPaymentData, currencies) : null;
+
         // 构建更新语句
-        const setClauses = [
-            'payment_history_ids = ?',
-            ...currencies.map(currency => `amount_${currency.toLowerCase()} = ?`)
-        ];
-        
-        const values = [
-            JSON.stringify(allPaymentIds),
-            ...currencies.map(currency => currencyAmounts[`amount_${currency.toLowerCase()}`])
-        ];
+        const setClauses = ['payment_history_ids = ?'];
+        const values = [JSON.stringify(allPaymentIds)];
+
+        if (hasBreakdownColumn) {
+            setClauses.push('category_breakdown = ?');
+            values.push(JSON.stringify(categoryBreakdown));
+        }
+
+        setClauses.push(...currencies.map(currency => `amount_${currency.toLowerCase()} = ?`));
+        values.push(...currencies.map(currency => currencyAmounts[`amount_${currency.toLowerCase()}`]));
 
         const stmt = this.db.prepare(`
-            UPDATE monthly_expenses 
+            UPDATE monthly_expenses
             SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
         `);
-        
+
         stmt.run(...values, existing.id);
         logger.info(`Updated monthly expense record for ${existing.month_key}`);
     }
@@ -370,18 +402,93 @@ class MonthlyExpenseService {
     }
 
     /**
+     * 检查是否存在 category_breakdown 列
+     */
+    checkCategoryBreakdownColumn() {
+        try {
+            const stmt = this.db.prepare("PRAGMA table_info(monthly_expenses)");
+            const columns = stmt.all();
+            return columns.some(col => col.name === 'category_breakdown');
+        } catch (error) {
+            logger.warn('Failed to check category_breakdown column:', error.message);
+            return false;
+        }
+    }
+
+    /**
+     * 计算分类明细
+     */
+    calculateCategoryBreakdown(paymentData, currencies) {
+        const breakdown = {};
+
+        // 获取所有相关的支付记录和订阅信息
+        const paymentIds = paymentData.map(p => p.paymentId);
+        if (paymentIds.length === 0) {
+            return breakdown;
+        }
+
+        const placeholders = paymentIds.map(() => '?').join(',');
+        const stmt = this.db.prepare(`
+            SELECT ph.id, ph.amount_paid, ph.currency, s.category
+            FROM payment_history ph
+            JOIN subscriptions s ON ph.subscription_id = s.id
+            WHERE ph.id IN (${placeholders}) AND ph.status = 'succeeded'
+        `);
+        const paymentDetails = stmt.all(...paymentIds);
+
+        // 按分类分组计算
+        paymentDetails.forEach(payment => {
+            const category = payment.category || 'other';
+
+            if (!breakdown[category]) {
+                breakdown[category] = {
+                    payment_ids: [],
+                    amounts: {}
+                };
+
+                // 初始化所有货币金额为0
+                currencies.forEach(currency => {
+                    breakdown[category].amounts[currency] = 0.00;
+                });
+            }
+
+            // 添加支付ID
+            breakdown[category].payment_ids.push(payment.id);
+
+            // 计算各货币金额
+            const paymentDataItem = paymentData.find(p => p.paymentId === payment.id);
+            if (paymentDataItem) {
+                currencies.forEach(currency => {
+                    const rate = this.getExchangeRate(payment.currency, currency);
+                    const amount = paymentDataItem.amountPerMonth * rate;
+                    breakdown[category].amounts[currency] += amount;
+                });
+            }
+        });
+
+        // 四舍五入金额
+        Object.keys(breakdown).forEach(category => {
+            currencies.forEach(currency => {
+                breakdown[category].amounts[currency] = Math.round(breakdown[category].amounts[currency] * 100) / 100;
+            });
+        });
+
+        return breakdown;
+    }
+
+    /**
      * 获取月度支出数据
      */
     getMonthlyExpenses(startYear, startMonth, endYear, endMonth) {
         const startKey = `${startYear}${startMonth.toString().padStart(2, '0')}`;
         const endKey = `${endYear}${endMonth.toString().padStart(2, '0')}`;
-        
+
         const stmt = this.db.prepare(`
-            SELECT * FROM monthly_expenses 
+            SELECT * FROM monthly_expenses
             WHERE month_key >= ? AND month_key <= ?
             ORDER BY month_key
         `);
-        
+
         return stmt.all(startKey, endKey);
     }
 
