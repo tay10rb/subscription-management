@@ -1,4 +1,4 @@
-import { MonthlyExpensesApi, MonthlyExpenseApiResponse, MonthlyExpensesSummaryResponse } from '@/services/monthlyExpensesApi';
+import { MonthlyExpensesApi, MonthlyExpenseApiResponse, MonthlyExpensesSummaryResponse, CategoryBreakdownData } from '@/services/monthlyExpensesApi';
 
 // 适配API的数据类型定义
 export interface MonthlyExpense {
@@ -30,13 +30,6 @@ export interface CategoryExpense {
   amount: number;
   percentage: number;
   subscriptionCount: number;
-}
-
-export interface ExpenseTrend {
-  period: string;
-  amount: number;
-  change: number;
-  changePercentage: number;
 }
 
 /**
@@ -71,48 +64,6 @@ export function transformApiMonthlyExpenses(
 }
 
 /**
- * 从API汇总数据计算费用指标
- */
-export function calculateExpenseMetricsFromApi(
-  summaryData: MonthlyExpensesSummaryResponse,
-  monthlyExpenses: MonthlyExpense[]
-): ExpenseMetrics {
-  const { summary } = summaryData;
-
-  // 计算每个订阅的平均费用
-  // 方法：总支出 ÷ 总支付次数 = 每次支付的平均金额
-  // 注意：这个值表示每次支付的平均金额，不是每个订阅每月的费用
-  // 因为不同订阅有不同的计费周期（月付、季付、年付）
-  const totalPaymentCount = summaryData.monthlyTotals.reduce((sum, month) => sum + month.paymentCount, 0);
-  const averagePerSubscription = totalPaymentCount > 0
-    ? summary.totalAmount / totalPaymentCount
-    : 0;
-
-  // 找到最高和最低月份
-  const highestMonth = monthlyExpenses.length > 0
-    ? monthlyExpenses.reduce((max, month) => month.amount > max.amount ? month : max)
-    : null;
-
-  const lowestMonth = monthlyExpenses.length > 0
-    ? monthlyExpenses.reduce((min, month) => month.amount < min.amount ? month : min)
-    : null;
-
-  // 计算增长率（第一个月vs最后一个月）
-  const growthRate = monthlyExpenses.length >= 2
-    ? ((monthlyExpenses[monthlyExpenses.length - 1].amount - monthlyExpenses[0].amount) / monthlyExpenses[0].amount) * 100
-    : 0;
-
-  return {
-    totalSpent: summary.totalAmount,
-    averageMonthly: summary.averageMonthly,
-    averagePerSubscription,
-    highestMonth,
-    lowestMonth,
-    growthRate
-  };
-}
-
-/**
  * 获取基于API的月度费用数据
  */
 export async function getApiMonthlyExpenses(
@@ -132,84 +83,9 @@ export async function getApiMonthlyExpenses(
   return transformApiMonthlyExpenses(response.expenses, currency);
 }
 
-/**
- * 获取基于API的费用指标
- * 注意：由于API限制，averagePerSubscription使用简化计算方法
- */
-export async function getApiExpenseMetrics(
-  startDate: Date,
-  endDate: Date,
-  currency: string
-): Promise<ExpenseMetrics> {
-  const params = {
-    start_year: startDate.getFullYear(),
-    start_month: startDate.getMonth() + 1,
-    end_year: endDate.getFullYear(),
-    end_month: endDate.getMonth() + 1,
-    currency
-  };
 
-  const [summaryResponse, monthlyExpenses] = await Promise.all([
-    MonthlyExpensesApi.getMonthlyExpensesSummary(params),
-    getApiMonthlyExpenses(startDate, endDate, currency)
-  ]);
 
-  return calculateExpenseMetricsFromApi(summaryResponse, monthlyExpenses);
-}
 
-/**
- * 获取基于API的费用指标（使用详细支付数据）
- * 通过分析实际支付记录来计算更准确的averagePerSubscription
- */
-export async function getApiExpenseMetricsWithSubscriptions(
-  startDate: Date,
-  endDate: Date,
-  currency: string
-): Promise<ExpenseMetrics> {
-  const params = {
-    start_year: startDate.getFullYear(),
-    start_month: startDate.getMonth() + 1,
-    end_year: endDate.getFullYear(),
-    end_month: endDate.getMonth() + 1,
-    currency
-  };
-
-  const [summaryResponse, monthlyExpenses] = await Promise.all([
-    MonthlyExpensesApi.getMonthlyExpensesSummary(params),
-    getApiMonthlyExpenses(startDate, endDate, currency)
-  ]);
-
-  const metrics = calculateExpenseMetricsFromApi(summaryResponse, monthlyExpenses);
-
-  // 尝试获取详细支付数据来计算更准确的averagePerSubscription
-  try {
-    const uniqueSubscriptionMonths = new Set<string>();
-
-    // 为每个月获取详细数据来统计实际的订阅-月组合
-    for (const expense of monthlyExpenses) {
-      try {
-        const detailData = await MonthlyExpensesApi.getMonthlyExpenseDetail(expense.monthKey);
-        if (detailData.paymentDetails) {
-          detailData.paymentDetails.forEach(payment => {
-            // 创建订阅-月的唯一标识
-            uniqueSubscriptionMonths.add(`${payment.subscriptionId}-${expense.monthKey}`);
-          });
-        }
-      } catch (error) {
-        console.warn(`Failed to get detail for ${expense.monthKey}:`, error);
-      }
-    }
-
-    // 如果成功获取到详细数据，使用更精确的计算
-    if (uniqueSubscriptionMonths.size > 0) {
-      metrics.averagePerSubscription = summaryResponse.summary.totalAmount / uniqueSubscriptionMonths.size;
-    }
-  } catch (error) {
-    console.warn('Failed to calculate precise averagePerSubscription, using fallback method');
-  }
-
-  return metrics;
-}
 
 /**
  * 计算年度费用数据（从月度数据聚合）
@@ -238,26 +114,6 @@ export function calculateYearlyExpensesFromMonthly(monthlyExpenses: MonthlyExpen
       subscriptionCount: data.subscriptions.size
     }))
     .sort((a, b) => a.year - b.year);
-}
-
-/**
- * 计算费用趋势
- */
-export function calculateExpenseTrends(monthlyExpenses: MonthlyExpense[]): ExpenseTrend[] {
-  return monthlyExpenses.map((current, index) => {
-    const previous = index > 0 ? monthlyExpenses[index - 1] : null;
-    const change = previous ? current.amount - previous.amount : 0;
-    const changePercentage = previous && previous.amount > 0
-      ? ((current.amount - previous.amount) / previous.amount) * 100
-      : 0;
-
-    return {
-      period: current.month,
-      amount: current.amount,
-      change,
-      changePercentage
-    };
-  });
 }
 
 /**
@@ -315,4 +171,71 @@ export async function getCurrentYearSpending(currency: string): Promise<number> 
     console.error('Failed to get current year spending:', error);
     return 0;
   }
+}
+
+/**
+ * 从API数据计算分类支出
+ */
+export function calculateCategoryExpensesFromApi(
+  apiExpenses: MonthlyExpenseApiResponse[],
+  currency: string
+): CategoryExpense[] {
+  const categoryMap = new Map<string, { amount: number; paymentIds: Set<number> }>();
+  let totalAmount = 0;
+
+  // 聚合所有月份的分类数据
+  apiExpenses.forEach(expense => {
+    const categoryBreakdown = expense.categoryBreakdown || {};
+
+    Object.entries(categoryBreakdown).forEach(([category, data]) => {
+      // 获取指定货币的金额
+      const amount = expense.currency === currency
+        ? data.amount || 0
+        : data.amounts?.[currency] || 0;
+
+      if (amount > 0) {
+        if (!categoryMap.has(category)) {
+          categoryMap.set(category, { amount: 0, paymentIds: new Set() });
+        }
+
+        const categoryData = categoryMap.get(category)!;
+        categoryData.amount += amount;
+
+        // 添加支付ID
+        data.payment_ids.forEach(id => categoryData.paymentIds.add(id));
+
+        totalAmount += amount;
+      }
+    });
+  });
+
+  // 转换为CategoryExpense数组并计算百分比
+  return Array.from(categoryMap.entries())
+    .map(([category, data]) => ({
+      category,
+      amount: Math.round(data.amount * 100) / 100,
+      percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0,
+      subscriptionCount: data.paymentIds.size
+    }))
+    .sort((a, b) => b.amount - a.amount); // 按金额降序排列
+}
+
+/**
+ * 获取基于API的分类支出数据
+ */
+export async function getApiCategoryExpenses(
+  startDate: Date,
+  endDate: Date,
+  currency: string
+): Promise<CategoryExpense[]> {
+  const params = {
+    start_year: startDate.getFullYear(),
+    start_month: startDate.getMonth() + 1,
+    end_year: endDate.getFullYear(),
+    end_month: endDate.getMonth() + 1,
+    currency
+  };
+
+  const response = await MonthlyExpensesApi.getMonthlyExpenses(params);
+  return calculateCategoryExpensesFromApi(response.expenses, currency);
 }

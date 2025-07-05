@@ -2,14 +2,15 @@ import { useState, useMemo, useEffect } from 'react'
 import { useSubscriptionStore } from "@/store/subscriptionStore"
 import { useSettingsStore } from "@/store/settingsStore"
 import {
-  getCategoryExpenses,
   getDateRangePresets
 } from "@/lib/expense-analytics"
 import {
   getApiMonthlyExpenses,
+  getApiCategoryExpenses,
   calculateYearlyExpensesFromMonthly,
   MonthlyExpense,
-  YearlyExpense
+  YearlyExpense,
+  CategoryExpense
 } from "@/lib/expense-analytics-api"
 import { ExpenseTrendChart } from "@/components/charts/ExpenseTrendChart"
 import { YearlyTrendChart } from "@/components/charts/YearlyTrendChart"
@@ -91,18 +92,19 @@ export function ExpenseReportsPage() {
   // State for API data
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([])
   const [yearlyExpenses, setYearlyExpenses] = useState<YearlyExpense[]>([])
-
+  const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>([])
+  const [yearlyCategoryExpenses, setYearlyCategoryExpenses] = useState<CategoryExpense[]>([])
 
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false)
   const [isLoadingYearlyExpenses, setIsLoadingYearlyExpenses] = useState(false)
+  const [isLoadingCategoryExpenses, setIsLoadingCategoryExpenses] = useState(false)
+  const [isLoadingYearlyCategoryExpenses, setIsLoadingYearlyCategoryExpenses] = useState(false)
   const [expenseError, setExpenseError] = useState<string | null>(null)
   const [yearlyExpenseError, setYearlyExpenseError] = useState<string | null>(null)
+  const [categoryExpenseError, setCategoryExpenseError] = useState<string | null>(null)
+  const [yearlyCategoryExpenseError, setYearlyCategoryExpenseError] = useState<string | null>(null)
 
-  // Calculate category expenses (still using local calculation as it's subscription-based)
-  const categoryExpenses = useMemo(() =>
-    getCategoryExpenses(filteredSubscriptions, currentDateRange.startDate, currentDateRange.endDate, userCurrency),
-    [filteredSubscriptions, currentDateRange, userCurrency]
-  )
+
 
   // Load monthly expense data from API
   useEffect(() => {
@@ -125,6 +127,28 @@ export function ExpenseReportsPage() {
     }
 
     loadMonthlyExpenseData()
+  }, [currentDateRange, userCurrency])
+
+  // Load category expense data from API
+  useEffect(() => {
+    const loadCategoryExpenseData = async () => {
+      setIsLoadingCategoryExpenses(true)
+      setCategoryExpenseError(null)
+
+      try {
+        // Fetch category expenses from API
+        const categoryData = await getApiCategoryExpenses(currentDateRange.startDate, currentDateRange.endDate, userCurrency);
+        setCategoryExpenses(categoryData)
+
+      } catch (error) {
+        console.error('Failed to load category expense data:', error)
+        setCategoryExpenseError(error instanceof Error ? error.message : 'Failed to load category expense data')
+      } finally {
+        setIsLoadingCategoryExpenses(false)
+      }
+    }
+
+    loadCategoryExpenseData()
   }, [currentDateRange, userCurrency])
 
   // Load yearly expense data from API (using separate date range)
@@ -156,6 +180,32 @@ export function ExpenseReportsPage() {
     }
 
     loadYearlyExpenseData()
+  }, [currentYearlyDateRange, userCurrency])
+
+  // Load yearly category expense data from API
+  useEffect(() => {
+    const loadYearlyCategoryExpenseData = async () => {
+      setIsLoadingYearlyCategoryExpenses(true)
+      setYearlyCategoryExpenseError(null)
+
+      try {
+        // Fetch yearly category expenses from API using yearly date range
+        const yearlyCategoryData = await getApiCategoryExpenses(
+          currentYearlyDateRange.startDate,
+          currentYearlyDateRange.endDate,
+          userCurrency
+        );
+        setYearlyCategoryExpenses(yearlyCategoryData)
+
+      } catch (error) {
+        console.error('Failed to load yearly category expense data:', error)
+        setYearlyCategoryExpenseError(error instanceof Error ? error.message : 'Failed to load yearly category expense data')
+      } finally {
+        setIsLoadingYearlyCategoryExpenses(false)
+      }
+    }
+
+    loadYearlyCategoryExpenseData()
   }, [currentYearlyDateRange, userCurrency])
 
   return (
@@ -210,10 +260,30 @@ export function ExpenseReportsPage() {
                   data={monthlyExpenses}
                   currency={userCurrency}
                 />
-                <CategoryPieChart
-                  data={categoryExpenses}
-                  currency={userCurrency}
-                />
+                {isLoadingCategoryExpenses ? (
+                  <Card>
+                    <CardContent className="flex items-center justify-center h-[400px]">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                        <p className="text-sm text-muted-foreground">Loading category data...</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : categoryExpenseError ? (
+                  <Card>
+                    <CardContent className="flex items-center justify-center h-[400px]">
+                      <div className="text-center text-destructive">
+                        <p className="font-medium">Failed to load category data</p>
+                        <p className="text-sm text-muted-foreground mt-1">{categoryExpenseError}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ) : (
+                  <CategoryPieChart
+                    data={categoryExpenses}
+                    currency={userCurrency}
+                  />
+                )}
               </div>
             </TabsContent>
 
@@ -238,10 +308,30 @@ export function ExpenseReportsPage() {
                     data={yearlyExpenses}
                     currency={userCurrency}
                   />
-                  <CategoryPieChart
-                    data={categoryExpenses}
-                    currency={userCurrency}
-                  />
+                  {isLoadingYearlyCategoryExpenses ? (
+                    <Card>
+                      <CardContent className="flex items-center justify-center h-[400px]">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                          <p className="text-sm text-muted-foreground">Loading yearly category data...</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : yearlyCategoryExpenseError ? (
+                    <Card>
+                      <CardContent className="flex items-center justify-center h-[400px]">
+                        <div className="text-center text-destructive">
+                          <p className="font-medium">Failed to load yearly category data</p>
+                          <p className="text-sm text-muted-foreground mt-1">{yearlyCategoryExpenseError}</p>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <CategoryPieChart
+                      data={yearlyCategoryExpenses}
+                      currency={userCurrency}
+                    />
+                  )}
                 </div>
               )}
             </TabsContent>

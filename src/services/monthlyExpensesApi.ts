@@ -12,9 +12,20 @@ export interface MonthlyExpenseApiResponse {
   amounts?: Record<string, number>; // 多货币模式
   amount?: number; // 单货币模式
   currency?: string; // 单货币模式
+  categoryBreakdown?: CategoryBreakdownData; // 分类明细
   paymentDetails?: PaymentDetail[];
   createdAt: string;
   updatedAt: string;
+}
+
+// 分类明细数据类型
+export interface CategoryBreakdownData {
+  [category: string]: {
+    payment_ids: number[];
+    amounts: Record<string, number>;
+    amount?: number; // 单货币模式下的金额
+    currency?: string; // 单货币模式下的货币
+  };
 }
 
 export interface PaymentDetail {
