@@ -7,23 +7,17 @@ import {
 } from "@/lib/expense-analytics"
 import {
   getApiMonthlyExpenses,
-  getApiExpenseMetricsWithSubscriptions,
   calculateYearlyExpensesFromMonthly,
   MonthlyExpense,
-  ExpenseMetrics as ExpenseMetricsType,
   YearlyExpense
 } from "@/lib/expense-analytics-api"
 import { ExpenseTrendChart } from "@/components/charts/ExpenseTrendChart"
 import { YearlyTrendChart } from "@/components/charts/YearlyTrendChart"
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart"
 
-import { ExpenseMetrics } from "@/components/charts/ExpenseMetrics"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
+
+import { Card, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { CalendarIcon, Filter, RefreshCw } from "lucide-react"
 
 
 export function ExpenseReportsPage() {
@@ -32,6 +26,10 @@ export function ExpenseReportsPage() {
   
   // Filter states
   const [selectedDateRange, setSelectedDateRange] = useState('Last 12 Months')
+  const [selectedYearlyDateRange, setSelectedYearlyDateRange] = useState(() => {
+    const currentYear = new Date().getFullYear()
+    return `${currentYear - 2} - ${currentYear}`
+  })
   const [selectedCategories, setSelectedCategories] = useState<string[]>([])
 
   const [selectedStatus, setSelectedStatus] = useState<string>('active')
@@ -53,6 +51,23 @@ export function ExpenseReportsPage() {
     return dateRangePresets.find(preset => preset.label === selectedDateRange)
       || dateRangePresets[2] // Default to Last 12 Months
   }, [selectedDateRange])
+
+  // Get yearly date range presets (fixed recent 3 years)
+  const yearlyDateRangePresets = useMemo(() => {
+    const currentYear = new Date().getFullYear()
+    return [
+      {
+        label: `${currentYear - 2} - ${currentYear}`,
+        startDate: new Date(currentYear - 2, 0, 1), // January 1st of 3 years ago
+        endDate: new Date(currentYear, 11, 31) // December 31st of current year
+      }
+    ]
+  }, [])
+
+  const currentYearlyDateRange = useMemo(() => {
+    return yearlyDateRangePresets.find(preset => preset.label === selectedYearlyDateRange)
+      || yearlyDateRangePresets[0] // Default to Recent 3 Years
+  }, [selectedYearlyDateRange, yearlyDateRangePresets])
   
   // Filter subscriptions based on selected filters
   const filteredSubscriptions = useMemo(() => {
@@ -76,9 +91,12 @@ export function ExpenseReportsPage() {
   // State for API data
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([])
   const [yearlyExpenses, setYearlyExpenses] = useState<YearlyExpense[]>([])
-  const [expenseMetrics, setExpenseMetrics] = useState<ExpenseMetricsType | null>(null)
+
+
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false)
+  const [isLoadingYearlyExpenses, setIsLoadingYearlyExpenses] = useState(false)
   const [expenseError, setExpenseError] = useState<string | null>(null)
+  const [yearlyExpenseError, setYearlyExpenseError] = useState<string | null>(null)
 
   // Calculate category expenses (still using local calculation as it's subscription-based)
   const categoryExpenses = useMemo(() =>
@@ -86,9 +104,9 @@ export function ExpenseReportsPage() {
     [filteredSubscriptions, currentDateRange, userCurrency]
   )
 
-  // Load expense data from API
+  // Load monthly expense data from API
   useEffect(() => {
-    const loadExpenseData = async () => {
+    const loadMonthlyExpenseData = async () => {
       setIsLoadingExpenses(true)
       setExpenseError(null)
 
@@ -96,55 +114,49 @@ export function ExpenseReportsPage() {
         // Fetch monthly expenses and metrics from API
         const monthlyData = await getApiMonthlyExpenses(currentDateRange.startDate, currentDateRange.endDate, userCurrency);
 
-        // Calculate metrics using detailed payment data
-        const metricsData = await getApiExpenseMetricsWithSubscriptions(
-          currentDateRange.startDate,
-          currentDateRange.endDate,
-          userCurrency
-        );
-
         setMonthlyExpenses(monthlyData)
-        setExpenseMetrics(metricsData)
-
-        // Calculate yearly expenses from monthly data
-        const yearlyData = calculateYearlyExpensesFromMonthly(monthlyData)
-        setYearlyExpenses(yearlyData)
 
       } catch (error) {
-        console.error('Failed to load expense data:', error)
-        setExpenseError(error instanceof Error ? error.message : 'Failed to load expense data')
+        console.error('Failed to load monthly expense data:', error)
+        setExpenseError(error instanceof Error ? error.message : 'Failed to load monthly expense data')
       } finally {
         setIsLoadingExpenses(false)
       }
     }
 
-    loadExpenseData()
+    loadMonthlyExpenseData()
   }, [currentDateRange, userCurrency])
-  
-  // Helper functions
-  const getCategoryLabel = (categoryValue: string) => {
-    const category = categories.find(c => c.value === categoryValue)
-    return category?.label || categoryValue
-  }
-  
 
-  
-  const toggleCategoryFilter = (categoryValue: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(categoryValue) 
-        ? prev.filter(c => c !== categoryValue)
-        : [...prev, categoryValue]
-    )
-  }
-  
+  // Load yearly expense data from API (using separate date range)
+  useEffect(() => {
+    const loadYearlyExpenseData = async () => {
+      setIsLoadingYearlyExpenses(true)
+      setYearlyExpenseError(null)
 
-  
-  const clearAllFilters = () => {
-    setSelectedCategories([])
-    setSelectedStatus('active')
-  }
-  
+      try {
+        // Fetch yearly expenses using the 3-year date range
+        const yearlyMonthlyData = await getApiMonthlyExpenses(
+          currentYearlyDateRange.startDate,
+          currentYearlyDateRange.endDate,
+          userCurrency
+        );
 
+        // Calculate yearly expenses from monthly data
+        const yearlyData = calculateYearlyExpensesFromMonthly(yearlyMonthlyData)
+        setYearlyExpenses(yearlyData)
+
+
+
+      } catch (error) {
+        console.error('Failed to load yearly expense data:', error)
+        setYearlyExpenseError(error instanceof Error ? error.message : 'Failed to load yearly expense data')
+      } finally {
+        setIsLoadingYearlyExpenses(false)
+      }
+    }
+
+    loadYearlyExpenseData()
+  }, [currentYearlyDateRange, userCurrency])
 
   return (
     <div className="space-y-6">
@@ -158,104 +170,7 @@ export function ExpenseReportsPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Filter className="h-5 w-5" />
-                Filters
-              </CardTitle>
-              <CardDescription>
-                Customize your expense analysis with filters
-              </CardDescription>
-            </div>
-            <Button variant="outline" onClick={clearAllFilters} size="sm" className="w-full sm:w-auto">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reset Filters
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {/* Date Range */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Date Range</label>
-              <Select value={selectedDateRange} onValueChange={setSelectedDateRange}>
-                <SelectTrigger>
-                  <CalendarIcon className="h-4 w-4 mr-2" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {dateRangePresets.map(preset => (
-                    <SelectItem key={preset.label} value={preset.label}>
-                      {preset.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
 
-            {/* Status */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status</label>
-              <Select value={selectedStatus} onValueChange={setSelectedStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Subscriptions</SelectItem>
-                  <SelectItem value="active">Active Only</SelectItem>
-                  <SelectItem value="cancelled">Cancelled Only</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Categories */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Categories</label>
-              <Select onValueChange={toggleCategoryFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Add category filter" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories
-                    .filter(category => !selectedCategories.includes(category.value))
-                    .map(category => (
-                      <SelectItem key={category.value} value={category.value}>
-                        {category.label}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-
-          </div>
-
-          {/* Category Filters */}
-          {selectedCategories.length > 0 && (
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Selected Categories</label>
-              <div className="flex flex-wrap gap-2">
-                {selectedCategories.map(categoryValue => (
-                  <Badge 
-                    key={categoryValue} 
-                    variant="secondary" 
-                    className="cursor-pointer"
-                    onClick={() => toggleCategoryFilter(categoryValue)}
-                  >
-                    {getCategoryLabel(categoryValue)} ×
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
-
-
-        </CardContent>
-      </Card>
 
       {/* Loading and Error States */}
       {isLoadingExpenses && (
@@ -280,39 +195,58 @@ export function ExpenseReportsPage() {
         </Card>
       )}
 
-      {/* Metrics Overview */}
-      {expenseMetrics && !isLoadingExpenses && (
-        <ExpenseMetrics metrics={expenseMetrics} currency={userCurrency} />
-      )}
-
       {/* Charts */}
       {!isLoadingExpenses && !expenseError && (
-        <Tabs defaultValue="trends" className="space-y-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="trends">Trends</TabsTrigger>
-            <TabsTrigger value="categories">Categories</TabsTrigger>
-          </TabsList>
+        <div className="space-y-4">
+          <Tabs defaultValue="monthly" className="space-y-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="monthly">Monthly</TabsTrigger>
+              <TabsTrigger value="yearly">Yearly</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="trends" className="space-y-4">
-            <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
-              <ExpenseTrendChart
-                data={monthlyExpenses}
-                currency={userCurrency}
-              />
-              <YearlyTrendChart
-                data={yearlyExpenses}
-                currency={userCurrency}
-              />
-            </div>
-          </TabsContent>
+            <TabsContent value="monthly" className="space-y-4">
+              <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
+                <ExpenseTrendChart
+                  data={monthlyExpenses}
+                  currency={userCurrency}
+                />
+                <CategoryPieChart
+                  data={categoryExpenses}
+                  currency={userCurrency}
+                />
+              </div>
+            </TabsContent>
 
-          <TabsContent value="categories" className="space-y-4">
-            <CategoryPieChart
-              data={categoryExpenses}
-              currency={userCurrency}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="yearly" className="space-y-4">
+              {isLoadingYearlyExpenses ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                    <p className="text-sm text-muted-foreground">Loading yearly data...</p>
+                  </div>
+                </div>
+              ) : yearlyExpenseError ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="text-center">
+                    <p className="text-sm text-destructive mb-2">Failed to load yearly data</p>
+                    <p className="text-xs text-muted-foreground">{yearlyExpenseError}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-4 grid-cols-1 xl:grid-cols-2">
+                  <YearlyTrendChart
+                    data={yearlyExpenses}
+                    currency={userCurrency}
+                  />
+                  <CategoryPieChart
+                    data={categoryExpenses}
+                    currency={userCurrency}
+                  />
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </div>
       )}
     </div>
   )
