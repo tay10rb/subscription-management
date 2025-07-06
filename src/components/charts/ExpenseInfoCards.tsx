@@ -2,11 +2,10 @@ import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { formatCurrency } from "@/lib/subscription-utils"
-import { 
+import {
   Calendar,
-  DollarSign, 
-  TrendingUp, 
-  Users,
+  DollarSign,
+  TrendingUp,
   Eye,
   ChevronRight
 } from "lucide-react"
@@ -109,17 +108,6 @@ export function ExpenseInfoCards({
             </div>
             <span className="text-sm font-medium">
               {formatCurrency(data.dailyAverage, currency)}
-            </span>
-          </div>
-
-          {/* Active Subscriptions */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Active</span>
-            </div>
-            <span className="text-sm font-medium">
-              {data.activeSubscriptions} subs
             </span>
           </div>
 

@@ -188,11 +188,11 @@ export function ExpenseReportsPage() {
             yearly: yearlyInfo
           })
         } else {
-          const { monthlyExpenses: recentMonthly, yearlyExpenses: recentYearly } = filterRecentExpenses(allMonthlyData)
+          const { monthlyExpenses: recentMonthly, quarterlyExpenses: recentQuarterly, yearlyExpenses: recentYearly } = filterRecentExpenses(allMonthlyData)
 
           // Convert to expense info format
           const monthlyInfo = convertMonthlyExpensesToInfo(recentMonthly, userCurrency)
-          const quarterlyInfo = calculateQuarterlyExpenses(recentMonthly, userCurrency)
+          const quarterlyInfo = calculateQuarterlyExpenses(recentQuarterly, userCurrency)
           const yearlyInfo = calculateYearlyExpenses(recentYearly, userCurrency)
 
           setExpenseInfoData({

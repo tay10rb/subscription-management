@@ -152,7 +152,7 @@ export function calculateQuarterlyExpenses(
     const quarterData = quarterlyMap.get(quarterKey)!
     quarterData.totalSpent += expense.amount
     quarterData.paymentCount += expense.paymentHistoryIds?.length || 0
-    
+
     // Note: We can't accurately track unique subscriptions across quarters from monthly data
     // This is an approximation - in a real implementation, you'd want to query the database
     quarterData.subscriptions.add(expense.subscriptionCount)
@@ -208,7 +208,7 @@ export function calculateYearlyExpenses(
     const yearData = yearlyMap.get(year)!
     yearData.totalSpent += expense.amount
     yearData.paymentCount += expense.paymentHistoryIds?.length || 0
-    
+
     // Note: Same approximation issue as quarterly data
     yearData.subscriptions.add(expense.subscriptionCount)
   })
@@ -281,9 +281,28 @@ export function filterRecentExpenses(monthlyExpenses: MonthlyExpense[]) {
   const recentMonthKeys = new Set(monthlyPeriods.map(p => p.monthKey))
   const recentYears = new Set(yearlyPeriods.map(p => p.year))
 
+  // 为季度数据生成所有需要的月份键
+  const quarterlyMonthKeys = new Set<string>()
+  quarterlyPeriods.forEach(({ year, quarter }) => {
+    const months = [
+      [1, 2, 3],    // Q1
+      [4, 5, 6],    // Q2
+      [7, 8, 9],    // Q3
+      [10, 11, 12]  // Q4
+    ]
+    const quarterMonths = months[quarter - 1]
+    quarterMonths.forEach(month => {
+      const monthKey = `${year}-${String(month).padStart(2, '0')}`
+      quarterlyMonthKeys.add(monthKey)
+    })
+  })
+
   return {
     monthlyExpenses: monthlyExpenses.filter(expense =>
       recentMonthKeys.has(expense.monthKey)
+    ),
+    quarterlyExpenses: monthlyExpenses.filter(expense =>
+      quarterlyMonthKeys.has(expense.monthKey)
     ),
     yearlyExpenses: monthlyExpenses.filter(expense => {
       const [year] = expense.monthKey.split('-').map(Number)
