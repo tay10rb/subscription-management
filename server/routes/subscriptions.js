@@ -90,6 +90,32 @@ function createProtectedSubscriptionRoutes(db) {
             ];
 
             const subscriptionId = createSubscriptionWithPayment(subscriptionData, paymentData);
+
+            // Automatically generate monthly_expenses from the new payment_history record
+            try {
+                const MonthlyExpenseUpdater = require('../utils/monthlyExpenseUpdater');
+                const monthlyExpenseUpdater = new MonthlyExpenseUpdater(db.name);
+
+                // Get the payment record we just created
+                const paymentStmt = db.prepare(`
+                    SELECT id FROM payment_history
+                    WHERE subscription_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                `);
+                const payment = paymentStmt.get(subscriptionId);
+
+                if (payment) {
+                    await monthlyExpenseUpdater.handlePaymentInsert(payment.id);
+                    console.log(`✅ Monthly expenses generated for new subscription ${subscriptionId}`);
+                }
+
+                monthlyExpenseUpdater.close();
+            } catch (error) {
+                console.error(`⚠️ Failed to generate monthly expenses for subscription ${subscriptionId}:`, error.message);
+                // Don't fail the subscription creation if monthly expense generation fails
+            }
+
             res.status(201).json({ id: subscriptionId });
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -147,6 +173,24 @@ function createProtectedSubscriptionRoutes(db) {
 
         try {
             const count = insertMany(req.body);
+
+            // Automatically generate monthly_expenses for all new subscriptions
+            if (count > 0) {
+                try {
+                    const MonthlyExpenseService = require('../services/monthlyExpenseService');
+                    const monthlyExpenseService = new MonthlyExpenseService(db.name);
+
+                    // Recalculate all monthly expenses to include the new subscriptions
+                    monthlyExpenseService.recalculateAllMonthlyExpenses();
+                    monthlyExpenseService.close();
+
+                    console.log(`✅ Monthly expenses recalculated after bulk import of ${count} subscriptions`);
+                } catch (error) {
+                    console.error(`⚠️ Failed to recalculate monthly expenses after bulk import:`, error.message);
+                    // Don't fail the bulk import if monthly expense generation fails
+                }
+            }
+
             res.status(201).json({ message: `Successfully imported ${count} subscriptions.` });
         } catch (error) {
             res.status(500).json({ error: error.message });
@@ -244,14 +288,28 @@ function createProtectedSubscriptionRoutes(db) {
     // DELETE a subscription (Protected)
     router.delete('/:id', (req, res) => {
         try {
+            const subscriptionId = req.params.id;
+
+            // Get subscription info before deletion for logging
+            const getStmt = db.prepare('SELECT name FROM subscriptions WHERE id = ?');
+            const subscription = getStmt.get(subscriptionId);
+
+            if (!subscription) {
+                return res.status(404).json({ message: 'Subscription not found' });
+            }
+
+            // Delete subscription (cascade triggers will handle payment_history and monthly_expenses)
             const stmt = db.prepare('DELETE FROM subscriptions WHERE id = ?');
-            const info = stmt.run(req.params.id);
+            const info = stmt.run(subscriptionId);
+
             if (info.changes > 0) {
+                console.log(`✅ Subscription deleted: ${subscription.name} (ID: ${subscriptionId}), related data cleaned up automatically`);
                 res.json({ message: 'Subscription deleted successfully' });
             } else {
                 res.status(404).json({ message: 'Subscription not found' });
             }
         } catch (error) {
+            console.error(`❌ Failed to delete subscription ${req.params.id}:`, error.message);
             res.status(500).json({ error: error.message });
         }
     });

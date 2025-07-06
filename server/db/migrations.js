@@ -45,6 +45,11 @@ class DatabaseMigrations {
         version: 8,
         name: 'add_category_breakdown_to_monthly_expenses',
         up: () => this.migration_008_add_category_breakdown_to_monthly_expenses()
+      },
+      {
+        version: 9,
+        name: 'add_cascade_deletion_triggers',
+        up: () => this.migration_009_add_cascade_deletion_triggers()
       }
     ];
   }
@@ -574,6 +579,58 @@ class DatabaseMigrations {
       console.log('✅ Monthly expenses data initialized successfully');
     } catch (error) {
       console.error('❌ Failed to initialize monthly expenses data:', error.message);
+      throw error;
+    }
+  }
+
+  // Migration 009: Add cascade deletion triggers for data consistency
+  migration_009_add_cascade_deletion_triggers() {
+    console.log('📝 Adding cascade deletion triggers for data consistency...');
+
+    try {
+      // Create trigger to clean up monthly_expenses when payment_history records are deleted
+      this.db.exec(`
+        CREATE TRIGGER IF NOT EXISTS payment_history_cascade_cleanup
+        AFTER DELETE ON payment_history
+        FOR EACH ROW
+        BEGIN
+          -- Update monthly_expenses records that reference the deleted payment
+          UPDATE monthly_expenses
+          SET payment_history_ids = (
+            SELECT json_group_array(value)
+            FROM json_each(payment_history_ids)
+            WHERE value != OLD.id
+          ),
+          updated_at = CURRENT_TIMESTAMP
+          WHERE json_extract(payment_history_ids, '$') LIKE '%' || OLD.id || '%';
+
+          -- Delete monthly_expenses records that have no payment_history_ids left
+          DELETE FROM monthly_expenses
+          WHERE payment_history_ids = '[]' OR payment_history_ids IS NULL;
+        END
+      `);
+
+      // Create trigger to clean up monthly_expenses when subscriptions are deleted
+      // This provides additional safety even though payment_history already cascades
+      this.db.exec(`
+        CREATE TRIGGER IF NOT EXISTS subscription_cascade_cleanup
+        AFTER DELETE ON subscriptions
+        FOR EACH ROW
+        BEGIN
+          -- Clean up any orphaned monthly_expenses records
+          DELETE FROM monthly_expenses
+          WHERE id IN (
+            SELECT me.id
+            FROM monthly_expenses me
+            LEFT JOIN payment_history ph ON json_extract(me.payment_history_ids, '$') LIKE '%' || ph.id || '%'
+            WHERE ph.id IS NULL AND me.payment_history_ids != '[]'
+          );
+        END
+      `);
+
+      console.log('✅ Cascade deletion triggers created successfully');
+    } catch (error) {
+      console.error('❌ Failed to create cascade deletion triggers:', error.message);
       throw error;
     }
   }

@@ -313,10 +313,35 @@ function createSubscriptionManagementRoutes(db) {
     // POST to reset all subscriptions (Protected)
     router.post('/reset', (req, res) => {
         try {
-            const stmt = db.prepare('DELETE FROM subscriptions');
-            stmt.run();
-            res.json({ message: 'All subscriptions have been deleted.' });
+            // Use transaction to ensure data consistency
+            const resetAll = db.transaction(() => {
+                // Delete all subscriptions (payment_history will cascade automatically)
+                const subscriptionStmt = db.prepare('DELETE FROM subscriptions');
+                const subscriptionResult = subscriptionStmt.run();
+
+                // Explicitly clean up monthly_expenses table
+                const monthlyExpensesStmt = db.prepare('DELETE FROM monthly_expenses');
+                const monthlyExpensesResult = monthlyExpensesStmt.run();
+
+                return {
+                    subscriptions: subscriptionResult.changes,
+                    monthlyExpenses: monthlyExpensesResult.changes
+                };
+            });
+
+            const result = resetAll();
+
+            console.log(`✅ Reset completed: ${result.subscriptions} subscriptions, ${result.monthlyExpenses} monthly expense records deleted`);
+
+            res.json({
+                message: 'All subscriptions and related data have been deleted.',
+                deletedCounts: {
+                    subscriptions: result.subscriptions,
+                    monthlyExpenses: result.monthlyExpenses
+                }
+            });
         } catch (error) {
+            console.error('❌ Failed to reset subscriptions:', error.message);
             res.status(500).json({ error: error.message });
         }
     });
