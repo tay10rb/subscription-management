@@ -220,14 +220,21 @@ class DatabaseMigrations {
   migration_003_add_renewal_type_to_subscriptions() {
     console.log('📝 Adding renewal_type field to subscriptions table...');
 
-    // Add renewal_type column to subscriptions table
-    this.db.exec(`
-      ALTER TABLE subscriptions
-      ADD COLUMN renewal_type TEXT NOT NULL DEFAULT 'manual'
-      CHECK (renewal_type IN ('auto', 'manual'))
-    `);
+    // Check if renewal_type column already exists
+    const tableInfo = this.db.prepare("PRAGMA table_info(subscriptions)").all();
+    const renewalTypeExists = tableInfo.some(column => column.name === 'renewal_type');
 
-    console.log('✅ renewal_type field added successfully');
+    if (!renewalTypeExists) {
+      // Add renewal_type column to subscriptions table
+      this.db.exec(`
+        ALTER TABLE subscriptions
+        ADD COLUMN renewal_type TEXT NOT NULL DEFAULT 'manual'
+        CHECK (renewal_type IN ('auto', 'manual'))
+      `);
+      console.log('✅ renewal_type field added successfully');
+    } else {
+      console.log('ℹ️  renewal_type field already exists, skipping...');
+    }
   }
 
   // Migration 004: Create payment_history table
@@ -457,13 +464,20 @@ class DatabaseMigrations {
     console.log('📝 Adding category_breakdown column to monthly_expenses table');
 
     try {
-      // Add category_breakdown column
-      this.db.exec(`
-        ALTER TABLE monthly_expenses
-        ADD COLUMN category_breakdown TEXT DEFAULT '{}'
-      `);
+      // Check if category_breakdown column already exists
+      const tableInfo = this.db.prepare("PRAGMA table_info(monthly_expenses)").all();
+      const categoryBreakdownExists = tableInfo.some(column => column.name === 'category_breakdown');
 
-      console.log('✅ Added category_breakdown column to monthly_expenses table');
+      if (!categoryBreakdownExists) {
+        // Add category_breakdown column
+        this.db.exec(`
+          ALTER TABLE monthly_expenses
+          ADD COLUMN category_breakdown TEXT DEFAULT '{}'
+        `);
+        console.log('✅ Added category_breakdown column to monthly_expenses table');
+      } else {
+        console.log('ℹ️  category_breakdown column already exists, skipping...');
+      }
 
       // Initialize category_breakdown data for existing records
       console.log('📝 Initializing category_breakdown data for existing records...');
@@ -472,7 +486,7 @@ class DatabaseMigrations {
       this.db.exec(`
         UPDATE monthly_expenses
         SET category_breakdown = '{}'
-        WHERE category_breakdown IS NULL
+        WHERE category_breakdown IS NULL OR category_breakdown = ''
       `);
 
       console.log('✅ Category breakdown data initialized successfully');
