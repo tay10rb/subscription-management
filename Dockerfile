@@ -57,10 +57,13 @@ COPY --from=backend-builder --chown=nodeuser:nodejs /app/server/node_modules ./s
 # Copy frontend build output
 COPY --from=frontend-builder --chown=nodeuser:nodejs /app/dist ./public
 
-# Set proper permissions
-RUN chmod +x ./server/start.sh && \
+# Create data directory and set proper permissions
+RUN mkdir -p /app/data && \
+    chmod +x ./server/start.sh && \
     chown -R nodeuser:nodejs ./server/db && \
-    chmod 755 ./server/db
+    chmod 755 ./server/db && \
+    chown -R nodeuser:nodejs /app/data && \
+    chmod 755 /app/data
 
 # Switch to non-root user
 USER nodeuser
