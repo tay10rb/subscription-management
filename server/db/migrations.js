@@ -109,11 +109,130 @@ class DatabaseMigrations {
     console.log('🎉 All migrations completed successfully!');
   }
 
-  // Migration 001: Initial schema (for existing databases)
+  // Migration 001: Initial schema - Create core tables
   migration_001_initial_schema() {
-    // This migration is for marking existing databases as version 1
-    // The actual tables should already exist
-    console.log('📝 Marking existing schema as version 1');
+    console.log('📝 Creating initial database schema...');
+
+    // Create subscriptions table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS subscriptions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        plan TEXT NOT NULL,
+        billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('monthly', 'yearly', 'quarterly')),
+        next_billing_date DATE,
+        last_billing_date DATE,
+        amount DECIMAL(10, 2) NOT NULL,
+        currency TEXT NOT NULL DEFAULT 'USD',
+        payment_method TEXT NOT NULL,
+        start_date DATE,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'cancelled')),
+        category TEXT NOT NULL DEFAULT 'other',
+        renewal_type TEXT NOT NULL DEFAULT 'manual' CHECK (renewal_type IN ('auto', 'manual')),
+        notes TEXT,
+        website TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create settings table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS settings (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        currency TEXT NOT NULL DEFAULT 'USD',
+        theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create exchange_rates table
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS exchange_rates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        from_currency TEXT NOT NULL,
+        to_currency TEXT NOT NULL,
+        rate DECIMAL(15, 8) NOT NULL,
+        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(from_currency, to_currency)
+      )
+    `);
+
+    // Create triggers to update updated_at timestamp
+    this.db.exec(`
+      CREATE TRIGGER IF NOT EXISTS subscriptions_updated_at
+      AFTER UPDATE ON subscriptions
+      FOR EACH ROW
+      BEGIN
+        UPDATE subscriptions SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+      END
+    `);
+
+    this.db.exec(`
+      CREATE TRIGGER IF NOT EXISTS settings_updated_at
+      AFTER UPDATE ON settings
+      FOR EACH ROW
+      BEGIN
+        UPDATE settings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+      END
+    `);
+
+    // Insert default settings if not exists
+    this.db.prepare(`
+      INSERT OR IGNORE INTO settings (id, currency, theme)
+      VALUES (1, 'USD', 'system')
+    `).run();
+
+    // Insert default exchange rates
+    this.insertDefaultExchangeRates();
+
+    console.log('✅ Initial schema created successfully');
+  }
+
+  // Helper method to insert default exchange rates
+  insertDefaultExchangeRates() {
+    const defaultRates = [
+      { from: 'USD', to: 'USD', rate: 1.0000 },
+      { from: 'USD', to: 'EUR', rate: 0.8500 },
+      { from: 'USD', to: 'GBP', rate: 0.7500 },
+      { from: 'USD', to: 'JPY', rate: 110.0000 },
+      { from: 'USD', to: 'CNY', rate: 6.5000 },
+      { from: 'USD', to: 'CAD', rate: 1.2500 },
+      { from: 'USD', to: 'AUD', rate: 1.3500 },
+      { from: 'USD', to: 'CHF', rate: 0.9200 },
+      { from: 'USD', to: 'SEK', rate: 8.5000 },
+      { from: 'USD', to: 'NOK', rate: 8.8000 },
+      { from: 'USD', to: 'DKK', rate: 6.3000 },
+      { from: 'USD', to: 'PLN', rate: 3.9000 },
+      { from: 'USD', to: 'CZK', rate: 22.0000 },
+      { from: 'USD', to: 'HUF', rate: 300.0000 },
+      { from: 'USD', to: 'RUB', rate: 75.0000 },
+      { from: 'USD', to: 'BRL', rate: 5.2000 },
+      { from: 'USD', to: 'MXN', rate: 20.0000 },
+      { from: 'USD', to: 'INR', rate: 74.0000 },
+      { from: 'USD', to: 'KRW', rate: 1180.0000 },
+      { from: 'USD', to: 'SGD', rate: 1.3500 },
+      { from: 'USD', to: 'HKD', rate: 7.8000 },
+      { from: 'USD', to: 'NZD', rate: 1.4200 },
+      { from: 'USD', to: 'ZAR', rate: 14.5000 },
+      { from: 'USD', to: 'TRY', rate: 8.5000 },
+      { from: 'USD', to: 'ILS', rate: 3.2000 },
+      { from: 'USD', to: 'THB', rate: 31.0000 },
+      { from: 'USD', to: 'MYR', rate: 4.1000 },
+      { from: 'USD', to: 'PHP', rate: 50.0000 },
+      { from: 'USD', to: 'IDR', rate: 14300.0000 },
+      { from: 'USD', to: 'VND', rate: 23000.0000 }
+    ];
+
+    const insertRate = this.db.prepare(`
+      INSERT OR IGNORE INTO exchange_rates (from_currency, to_currency, rate)
+      VALUES (?, ?, ?)
+    `);
+
+    for (const rate of defaultRates) {
+      insertRate.run(rate.from, rate.to, rate.rate);
+    }
   }
 
   // Migration 002: Add categories and payment_methods tables
@@ -216,16 +335,16 @@ class DatabaseMigrations {
     }
   }
 
-  // Migration 003: Add renewal_type field to subscriptions table
+  // Migration 003: Add renewal_type field to subscriptions table (legacy migration)
   migration_003_add_renewal_type_to_subscriptions() {
-    console.log('📝 Adding renewal_type field to subscriptions table...');
+    console.log('📝 Checking renewal_type field in subscriptions table...');
 
     // Check if renewal_type column already exists
     const tableInfo = this.db.prepare("PRAGMA table_info(subscriptions)").all();
     const renewalTypeExists = tableInfo.some(column => column.name === 'renewal_type');
 
     if (!renewalTypeExists) {
-      // Add renewal_type column to subscriptions table
+      // Add renewal_type column to subscriptions table (for databases created before this field was added to initial schema)
       this.db.exec(`
         ALTER TABLE subscriptions
         ADD COLUMN renewal_type TEXT NOT NULL DEFAULT 'manual'
@@ -233,7 +352,7 @@ class DatabaseMigrations {
       `);
       console.log('✅ renewal_type field added successfully');
     } else {
-      console.log('ℹ️  renewal_type field already exists, skipping...');
+      console.log('ℹ️  renewal_type field already exists (included in initial schema), skipping...');
     }
   }
 

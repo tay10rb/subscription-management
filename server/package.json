@@ -5,6 +5,7 @@
   "scripts": {
     "start": "node server.js",
     "db:init": "node db/init.js",
+    "db:migrate": "node db/migrate.js",
     "db:reset": "rm -f db/database.sqlite && node db/init.js"
   },
   "keywords": [],
