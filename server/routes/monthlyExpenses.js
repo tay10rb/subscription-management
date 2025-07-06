@@ -252,11 +252,34 @@ function createProtectedMonthlyExpensesRoutes(db) {
     const router = express.Router();
     const monthlyExpenseService = new MonthlyExpenseService(db.name);
 
+    // POST to reset all monthly expenses data (Protected)
+    router.post('/reset', (req, res) => {
+        try {
+            logger.info('Resetting all monthly expenses data...');
+
+            // Delete all monthly expenses records
+            const deleteStmt = monthlyExpenseService.db.prepare('DELETE FROM monthly_expenses');
+            const result = deleteStmt.run();
+
+            logger.info(`Deleted ${result.changes} monthly expense records`);
+
+            res.json({
+                message: 'Monthly expenses have been reset successfully',
+                deletedRecords: result.changes,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            logger.error('Failed to reset monthly expenses:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // POST recalculate all monthly expenses (Protected)
     router.post('/recalculate', (req, res) => {
         try {
             monthlyExpenseService.recalculateAllMonthlyExpenses();
-            
+
             res.json({
                 message: 'Monthly expenses recalculated successfully',
                 timestamp: new Date().toISOString()

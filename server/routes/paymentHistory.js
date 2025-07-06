@@ -183,6 +183,79 @@ function createPaymentHistoryRoutes(db) {
 function createProtectedPaymentHistoryRoutes(db) {
     const router = express.Router();
 
+    // POST to reset all payment history data (Protected)
+    router.post('/reset', (req, res) => {
+        try {
+            logger.info('Resetting all payment history data...');
+
+            // Delete all payment history records
+            const deleteStmt = db.prepare('DELETE FROM payment_history');
+            const result = deleteStmt.run();
+
+            logger.info(`Deleted ${result.changes} payment history records`);
+
+            // Also trigger monthly expenses recalculation since payment_history changed
+            try {
+                const MonthlyExpenseService = require('../services/monthlyExpenseService');
+                const monthlyExpenseService = new MonthlyExpenseService(db.name);
+                monthlyExpenseService.recalculateAllMonthlyExpenses();
+                monthlyExpenseService.close();
+
+                logger.info('Monthly expenses recalculated after payment history reset');
+            } catch (error) {
+                logger.warn('Failed to recalculate monthly expenses after reset:', error.message);
+            }
+
+            res.json({
+                message: 'Payment history has been reset successfully',
+                deletedRecords: result.changes,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            logger.error('Failed to reset payment history:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
+    // POST to rebuild payment history from subscriptions (Protected)
+    router.post('/rebuild-from-subscriptions', (req, res) => {
+        try {
+            logger.info('Rebuilding payment history from subscriptions...');
+
+            // First, delete existing payment history
+            const deleteStmt = db.prepare('DELETE FROM payment_history');
+            const deleteResult = deleteStmt.run();
+            logger.info(`Deleted ${deleteResult.changes} existing payment history records`);
+
+            // Rebuild payment history from subscriptions
+            const rebuiltCount = rebuildPaymentHistoryFromSubscriptions(db);
+
+            // Recalculate monthly expenses
+            try {
+                const MonthlyExpenseService = require('../services/monthlyExpenseService');
+                const monthlyExpenseService = new MonthlyExpenseService(db.name);
+                monthlyExpenseService.recalculateAllMonthlyExpenses();
+                monthlyExpenseService.close();
+
+                logger.info('Monthly expenses recalculated after payment history rebuild');
+            } catch (error) {
+                logger.warn('Failed to recalculate monthly expenses after rebuild:', error.message);
+            }
+
+            res.json({
+                message: 'Payment history has been rebuilt from subscriptions successfully',
+                deletedRecords: deleteResult.changes,
+                rebuiltRecords: rebuiltCount,
+                timestamp: new Date().toISOString()
+            });
+
+        } catch (error) {
+            logger.error('Failed to rebuild payment history:', error.message);
+            res.status(500).json({ error: error.message });
+        }
+    });
+
     // POST create new payment history record (Protected)
     router.post('/', (req, res) => {
         try {
@@ -408,6 +481,126 @@ function createProtectedPaymentHistoryRoutes(db) {
     });
 
     return router;
+}
+
+/**
+ * 从订阅数据重建 payment_history
+ */
+function rebuildPaymentHistoryFromSubscriptions(db) {
+    logger.info('Starting payment history rebuild from subscriptions...');
+
+    // Get all subscriptions
+    const subscriptions = db.prepare(`
+        SELECT id, start_date, billing_cycle, amount, currency, last_billing_date, status
+        FROM subscriptions
+        WHERE start_date IS NOT NULL
+    `).all();
+
+    logger.info(`Found ${subscriptions.length} subscriptions to process`);
+
+    if (subscriptions.length === 0) {
+        logger.warn('No subscriptions found, cannot rebuild payment history');
+        return 0;
+    }
+
+    const insertPayment = db.prepare(`
+        INSERT INTO payment_history (
+            subscription_id, payment_date, amount_paid, currency,
+            billing_period_start, billing_period_end, status, notes
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    let totalPayments = 0;
+
+    for (const sub of subscriptions) {
+        try {
+            const payments = generateHistoricalPayments(sub);
+
+            for (const payment of payments) {
+                insertPayment.run(
+                    sub.id,
+                    payment.payment_date,
+                    sub.amount,
+                    sub.currency,
+                    payment.billing_period_start,
+                    payment.billing_period_end,
+                    'succeeded',
+                    'Rebuilt from subscription data'
+                );
+                totalPayments++;
+            }
+
+            logger.info(`Generated ${payments.length} payment records for subscription ${sub.id}`);
+        } catch (error) {
+            logger.error(`Error processing subscription ${sub.id}:`, error.message);
+        }
+    }
+
+    logger.info(`Total rebuilt payment records: ${totalPayments}`);
+    return totalPayments;
+}
+
+/**
+ * Generate historical payments based on subscription data
+ */
+function generateHistoricalPayments(subscription) {
+    const payments = [];
+    const startDate = new Date(subscription.start_date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // If subscription is cancelled and has no last_billing_date, only create initial payment
+    if (subscription.status === 'cancelled' && !subscription.last_billing_date) {
+        const billingPeriodEnd = calculateNextBillingDate(startDate, subscription.billing_cycle);
+        payments.push({
+            payment_date: startDate.toISOString().split('T')[0],
+            billing_period_start: startDate.toISOString().split('T')[0],
+            billing_period_end: billingPeriodEnd.toISOString().split('T')[0]
+        });
+        return payments;
+    }
+
+    // Generate payments from start_date to last_billing_date or today
+    let currentDate = new Date(startDate);
+    const endDate = subscription.last_billing_date ?
+        new Date(subscription.last_billing_date) : today;
+
+    while (currentDate <= endDate) {
+        const nextBillingDate = calculateNextBillingDate(currentDate, subscription.billing_cycle);
+
+        payments.push({
+            payment_date: currentDate.toISOString().split('T')[0],
+            billing_period_start: currentDate.toISOString().split('T')[0],
+            billing_period_end: nextBillingDate.toISOString().split('T')[0]
+        });
+
+        currentDate = new Date(nextBillingDate);
+    }
+
+    return payments;
+}
+
+/**
+ * Calculate next billing date
+ */
+function calculateNextBillingDate(date, billingCycle) {
+    const nextDate = new Date(date);
+
+    switch (billingCycle) {
+        case 'monthly':
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            break;
+        case 'yearly':
+            nextDate.setFullYear(nextDate.getFullYear() + 1);
+            break;
+        case 'quarterly':
+            nextDate.setMonth(nextDate.getMonth() + 3);
+            break;
+        default:
+            throw new Error(`Unknown billing cycle: ${billingCycle}`);
+    }
+
+    return nextDate;
 }
 
 module.exports = {

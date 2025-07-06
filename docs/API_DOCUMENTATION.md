@@ -325,6 +325,31 @@ Get a specific payment history record.
 }
 ```
 
+### POST /payment-history/reset 🔒
+Reset (delete) all payment history data and recalculate monthly expenses.
+
+**Response:**
+```json
+{
+  "message": "Payment history has been reset successfully",
+  "deletedRecords": 150,
+  "timestamp": "2025-07-04T00:00:00.000Z"
+}
+```
+
+### POST /payment-history/rebuild-from-subscriptions 🔒
+Rebuild payment history from subscription data and recalculate monthly expenses.
+
+**Response:**
+```json
+{
+  "message": "Payment history has been rebuilt from subscriptions successfully",
+  "deletedRecords": 150,
+  "rebuiltRecords": 180,
+  "timestamp": "2025-07-04T00:00:00.000Z"
+}
+```
+
 ### POST /payment-history 🔒
 Create a new payment history record.
 
@@ -547,6 +572,18 @@ Get monthly expenses summary and totals.
       "paymentCount": 5
     }
   ]
+}
+```
+
+### POST /monthly-expenses/reset 🔒
+Reset (delete) all monthly expense data.
+
+**Response:**
+```json
+{
+  "message": "Monthly expenses have been reset successfully",
+  "deletedRecords": 25,
+  "timestamp": "2025-07-04T00:00:00.000Z"
 }
 ```
 
