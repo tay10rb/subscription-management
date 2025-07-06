@@ -1,4 +1,4 @@
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { formatCurrency } from "@/lib/subscription-utils"
@@ -50,16 +50,15 @@ export function YearlyTrendChart({ data, currency, className }: YearlyTrendChart
           </div>
         ) : (
           <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] w-full overflow-hidden">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart 
-                data={data} 
-                margin={{ 
-                  top: 25, 
-                  right: 15, 
-                  left: 5, 
-                  bottom: 15 // Balanced margin
-                }}
-              >
+            <LineChart
+              data={data}
+              margin={{
+                top: 25,
+                right: 15,
+                left: 5,
+                bottom: 15 // Balanced margin
+              }}
+            >
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="year"
@@ -109,8 +108,7 @@ export function YearlyTrendChart({ data, currency, className }: YearlyTrendChart
                   dot={{ fill: "var(--color-amount)", strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, stroke: "var(--color-amount)", strokeWidth: 2 }}
                 />
-              </LineChart>
-            </ResponsiveContainer>
+            </LineChart>
           </ChartContainer>
         )}
       </CardContent>

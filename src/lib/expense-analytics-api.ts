@@ -52,8 +52,11 @@ export function transformApiMonthlyExpenses(
       year: 'numeric'
     });
 
+    // Convert monthKey from YYYYMM to YYYY-MM format
+    const formattedMonthKey = `${expense.year}-${String(expense.month).padStart(2, '0')}`;
+
     return {
-      monthKey: expense.monthKey,
+      monthKey: formattedMonthKey,
       month: monthDisplay,
       year: expense.year,
       amount,

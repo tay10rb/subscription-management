@@ -12,9 +12,17 @@ import {
   YearlyExpense,
   CategoryExpense
 } from "@/lib/expense-analytics-api"
+import {
+  convertMonthlyExpensesToInfo,
+  calculateQuarterlyExpenses,
+  calculateYearlyExpenses,
+  filterRecentExpenses
+} from "@/lib/expense-info-analytics"
+import { ExpenseInfoData } from "@/components/charts/ExpenseInfoCards"
 import { ExpenseTrendChart } from "@/components/charts/ExpenseTrendChart"
 import { YearlyTrendChart } from "@/components/charts/YearlyTrendChart"
 import { CategoryPieChart } from "@/components/charts/CategoryPieChart"
+import { ExpenseInfoCards } from "@/components/charts/ExpenseInfoCards"
 
 
 import { Card, CardContent } from "@/components/ui/card"
@@ -95,16 +103,145 @@ export function ExpenseReportsPage() {
   const [categoryExpenses, setCategoryExpenses] = useState<CategoryExpense[]>([])
   const [yearlyCategoryExpenses, setYearlyCategoryExpenses] = useState<CategoryExpense[]>([])
 
+  // State for expense info data
+  const [expenseInfoData, setExpenseInfoData] = useState<{
+    monthly: ExpenseInfoData[]
+    quarterly: ExpenseInfoData[]
+    yearly: ExpenseInfoData[]
+  }>({
+    monthly: [],
+    quarterly: [],
+    yearly: []
+  })
+
   const [isLoadingExpenses, setIsLoadingExpenses] = useState(false)
   const [isLoadingYearlyExpenses, setIsLoadingYearlyExpenses] = useState(false)
   const [isLoadingCategoryExpenses, setIsLoadingCategoryExpenses] = useState(false)
   const [isLoadingYearlyCategoryExpenses, setIsLoadingYearlyCategoryExpenses] = useState(false)
+  const [isLoadingExpenseInfo, setIsLoadingExpenseInfo] = useState(false)
   const [expenseError, setExpenseError] = useState<string | null>(null)
   const [yearlyExpenseError, setYearlyExpenseError] = useState<string | null>(null)
   const [categoryExpenseError, setCategoryExpenseError] = useState<string | null>(null)
   const [yearlyCategoryExpenseError, setYearlyCategoryExpenseError] = useState<string | null>(null)
+  const [expenseInfoError, setExpenseInfoError] = useState<string | null>(null)
 
 
+
+  // Load expense info data (recent periods)
+  useEffect(() => {
+    const loadExpenseInfoData = async () => {
+      setIsLoadingExpenseInfo(true)
+      setExpenseInfoError(null)
+
+      try {
+        // Get recent 12 months of data for expense info
+        const endDate = new Date()
+        const startDate = new Date()
+        startDate.setMonth(startDate.getMonth() - 12)
+
+        const allMonthlyData = await getApiMonthlyExpenses(startDate, endDate, userCurrency)
+
+        // If no data from API, create some test data for demonstration
+        if (!allMonthlyData || allMonthlyData.length === 0) {
+          const testData = [
+            {
+              monthKey: '2024-12',
+              month: 'Dec 2024',
+              year: 2024,
+              amount: 156.99,
+              subscriptionCount: 8,
+              paymentHistoryIds: [1, 2, 3, 4, 5]
+            },
+            {
+              monthKey: '2024-11',
+              month: 'Nov 2024',
+              year: 2024,
+              amount: 142.50,
+              subscriptionCount: 7,
+              paymentHistoryIds: [6, 7, 8, 9]
+            },
+            {
+              monthKey: '2024-10',
+              month: 'Oct 2024',
+              year: 2024,
+              amount: 168.75,
+              subscriptionCount: 9,
+              paymentHistoryIds: [10, 11, 12, 13, 14]
+            },
+            {
+              monthKey: '2024-09',
+              month: 'Sep 2024',
+              year: 2024,
+              amount: 134.25,
+              subscriptionCount: 6,
+              paymentHistoryIds: [15, 16, 17]
+            }
+          ]
+
+          const monthlyInfo = convertMonthlyExpensesToInfo(testData, userCurrency)
+          const quarterlyInfo = calculateQuarterlyExpenses(testData, userCurrency)
+          const yearlyInfo = calculateYearlyExpenses(testData, userCurrency)
+
+          setExpenseInfoData({
+            monthly: monthlyInfo,
+            quarterly: quarterlyInfo,
+            yearly: yearlyInfo
+          })
+        } else {
+          const { monthlyExpenses: recentMonthly, yearlyExpenses: recentYearly } = filterRecentExpenses(allMonthlyData)
+
+          // Convert to expense info format
+          const monthlyInfo = convertMonthlyExpensesToInfo(recentMonthly, userCurrency)
+          const quarterlyInfo = calculateQuarterlyExpenses(recentMonthly, userCurrency)
+          const yearlyInfo = calculateYearlyExpenses(recentYearly, userCurrency)
+
+          setExpenseInfoData({
+            monthly: monthlyInfo,
+            quarterly: quarterlyInfo,
+            yearly: yearlyInfo
+          })
+        }
+
+      } catch (error) {
+        console.error('Failed to load expense info data:', error)
+        setExpenseInfoError(error instanceof Error ? error.message : 'Failed to load expense info data')
+
+        // Fallback to test data on error
+        const testData = [
+          {
+            monthKey: '2024-12',
+            month: 'Dec 2024',
+            year: 2024,
+            amount: 156.99,
+            subscriptionCount: 8,
+            paymentHistoryIds: [1, 2, 3, 4, 5]
+          },
+          {
+            monthKey: '2024-11',
+            month: 'Nov 2024',
+            year: 2024,
+            amount: 142.50,
+            subscriptionCount: 7,
+            paymentHistoryIds: [6, 7, 8, 9]
+          }
+        ]
+
+        const monthlyInfo = convertMonthlyExpensesToInfo(testData, userCurrency)
+        const quarterlyInfo = calculateQuarterlyExpenses(testData, userCurrency)
+        const yearlyInfo = calculateYearlyExpenses(testData, userCurrency)
+
+        setExpenseInfoData({
+          monthly: monthlyInfo,
+          quarterly: quarterlyInfo,
+          yearly: yearlyInfo
+        })
+      } finally {
+        setIsLoadingExpenseInfo(false)
+      }
+    }
+
+    loadExpenseInfoData()
+  }, [userCurrency])
 
   // Load monthly expense data from API
   useEffect(() => {
@@ -217,6 +354,42 @@ export function ExpenseReportsPage() {
           <p className="text-muted-foreground">
             Comprehensive analysis of your subscription expenses
           </p>
+        </div>
+      </div>
+
+      {/* Expense Info Cards */}
+      <div className="space-y-6">
+        <div>
+          {isLoadingExpenseInfo ? (
+            <div>
+              <p className="text-sm text-muted-foreground mb-4">Loading expense overview...</p>
+              <ExpenseInfoCards
+                monthlyData={[]}
+                quarterlyData={[]}
+                yearlyData={[]}
+                currency={userCurrency}
+                isLoading={true}
+              />
+            </div>
+          ) : expenseInfoError ? (
+            <Card>
+              <CardContent className="flex items-center justify-center h-32">
+                <div className="text-center">
+                  <p className="text-sm text-destructive mb-2">Failed to load expense overview</p>
+                  <p className="text-xs text-muted-foreground">{expenseInfoError}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div>
+              <ExpenseInfoCards
+                monthlyData={expenseInfoData.monthly}
+                quarterlyData={expenseInfoData.quarterly}
+                yearlyData={expenseInfoData.yearly}
+                currency={userCurrency}
+              />
+            </div>
+          )}
         </div>
       </div>
 

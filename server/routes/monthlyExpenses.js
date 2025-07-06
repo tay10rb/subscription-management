@@ -142,28 +142,38 @@ function createMonthlyExpensesRoutes(db) {
             if (result.paymentHistoryIds.length > 0) {
                 const placeholders = result.paymentHistoryIds.map(() => '?').join(',');
                 const paymentsStmt = db.prepare(`
-                    SELECT ph.*, s.name as subscription_name, s.plan as subscription_plan
+                    SELECT ph.*, s.name as subscription_name, s.plan as subscription_plan, s.billing_cycle as subscription_billing_cycle
                     FROM payment_history ph
                     LEFT JOIN subscriptions s ON ph.subscription_id = s.id
                     WHERE ph.id IN (${placeholders})
                     ORDER BY ph.payment_date
                 `);
-                
+
                 const payments = paymentsStmt.all(...result.paymentHistoryIds);
-                result.paymentDetails = payments.map(p => ({
-                    id: p.id,
-                    subscriptionId: p.subscription_id,
-                    subscriptionName: p.subscription_name,
-                    subscriptionPlan: p.subscription_plan,
-                    paymentDate: p.payment_date,
-                    amountPaid: parseFloat(p.amount_paid),
-                    currency: p.currency,
-                    billingPeriod: {
-                        start: p.billing_period_start,
-                        end: p.billing_period_end
-                    },
-                    status: p.status
-                }));
+
+                result.paymentDetails = payments.map(p => {
+                    // 计算分摊信息
+                    const distributionMonths = p.subscription_billing_cycle === 'monthly' ? 1 :
+                                             p.subscription_billing_cycle === 'quarterly' ? 3 : 12;
+                    const allocatedAmount = parseFloat(p.amount_paid) / distributionMonths;
+
+                    return {
+                        id: p.id,
+                        subscriptionId: p.subscription_id,
+                        subscriptionName: p.subscription_name,
+                        subscriptionPlan: p.subscription_plan,
+                        paymentDate: p.payment_date,
+                        amountPaid: parseFloat(p.amount_paid),
+                        allocatedAmount: Math.round(allocatedAmount * 100) / 100,
+                        currency: p.currency,
+                        billingPeriod: {
+                            start: p.billing_period_start,
+                            end: p.billing_period_end
+                        },
+                        billingCycle: p.subscription_billing_cycle,
+                        status: p.status
+                    };
+                });
             }
 
             res.json(result);

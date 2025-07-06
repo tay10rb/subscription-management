@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts'
+import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
 import { formatCurrency } from "@/lib/subscription-utils"
@@ -66,8 +66,7 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
             {/* Chart */}
             <div className="flex items-center justify-center min-h-[250px] sm:min-h-[300px] lg:min-h-[350px] w-full">
               <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] lg:h-[350px] w-full max-w-[320px] mx-auto overflow-hidden">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                     <Pie
                       data={chartData}
                       cx="45%"
@@ -117,8 +116,7 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
                         return null
                       }}
                     />
-                  </PieChart>
-                </ResponsiveContainer>
+                </PieChart>
               </ChartContainer>
             </div>
 
