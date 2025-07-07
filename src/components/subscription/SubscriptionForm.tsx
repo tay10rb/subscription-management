@@ -38,19 +38,20 @@ import {
   CommandList,
 } from "@/components/ui/command"
 import { CurrencySelector } from "@/components/subscription/CurrencySelector"
+import { calculateNextBillingDateFromStart } from "@/lib/subscription-utils"
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
 
 
 
 // Form data type - excludes auto-calculated fields
-type SubscriptionFormData = Omit<Subscription, "id" | "lastBillingDate">
+type SubscriptionFormData = Omit<Subscription, "id" | "lastBillingDate" | "nextBillingDate">
 
 interface SubscriptionFormProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   initialData?: Subscription
-  onSubmit: (data: SubscriptionFormData) => void
+  onSubmit: (data: SubscriptionFormData & { nextBillingDate: string }) => void
 }
 
 // Form validation types
@@ -77,7 +78,6 @@ export function SubscriptionForm({
     name: "",
     plan: "",
     billingCycle: "monthly",
-    nextBillingDate: format(new Date(), "yyyy-MM-dd"),
     amount: 0,
     currency: "USD",
     paymentMethod: "",
@@ -114,7 +114,6 @@ export function SubscriptionForm({
           name: "",
           plan: "",
           billingCycle: "monthly",
-          nextBillingDate: format(new Date(), "yyyy-MM-dd"),
           amount: 0,
           currency: "USD",
           paymentMethod: "",
@@ -214,23 +213,33 @@ export function SubscriptionForm({
   // Submit form
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validate form
     const newErrors: FormErrors = {}
-    
+
     if (!form.name) newErrors.name = "Name is required"
     if (!form.plan) newErrors.plan = "Subscription plan is required"
     if (!form.category) newErrors.category = "Category is required"
     if (!form.paymentMethod) newErrors.paymentMethod = "Payment method is required"
     if (form.amount <= 0) newErrors.amount = "Amount must be greater than 0"
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors)
       return
     }
-    
-    // Submit the form
-    onSubmit(form)
+
+    // Calculate next billing date based on start date, current date and billing cycle
+    const nextBillingDate = calculateNextBillingDateFromStart(
+      new Date(form.startDate),
+      new Date(),
+      form.billingCycle
+    )
+
+    // Submit the form with calculated next billing date
+    onSubmit({
+      ...form,
+      nextBillingDate
+    })
     onOpenChange(false)
   }
 
@@ -415,23 +424,7 @@ export function SubscriptionForm({
               </Select>
             </div>
 
-            {/* Next Billing Date */}
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">
-                Next Billing Date
-              </Label>
-              <div className="col-span-3">
-                <DatePicker
-                  value={form.nextBillingDate ? new Date(form.nextBillingDate) : undefined}
-                  onChange={(date) => {
-                    if (date) {
-                      setForm(prev => ({ ...prev, nextBillingDate: format(date, "yyyy-MM-dd") }))
-                    }
-                  }}
-                  placeholder="Pick a date"
-                />
-              </div>
-            </div>
+
 
             {/* Payment Method */}
             <div className="grid grid-cols-4 items-center gap-4">

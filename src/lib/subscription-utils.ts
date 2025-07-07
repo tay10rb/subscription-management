@@ -41,6 +41,51 @@ export function calculateNextBillingDate(
 }
 
 /**
+ * Calculate the next billing date based on start date, current date and billing cycle
+ * Uses the day from start date but finds the next occurrence after current date
+ */
+export function calculateNextBillingDateFromStart(
+  startDate: Date,
+  currentDate: Date,
+  billingCycle: BillingCycle
+): string {
+  const today = new Date(currentDate)
+  const start = new Date(startDate)
+
+  // Get the day of month from start date
+  const billingDay = start.getDate()
+
+  // Start with current date
+  let nextBilling = new Date(today)
+  nextBilling.setDate(billingDay)
+
+  // If the billing date this period has already passed, move to next period
+  if (nextBilling <= today) {
+    switch (billingCycle) {
+      case 'monthly':
+        nextBilling.setMonth(nextBilling.getMonth() + 1)
+        break
+      case 'yearly':
+        nextBilling.setFullYear(nextBilling.getFullYear() + 1)
+        break
+      case 'quarterly':
+        nextBilling.setMonth(nextBilling.getMonth() + 3)
+        break
+    }
+    nextBilling.setDate(billingDay)
+  }
+
+  // Handle edge case where the target month doesn't have enough days
+  // (e.g., billing on 31st but next month only has 30 days)
+  if (nextBilling.getDate() !== billingDay) {
+    // Set to last day of the month
+    nextBilling.setDate(0)
+  }
+
+  return nextBilling.toISOString().split('T')[0]
+}
+
+/**
  * Format a date as a readable string
  */
 export function formatDate(dateString: string): string {
