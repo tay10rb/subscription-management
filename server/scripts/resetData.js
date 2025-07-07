@@ -6,30 +6,11 @@
  */
 
 const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
+const config = require('../config');
 const MonthlyExpenseService = require('../services/monthlyExpenseService');
+const logger = require('../utils/logger');
 
-// 获取数据库路径 - 支持多种环境
-function getDatabasePath() {
-    // 优先使用环境变量
-    if (process.env.DATABASE_PATH) {
-        return process.env.DATABASE_PATH;
-    }
-
-    // Docker 环境中的常见路径
-    const dockerPath = '/app/data/database.sqlite';
-
-    // 检查 Docker 数据目录是否存在
-    if (fs.existsSync('/app/data')) {
-        return dockerPath;
-    }
-
-    // 本地开发环境
-    return path.join(__dirname, '../db/database.sqlite');
-}
-
-const dbPath = getDatabasePath();
+const dbPath = config.getDatabasePath();
 
 console.log('🔧 数据重置脚本');
 console.log(`📂 数据库路径: ${dbPath}`);
@@ -70,7 +51,7 @@ async function resetData() {
     try {
         // 连接数据库
         db = new Database(dbPath);
-        console.log('✅ 数据库连接成功');
+        logger.info('数据库连接成功');
 
         // 检查并确保必要的表存在
         await ensureTablesExist(db);
@@ -234,22 +215,24 @@ function rebuildPaymentHistoryFromSubscriptions(db) {
  * 确保必要的表存在，如果不存在则运行迁移
  */
 async function ensureTablesExist(db) {
-    console.log('\n🔍 检查数据库表是否存在...');
+    logger.info('检查数据库表是否存在...');
 
-    // 检查 payment_history 表是否存在
-    const paymentHistoryExists = db.prepare(`
-        SELECT name FROM sqlite_master
-        WHERE type='table' AND name='payment_history'
-    `).get();
+    const requiredTables = ['payment_history', 'monthly_expenses'];
+    const missingTables = [];
 
-    // 检查 monthly_expenses 表是否存在
-    const monthlyExpensesExists = db.prepare(`
-        SELECT name FROM sqlite_master
-        WHERE type='table' AND name='monthly_expenses'
-    `).get();
+    for (const tableName of requiredTables) {
+        const tableExists = db.prepare(`
+            SELECT name FROM sqlite_master
+            WHERE type='table' AND name=?
+        `).get(tableName);
 
-    if (!paymentHistoryExists || !monthlyExpensesExists) {
-        console.log('⚠️  缺少必要的表，正在运行数据库迁移...');
+        if (!tableExists) {
+            missingTables.push(tableName);
+        }
+    }
+
+    if (missingTables.length > 0) {
+        logger.warn(`缺少必要的表: ${missingTables.join(', ')}，正在运行数据库迁移...`);
 
         try {
             // 运行数据库迁移
@@ -257,14 +240,14 @@ async function ensureTablesExist(db) {
             const migrations = new DatabaseMigrations(dbPath);
 
             await migrations.runMigrations();
-            console.log('✅ 数据库迁移完成');
+            logger.info('数据库迁移完成');
             migrations.close();
         } catch (migrationError) {
-            console.error('❌ 数据库迁移失败:', migrationError.message);
+            logger.error('数据库迁移失败:', migrationError.message);
             throw migrationError;
         }
     } else {
-        console.log('✅ 所有必要的表都已存在');
+        logger.info('所有必要的表都已存在');
     }
 }
 

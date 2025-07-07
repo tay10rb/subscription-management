@@ -30,7 +30,18 @@ export class ExchangeRateApi {
       if (!response.ok) {
         throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
       }
-      return await response.json();
+
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (Array.isArray(result)) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error(result.message || 'Failed to fetch exchange rates');
+      }
     } catch (error) {
       logger.error('Error fetching exchange rates:', error);
       throw error;
@@ -46,7 +57,18 @@ export class ExchangeRateApi {
       if (!response.ok) {
         throw new Error(`Failed to fetch exchange rate: ${response.statusText}`);
       }
-      return await response.json();
+
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.id) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error(result.message || 'Failed to fetch exchange rate');
+      }
     } catch (error) {
       logger.error(`Error fetching exchange rate ${fromCurrency}->${toCurrency}:`, error);
       throw error;
@@ -71,7 +93,17 @@ export class ExchangeRateApi {
         throw new Error(errorData.error || `Failed to update exchange rates: ${response.statusText}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.message) {
+        // Fallback for old format or direct message
+        return result;
+      } else {
+        throw new Error('Failed to update exchange rates');
+      }
     } catch (error) {
       logger.error('Error updating exchange rates:', error);
       throw error;
@@ -93,7 +125,17 @@ export class ExchangeRateApi {
         throw new Error(`Failed to fetch scheduler status: ${response.statusText}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.isRunning !== undefined) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error(result.message || 'Failed to fetch scheduler status');
+      }
     } catch (error) {
       logger.error('Error fetching scheduler status:', error);
       throw error;

@@ -5,7 +5,7 @@ const logger = require('../utils/logger');
  * 汇率API服务
  * 使用天行数据API获取实时汇率
  */
-class ExchangeRateService {
+class ExchangeRateApiService {
     constructor(apiKey) {
         this.apiKey = apiKey;
         this.baseUrl = 'https://apis.tianapi.com/fxrate/index';
@@ -127,4 +127,4 @@ class ExchangeRateService {
     }
 }
 
-module.exports = ExchangeRateService;
+module.exports = ExchangeRateApiService;

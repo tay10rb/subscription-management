@@ -1,0 +1,218 @@
+const PaymentHistoryService = require('../services/paymentHistoryService');
+const { asyncHandler } = require('../middleware/errorHandler');
+const { handleQueryResult, handleDbResult, validationError } = require('../utils/responseHelper');
+const { createValidator } = require('../utils/validator');
+
+class PaymentHistoryController {
+    constructor(db) {
+        this.paymentHistoryService = new PaymentHistoryService(db);
+    }
+
+    /**
+     * 获取支付历史记录列表
+     */
+    getPaymentHistory = asyncHandler(async (req, res) => {
+        const {
+            subscription_id,
+            start_date,
+            end_date,
+            status,
+            currency,
+            limit = 50,
+            offset = 0
+        } = req.query;
+
+        const filters = {};
+        if (subscription_id) filters.subscription_id = subscription_id;
+        if (start_date) filters.start_date = start_date;
+        if (end_date) filters.end_date = end_date;
+        if (status) filters.status = status;
+        if (currency) filters.currency = currency;
+
+        const options = {
+            limit: parseInt(limit),
+            offset: parseInt(offset)
+        };
+
+        const result = await this.paymentHistoryService.getPaymentHistory(filters, options);
+        handleQueryResult(res, result, 'Payment history');
+    });
+
+    /**
+     * 根据ID获取单条支付记录
+     */
+    getPaymentById = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const payment = await this.paymentHistoryService.getPaymentById(id);
+        handleQueryResult(res, payment, 'Payment record');
+    });
+
+    /**
+     * 获取月度支付统计
+     */
+    getMonthlyStats = asyncHandler(async (req, res) => {
+        const { year, month } = req.query;
+        
+        const validator = createValidator();
+        validator
+            .required(year, 'year')
+            .integer(year, 'year')
+            .range(year, 'year', 2000, 3000)
+            .required(month, 'month')
+            .integer(month, 'month')
+            .range(month, 'month', 1, 12);
+
+        if (validator.hasErrors()) {
+            return validationError(res, validator.getErrors());
+        }
+
+        const stats = await this.paymentHistoryService.getMonthlyStats(parseInt(year), parseInt(month));
+        handleQueryResult(res, stats, 'Monthly payment statistics');
+    });
+
+    /**
+     * 获取年度支付统计
+     */
+    getYearlyStats = asyncHandler(async (req, res) => {
+        const { year } = req.query;
+        
+        const validator = createValidator();
+        validator
+            .required(year, 'year')
+            .integer(year, 'year')
+            .range(year, 'year', 2000, 3000);
+
+        if (validator.hasErrors()) {
+            return validationError(res, validator.getErrors());
+        }
+
+        const stats = await this.paymentHistoryService.getYearlyStats(parseInt(year));
+        handleQueryResult(res, stats, 'Yearly payment statistics');
+    });
+
+    /**
+     * 获取季度支付统计
+     */
+    getQuarterlyStats = asyncHandler(async (req, res) => {
+        const { year, quarter } = req.query;
+        
+        const validator = createValidator();
+        validator
+            .required(year, 'year')
+            .integer(year, 'year')
+            .range(year, 'year', 2000, 3000)
+            .required(quarter, 'quarter')
+            .integer(quarter, 'quarter')
+            .range(quarter, 'quarter', 1, 4);
+
+        if (validator.hasErrors()) {
+            return validationError(res, validator.getErrors());
+        }
+
+        const stats = await this.paymentHistoryService.getQuarterlyStats(parseInt(year), parseInt(quarter));
+        handleQueryResult(res, stats, 'Quarterly payment statistics');
+    });
+
+    /**
+     * 创建支付记录
+     */
+    createPayment = asyncHandler(async (req, res) => {
+        const paymentData = req.body;
+        
+        // 验证数据
+        const validator = this.validatePaymentData(paymentData);
+        if (validator.hasErrors()) {
+            return validationError(res, validator.getErrors());
+        }
+
+        const result = await this.paymentHistoryService.createPayment(paymentData);
+        handleDbResult(res, result, 'create', 'Payment record');
+    });
+
+    /**
+     * 更新支付记录
+     */
+    updatePayment = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const updateData = req.body;
+        
+        // 验证数据
+        const validator = this.validatePaymentData(updateData, false);
+        if (validator.hasErrors()) {
+            return validationError(res, validator.getErrors());
+        }
+
+        const result = await this.paymentHistoryService.updatePayment(id, updateData);
+        handleDbResult(res, result, 'update', 'Payment record');
+    });
+
+    /**
+     * 删除支付记录
+     */
+    deletePayment = asyncHandler(async (req, res) => {
+        const { id } = req.params;
+        const result = await this.paymentHistoryService.deletePayment(id);
+        handleDbResult(res, result, 'delete', 'Payment record');
+    });
+
+    /**
+     * 批量创建支付记录
+     */
+    bulkCreatePayments = asyncHandler(async (req, res) => {
+        const paymentsData = req.body;
+        
+        if (!Array.isArray(paymentsData)) {
+            return validationError(res, 'Request body must be an array of payment records');
+        }
+
+        // 验证每条记录
+        for (let i = 0; i < paymentsData.length; i++) {
+            const validator = this.validatePaymentData(paymentsData[i]);
+            if (validator.hasErrors()) {
+                return validationError(res, `Record ${i + 1}: ${validator.getErrors().map(e => e.message).join(', ')}`);
+            }
+        }
+
+        const result = await this.paymentHistoryService.bulkCreatePayments(paymentsData);
+        handleDbResult(res, result, 'create', 'Payment records');
+    });
+
+    /**
+     * 重新计算月度费用
+     */
+    recalculateMonthlyExpenses = asyncHandler(async (req, res) => {
+        await this.paymentHistoryService.recalculateMonthlyExpenses();
+        handleQueryResult(res, { message: 'Monthly expenses recalculated successfully' }, 'Recalculation result');
+    });
+
+    /**
+     * 验证支付数据
+     */
+    validatePaymentData(data, isCreate = true) {
+        const validator = createValidator();
+        
+        if (isCreate) {
+            validator
+                .required(data.subscription_id, 'subscription_id')
+                .required(data.payment_date, 'payment_date')
+                .required(data.amount_paid, 'amount_paid')
+                .required(data.currency, 'currency');
+        }
+
+        validator
+            .integer(data.subscription_id, 'subscription_id')
+            .date(data.payment_date, 'payment_date')
+            .number(data.amount_paid, 'amount_paid')
+            .range(data.amount_paid, 'amount_paid', 0)
+            .string(data.currency, 'currency')
+            .length(data.currency, 'currency', 3, 3)
+            .date(data.billing_period_start, 'billing_period_start')
+            .date(data.billing_period_end, 'billing_period_end')
+            .enum(data.status, 'status', ['succeeded', 'failed', 'pending', 'cancelled', 'refunded'])
+            .string(data.notes, 'notes');
+
+        return validator;
+    }
+}
+
+module.exports = PaymentHistoryController;

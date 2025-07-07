@@ -318,7 +318,19 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           if (!response.ok) {
             throw new Error('Failed to fetch subscriptions')
           }
-          const data = await response.json()
+          const result = await response.json()
+
+          // Handle new unified response format
+          let data;
+          if (result.success && result.data) {
+            data = result.data;
+          } else if (Array.isArray(result)) {
+            // Fallback for old format
+            data = result;
+          } else {
+            throw new Error(result.message || 'Failed to fetch subscriptions');
+          }
+
           const transformedData = data.map(transformFromApi)
           set({ subscriptions: transformedData, isLoading: false })
         } catch (error: any) {
@@ -334,7 +346,19 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           if (!response.ok) {
             throw new Error('Failed to fetch categories')
           }
-          const data = await response.json()
+          const result = await response.json()
+
+          // Handle new unified response format
+          let data;
+          if (result.success && result.data) {
+            data = result.data;
+          } else if (Array.isArray(result)) {
+            // Fallback for old format
+            data = result;
+          } else {
+            throw new Error(result.message || 'Failed to fetch categories');
+          }
+
           set({ categories: data })
         } catch (error) {
           console.error('Error fetching categories:', error)
@@ -348,7 +372,19 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           if (!response.ok) {
             throw new Error('Failed to fetch payment methods')
           }
-          const data = await response.json()
+          const result = await response.json()
+
+          // Handle new unified response format
+          let data;
+          if (result.success && result.data) {
+            data = result.data;
+          } else if (Array.isArray(result)) {
+            // Fallback for old format
+            data = result;
+          } else {
+            throw new Error(result.message || 'Failed to fetch payment methods');
+          }
+
           set({ paymentMethods: data })
         } catch (error) {
           console.error('Error fetching payment methods:', error)
@@ -792,6 +828,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Process automatic renewals for subscriptions that are due
       processAutoRenewals: async (skipRefresh = false) => {
         try {
+          // Check if API key is available
+          const { apiKey } = useSettingsStore.getState()
+          if (!apiKey) {
+            console.warn('API key not configured, skipping auto renewals')
+            return { processed: 0, errors: 0 }
+          }
+
           const response = await fetch(`${API_BASE_URL}/subscriptions/auto-renew`, {
             method: 'POST',
             headers: getHeaders('POST'),
@@ -801,7 +844,18 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             throw new Error('Failed to process auto renewals')
           }
 
-          const result = await response.json()
+          const response_data = await response.json()
+
+          // Handle new unified response format
+          let result;
+          if (response_data.success && response_data.data) {
+            result = response_data.data;
+          } else if (response_data.processed !== undefined) {
+            // Fallback for old format
+            result = response_data;
+          } else {
+            throw new Error(response_data.message || 'Failed to process auto renewals');
+          }
 
           // Only refresh subscriptions if not skipped and there were changes
           if (!skipRefresh && result.processed > 0) {
@@ -818,6 +872,13 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Process expired manual subscriptions
       processExpiredSubscriptions: async (skipRefresh = false) => {
         try {
+          // Check if API key is available
+          const { apiKey } = useSettingsStore.getState()
+          if (!apiKey) {
+            console.warn('API key not configured, skipping expired subscription processing')
+            return { processed: 0, errors: 0 }
+          }
+
           const response = await fetch(`${API_BASE_URL}/subscriptions/process-expired`, {
             method: 'POST',
             headers: getHeaders('POST'),
@@ -827,7 +888,18 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             throw new Error('Failed to process expired subscriptions')
           }
 
-          const result = await response.json()
+          const response_data = await response.json()
+
+          // Handle new unified response format
+          let result;
+          if (response_data.success && response_data.data) {
+            result = response_data.data;
+          } else if (response_data.processed !== undefined) {
+            // Fallback for old format
+            result = response_data;
+          } else {
+            throw new Error(response_data.message || 'Failed to process expired subscriptions');
+          }
 
           // Only refresh subscriptions if not skipped and there were changes
           if (!skipRefresh && result.processed > 0) {
@@ -844,6 +916,12 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Manual renewal for a specific subscription
       manualRenewSubscription: async (id: number) => {
         try {
+          // Check if API key is available
+          const { apiKey } = useSettingsStore.getState()
+          if (!apiKey) {
+            throw new Error('API key not configured. Please set your API key in Settings.')
+          }
+
           const response = await fetch(`${API_BASE_URL}/subscriptions/${id}/manual-renew`, {
             method: 'POST',
             headers: getHeaders('POST'),
@@ -854,7 +932,18 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             throw new Error(errorData.error || 'Failed to renew subscription')
           }
 
-          const result = await response.json()
+          const response_data = await response.json()
+
+          // Handle new unified response format
+          let result;
+          if (response_data.success && response_data.data) {
+            result = response_data.data;
+          } else if (response_data.renewalData) {
+            // Fallback for old format
+            result = response_data;
+          } else {
+            throw new Error(response_data.message || 'Failed to renew subscription');
+          }
 
           // Refresh subscriptions to get updated data
           await get().fetchSubscriptions()

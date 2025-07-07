@@ -111,7 +111,17 @@ export class MonthlyExpensesApi {
         throw new Error(`Failed to fetch monthly expenses: ${response.statusText}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.expenses) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error(result.message || 'Failed to fetch monthly expenses');
+      }
     } catch (error) {
       logger.error('Error fetching monthly expenses:', error);
       throw error;
@@ -128,7 +138,17 @@ export class MonthlyExpensesApi {
         throw new Error(`Failed to fetch monthly expense detail: ${response.statusText}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.id) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error(result.message || 'Failed to fetch monthly expense detail');
+      }
     } catch (error) {
       logger.error(`Error fetching monthly expense detail for ${monthKey}:`, error);
       throw error;
@@ -155,7 +175,17 @@ export class MonthlyExpensesApi {
         throw new Error(`Failed to fetch monthly expenses summary: ${response.statusText}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.summary) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error(result.message || 'Failed to fetch monthly expenses summary');
+      }
     } catch (error) {
       logger.error('Error fetching monthly expenses summary:', error);
       throw error;
@@ -179,7 +209,17 @@ export class MonthlyExpensesApi {
         throw new Error(errorData.error || `Failed to recalculate monthly expenses: ${response.statusText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.message) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error('Failed to recalculate monthly expenses');
+      }
     } catch (error) {
       logger.error('Error recalculating monthly expenses:', error);
       throw error;
@@ -203,7 +243,17 @@ export class MonthlyExpensesApi {
         throw new Error(errorData.error || `Failed to process payment: ${response.statusText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.message) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error('Failed to process payment');
+      }
     } catch (error) {
       logger.error(`Error processing payment ${paymentId}:`, error);
       throw error;
@@ -227,7 +277,17 @@ export class MonthlyExpensesApi {
         throw new Error(errorData.error || `Failed to delete monthly expense: ${response.statusText}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+
+      // Handle new unified response format
+      if (result.success && result.data) {
+        return result.data;
+      } else if (result.message) {
+        // Fallback for old format
+        return result;
+      } else {
+        throw new Error('Failed to delete monthly expense');
+      }
     } catch (error) {
       logger.error(`Error deleting monthly expense ${monthKey}:`, error);
       throw error;

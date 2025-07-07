@@ -1,3 +1,5 @@
+const config = require('../config');
+
 /**
  * 服务器端日志工具
  * 根据环境变量控制日志输出级别
@@ -5,8 +7,8 @@
 
 class Logger {
     constructor() {
-        this.isDevelopment = process.env.NODE_ENV !== 'production';
-        this.logLevel = process.env.LOG_LEVEL || 'info';
+        this.isDevelopment = config.isDevelopment();
+        this.logLevel = config.getLogLevel();
     }
 
     shouldLog(level) {

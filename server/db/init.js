@@ -1,12 +1,8 @@
-const path = require('path');
 const crypto = require('crypto');
-const fs = require('fs');
+const config = require('../config');
 const DatabaseMigrations = require('./migrations');
 
-// Load environment variables
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
-
-const dbPath = process.env.DATABASE_PATH || path.resolve(__dirname, 'database.sqlite');
+const dbPath = config.getDatabasePath();
 
 console.log('🔄 Initializing database...');
 console.log('📂 Database path:', dbPath);
@@ -14,14 +10,10 @@ console.log('📂 Database path:', dbPath);
 async function initializeDatabase() {
     try {
         // Ensure database directory exists
-        const dbDir = path.dirname(dbPath);
-        if (!fs.existsSync(dbDir)) {
-            fs.mkdirSync(dbDir, { recursive: true });
-            console.log(`📁 Created database directory: ${dbDir}`);
-        }
+        config.ensureDatabaseDir();
 
         // Check if database file exists
-        const dbExists = fs.existsSync(dbPath);
+        const dbExists = config.databaseExists();
         if (!dbExists) {
             console.log('📝 Creating new database file...');
         } else {
@@ -37,7 +29,7 @@ async function initializeDatabase() {
         console.log('✅ Database schema is up to date!');
 
         // Generate API key if not provided via environment
-        let apiKey = process.env.API_KEY;
+        let apiKey = config.getApiKey();
         if (!apiKey) {
             apiKey = crypto.randomBytes(32).toString('hex');
             console.log('\n🔑 Generated API Key:');

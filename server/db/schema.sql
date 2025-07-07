@@ -103,14 +103,6 @@ BEGIN
     UPDATE payment_methods SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
 END;
 
--- Create trigger to automatically update updated_at timestamp for settings
-CREATE TRIGGER IF NOT EXISTS settings_updated_at
-AFTER UPDATE ON settings
-FOR EACH ROW
-BEGIN
-    UPDATE settings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-END;
-
 -- Insert default settings
 INSERT OR IGNORE INTO settings (id, currency, theme)
 VALUES (1, 'USD', 'system');

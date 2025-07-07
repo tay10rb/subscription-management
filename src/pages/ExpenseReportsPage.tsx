@@ -141,53 +141,8 @@ export function ExpenseReportsPage() {
 
         const allMonthlyData = await getApiMonthlyExpenses(startDate, endDate, userCurrency)
 
-        // If no data from API, create some test data for demonstration
-        if (!allMonthlyData || allMonthlyData.length === 0) {
-          const testData = [
-            {
-              monthKey: '2024-12',
-              month: 'Dec 2024',
-              year: 2024,
-              amount: 156.99,
-              subscriptionCount: 8,
-              paymentHistoryIds: [1, 2, 3, 4, 5]
-            },
-            {
-              monthKey: '2024-11',
-              month: 'Nov 2024',
-              year: 2024,
-              amount: 142.50,
-              subscriptionCount: 7,
-              paymentHistoryIds: [6, 7, 8, 9]
-            },
-            {
-              monthKey: '2024-10',
-              month: 'Oct 2024',
-              year: 2024,
-              amount: 168.75,
-              subscriptionCount: 9,
-              paymentHistoryIds: [10, 11, 12, 13, 14]
-            },
-            {
-              monthKey: '2024-09',
-              month: 'Sep 2024',
-              year: 2024,
-              amount: 134.25,
-              subscriptionCount: 6,
-              paymentHistoryIds: [15, 16, 17]
-            }
-          ]
-
-          const monthlyInfo = convertMonthlyExpensesToInfo(testData, userCurrency)
-          const quarterlyInfo = calculateQuarterlyExpenses(testData, userCurrency)
-          const yearlyInfo = calculateYearlyExpenses(testData, userCurrency)
-
-          setExpenseInfoData({
-            monthly: monthlyInfo,
-            quarterly: quarterlyInfo,
-            yearly: yearlyInfo
-          })
-        } else {
+        // Process API data
+        if (allMonthlyData && allMonthlyData.length > 0) {
           const { monthlyExpenses: recentMonthly, quarterlyExpenses: recentQuarterly, yearlyExpenses: recentYearly } = filterRecentExpenses(allMonthlyData)
 
           // Convert to expense info format
@@ -200,40 +155,24 @@ export function ExpenseReportsPage() {
             quarterly: quarterlyInfo,
             yearly: yearlyInfo
           })
+        } else {
+          // No data available, set empty state
+          setExpenseInfoData({
+            monthly: [],
+            quarterly: [],
+            yearly: []
+          })
         }
 
       } catch (error) {
         console.error('Failed to load expense info data:', error)
         setExpenseInfoError(error instanceof Error ? error.message : 'Failed to load expense info data')
 
-        // Fallback to test data on error
-        const testData = [
-          {
-            monthKey: '2024-12',
-            month: 'Dec 2024',
-            year: 2024,
-            amount: 156.99,
-            subscriptionCount: 8,
-            paymentHistoryIds: [1, 2, 3, 4, 5]
-          },
-          {
-            monthKey: '2024-11',
-            month: 'Nov 2024',
-            year: 2024,
-            amount: 142.50,
-            subscriptionCount: 7,
-            paymentHistoryIds: [6, 7, 8, 9]
-          }
-        ]
-
-        const monthlyInfo = convertMonthlyExpensesToInfo(testData, userCurrency)
-        const quarterlyInfo = calculateQuarterlyExpenses(testData, userCurrency)
-        const yearlyInfo = calculateYearlyExpenses(testData, userCurrency)
-
+        // Set empty state on error
         setExpenseInfoData({
-          monthly: monthlyInfo,
-          quarterly: quarterlyInfo,
-          yearly: yearlyInfo
+          monthly: [],
+          quarterly: [],
+          yearly: []
         })
       } finally {
         setIsLoadingExpenseInfo(false)

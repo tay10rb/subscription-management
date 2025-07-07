@@ -1,43 +1,45 @@
 const express = require('express');
+const ExchangeRateController = require('../controllers/exchangeRateController');
 
 function createExchangeRateRoutes(db) {
     const router = express.Router();
+    const controller = new ExchangeRateController(db);
 
     // GET all exchange rates (Public)
-    router.get('/', (req, res) => {
-        try {
-            const stmt = db.prepare('SELECT * FROM exchange_rates ORDER BY from_currency, to_currency');
-            const rates = stmt.all();
-            res.json(rates);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
+    router.get('/', controller.getAllExchangeRates);
 
     // GET specific exchange rate (Public)
-    router.get('/:from/:to', (req, res) => {
-        try {
-            const { from, to } = req.params;
-            const stmt = db.prepare('SELECT * FROM exchange_rates WHERE from_currency = ? AND to_currency = ?');
-            const rate = stmt.get(from.toUpperCase(), to.toUpperCase());
+    router.get('/:from/:to', controller.getExchangeRate);
 
-            if (!rate) {
-                return res.status(404).json({ error: 'Exchange rate not found' });
-            }
+    // GET rates for specific currency (Public)
+    router.get('/currency/:currency', controller.getRatesForCurrency);
 
-            res.json(rate);
-        } catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    });
+    // GET currency conversion (Public)
+    router.get('/convert', controller.convertCurrency);
+
+    // GET exchange rate statistics (Public)
+    router.get('/stats', controller.getExchangeRateStats);
 
     return router;
 }
 
 function createProtectedExchangeRateRoutes(db, exchangeRateScheduler) {
     const router = express.Router();
+    const controller = new ExchangeRateController(db);
 
-    // POST to manually update exchange rates (Protected)
+    // POST create or update exchange rate (Protected)
+    router.post('/', controller.upsertExchangeRate);
+
+    // POST bulk update exchange rates (Protected)
+    router.post('/bulk', controller.bulkUpsertExchangeRates);
+
+    // DELETE exchange rate (Protected)
+    router.delete('/:from/:to', controller.deleteExchangeRate);
+
+    // POST validate exchange rate data (Protected)
+    router.post('/validate', controller.validateExchangeRateData);
+
+    // POST to manually update exchange rates via API (Protected)
     router.post('/update', async (req, res) => {
         try {
             const result = await exchangeRateScheduler.updateExchangeRates();

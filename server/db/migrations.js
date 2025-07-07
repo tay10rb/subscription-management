@@ -50,6 +50,11 @@ class DatabaseMigrations {
         version: 9,
         name: 'add_cascade_deletion_triggers',
         up: () => this.migration_009_add_cascade_deletion_triggers()
+      },
+      {
+        version: 10,
+        name: 'update_month_key_format',
+        up: () => this.migration_010_update_month_key_format()
       }
     ];
   }
@@ -668,6 +673,48 @@ class DatabaseMigrations {
       console.log('✅ Category breakdown data initialized successfully');
     } catch (error) {
       console.error('❌ Failed to add category_breakdown column:', error.message);
+      throw error;
+    }
+  }
+
+  // Migration 010: Update month_key format from YYYYMM to YYYY-MM
+  migration_010_update_month_key_format() {
+    console.log('📝 Updating month_key format from YYYYMM to YYYY-MM...');
+
+    try {
+      // Get all existing records with old format
+      const existingRecords = this.db.prepare(`
+        SELECT * FROM monthly_expenses
+        WHERE month_key NOT LIKE '%-%'
+      `).all();
+
+      console.log(`Found ${existingRecords.length} records with old month_key format`);
+
+      // Update each record
+      const updateStmt = this.db.prepare(`
+        UPDATE monthly_expenses
+        SET month_key = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `);
+
+      let updatedCount = 0;
+      for (const record of existingRecords) {
+        const oldKey = record.month_key;
+        // Convert YYYYMM to YYYY-MM
+        if (oldKey.length === 6 && /^\d{6}$/.test(oldKey)) {
+          const year = oldKey.substring(0, 4);
+          const month = oldKey.substring(4, 6);
+          const newKey = `${year}-${month}`;
+
+          updateStmt.run(newKey, record.id);
+          updatedCount++;
+          console.log(`Updated month_key: ${oldKey} -> ${newKey}`);
+        }
+      }
+
+      console.log(`✅ Updated ${updatedCount} month_key records to new format`);
+    } catch (error) {
+      console.error('❌ Failed to update month_key format:', error.message);
       throw error;
     }
   }

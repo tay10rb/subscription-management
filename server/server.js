@@ -9,6 +9,7 @@ require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 // Import modules
 const { initializeDatabase } = require('./config/database');
 const { apiKeyAuth } = require('./middleware/auth');
+const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { createSubscriptionRoutes, createProtectedSubscriptionRoutes } = require('./routes/subscriptions');
 const { createSubscriptionManagementRoutes } = require('./routes/subscriptionManagement');
 const { createAnalyticsRoutes } = require('./routes/analytics');
@@ -93,6 +94,10 @@ app.use((req, res, next) => {
     }
   });
 });
+
+// Error handling middleware (must be last)
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`🚀 Subscription Management Server is running on http://localhost:${port}`);

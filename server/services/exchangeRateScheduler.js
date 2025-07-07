@@ -1,5 +1,5 @@
 const cron = require('node-cron');
-const ExchangeRateService = require('./exchangeRateService');
+const ExchangeRateApiService = require('./exchangeRateService');
 const logger = require('../utils/logger');
 
 /**
@@ -9,7 +9,7 @@ const logger = require('../utils/logger');
 class ExchangeRateScheduler {
     constructor(database, apiKey) {
         this.db = database;
-        this.exchangeRateService = new ExchangeRateService(apiKey);
+        this.exchangeRateService = new ExchangeRateApiService(apiKey);
         this.isRunning = false;
         this.task = null;
     }

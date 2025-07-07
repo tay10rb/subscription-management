@@ -85,7 +85,7 @@ class MonthlyExpenseService {
         while (current <= endMonth) {
             const year = current.getFullYear();
             const month = current.getMonth() + 1;
-            const monthKey = `${year}${month.toString().padStart(2, '0')}`;
+            const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
             months.push({ year, month, monthKey });
             current.setMonth(current.getMonth() + 1);
         }
@@ -105,7 +105,7 @@ class MonthlyExpenseService {
         for (let i = 0; i < monthCount; i++) {
             const year = current.getFullYear();
             const month = current.getMonth() + 1;
-            const monthKey = `${year}${month.toString().padStart(2, '0')}`;
+            const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
             months.push({ year, month, monthKey });
             current.setMonth(current.getMonth() + 1);
         }
@@ -152,7 +152,7 @@ class MonthlyExpenseService {
             // 月付：只计入payment_date所在的月份
             const year = paymentDate.getFullYear();
             const month = paymentDate.getMonth() + 1;
-            const monthKey = `${year}${month.toString().padStart(2, '0')}`;
+            const monthKey = `${year}-${month.toString().padStart(2, '0')}`;
             months = [{ year, month, monthKey }];
         } else if (billingCycle === 'quarterly') {
             // 季付：从billing_period_start开始的3个月
@@ -375,28 +375,198 @@ class MonthlyExpenseService {
     recalculateAllMonthlyExpenses() {
         try {
             logger.info('Starting recalculation of all monthly expenses...');
-            
+
             // 清空现有数据
             this.db.prepare('DELETE FROM monthly_expenses').run();
-            
+
             // 获取所有成功的payment记录
             const paymentsStmt = this.db.prepare(`
-                SELECT * FROM payment_history 
+                SELECT * FROM payment_history
                 WHERE status = 'succeeded'
                 ORDER BY payment_date
             `);
             const payments = paymentsStmt.all();
-            
+
             logger.info(`Processing ${payments.length} payment records...`);
-            
+
             // 处理每个payment记录
             payments.forEach(payment => {
                 this.processNewPayment(payment.id);
             });
-            
+
             logger.info('Monthly expenses recalculation completed successfully');
         } catch (error) {
             logger.error('Failed to recalculate monthly expenses:', error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 处理payment_history插入事件
+     */
+    async handlePaymentInsert(paymentId) {
+        try {
+            logger.info(`Processing new payment ${paymentId} for monthly expenses`);
+            await this.processNewPayment(paymentId);
+            logger.info(`Successfully processed payment ${paymentId}`);
+        } catch (error) {
+            logger.error(`Failed to process payment insert ${paymentId}:`, error.message);
+            // 不抛出错误，避免影响主要的payment_history操作
+        }
+    }
+
+    /**
+     * 处理payment_history更新事件
+     */
+    async handlePaymentUpdate(paymentId, oldStatus, newStatus) {
+        try {
+            logger.info(`Processing payment update ${paymentId}: ${oldStatus} -> ${newStatus}`);
+
+            // 如果状态从非succeeded变为succeeded，需要添加到月度支出
+            if (oldStatus !== 'succeeded' && newStatus === 'succeeded') {
+                await this.processNewPayment(paymentId);
+                logger.info(`Added payment ${paymentId} to monthly expenses`);
+            }
+            // 如果状态从succeeded变为非succeeded，需要重新计算相关月份
+            else if (oldStatus === 'succeeded' && newStatus !== 'succeeded') {
+                await this.recalculateAffectedMonths(paymentId);
+                logger.info(`Removed payment ${paymentId} from monthly expenses`);
+            }
+            // 如果都是succeeded状态，可能是金额或日期变化，重新计算
+            else if (oldStatus === 'succeeded' && newStatus === 'succeeded') {
+                await this.recalculateAffectedMonths(paymentId);
+                logger.info(`Updated payment ${paymentId} in monthly expenses`);
+            }
+        } catch (error) {
+            logger.error(`Failed to process payment update ${paymentId}:`, error.message);
+        }
+    }
+
+    /**
+     * 处理payment_history删除事件
+     */
+    async handlePaymentDelete(paymentId) {
+        try {
+            logger.info(`Processing payment deletion ${paymentId} for monthly expenses`);
+            await this.recalculateAffectedMonths(paymentId);
+            logger.info(`Successfully processed payment deletion ${paymentId}`);
+        } catch (error) {
+            logger.error(`Failed to process payment deletion ${paymentId}:`, error.message);
+        }
+    }
+
+    /**
+     * 重新计算受影响的月份
+     */
+    async recalculateAffectedMonths(paymentId) {
+        try {
+            // 查找包含该payment的所有月份记录
+            const monthsStmt = this.db.prepare(`
+                SELECT month_key, payment_history_ids
+                FROM monthly_expenses
+                WHERE payment_history_ids LIKE '%"' || ? || '"%'
+            `);
+            const affectedMonths = monthsStmt.all(paymentId);
+
+            for (const monthRecord of affectedMonths) {
+                await this.recalculateMonth(monthRecord.month_key, paymentId);
+            }
+        } catch (error) {
+            logger.error(`Failed to recalculate affected months for payment ${paymentId}:`, error.message);
+            throw error;
+        }
+    }
+
+    /**
+     * 重新计算特定月份
+     */
+    async recalculateMonth(monthKey, excludePaymentId = null) {
+        try {
+            // 获取该月份的现有记录
+            const existingStmt = this.db.prepare(`
+                SELECT payment_history_ids FROM monthly_expenses WHERE month_key = ?
+            `);
+            const existing = existingStmt.get(monthKey);
+
+            if (!existing) {
+                logger.warn(`Month record ${monthKey} not found`);
+                return;
+            }
+
+            // 解析payment IDs并排除指定的payment
+            let paymentIds = [];
+            try {
+                paymentIds = JSON.parse(existing.payment_history_ids || '[]');
+                if (excludePaymentId) {
+                    paymentIds = paymentIds.filter(id => id !== excludePaymentId);
+                }
+            } catch (error) {
+                logger.warn('Failed to parse payment_history_ids:', error.message);
+                return;
+            }
+
+            if (paymentIds.length === 0) {
+                // 如果没有payment记录，删除该月份记录
+                const deleteStmt = this.db.prepare(`
+                    DELETE FROM monthly_expenses WHERE month_key = ?
+                `);
+                deleteStmt.run(monthKey);
+                logger.info(`Deleted empty month record ${monthKey}`);
+                return;
+            }
+
+            // 获取所有有效的payment记录
+            const placeholders = paymentIds.map(() => '?').join(',');
+            const paymentsStmt = this.db.prepare(`
+                SELECT * FROM payment_history
+                WHERE id IN (${placeholders}) AND status = 'succeeded'
+            `);
+            const validPayments = paymentsStmt.all(...paymentIds);
+
+            // 重新计算该月份的支出
+            const currencies = this.getSupportedCurrencies();
+            const currencyAmounts = {};
+            currencies.forEach(currency => {
+                currencyAmounts[`amount_${currency.toLowerCase()}`] = 0.00;
+            });
+
+            const validPaymentIds = [];
+            validPayments.forEach(payment => {
+                validPaymentIds.push(payment.id);
+                const processedData = this.processPaymentRecord(payment);
+                const relevantMonth = processedData.find(p => p.monthKey === monthKey);
+
+                if (relevantMonth) {
+                    currencies.forEach(currency => {
+                        const rate = this.getExchangeRate(payment.currency, currency);
+                        const amount = relevantMonth.amountPerMonth * rate;
+                        currencyAmounts[`amount_${currency.toLowerCase()}`] += amount;
+                    });
+                }
+            });
+
+            // 更新数据库记录
+            const setClauses = [
+                'payment_history_ids = ?',
+                ...currencies.map(currency => `amount_${currency.toLowerCase()} = ?`)
+            ];
+
+            const values = [
+                JSON.stringify(validPaymentIds),
+                ...currencies.map(currency => currencyAmounts[`amount_${currency.toLowerCase()}`])
+            ];
+
+            const updateStmt = this.db.prepare(`
+                UPDATE monthly_expenses
+                SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP
+                WHERE month_key = ?
+            `);
+
+            updateStmt.run(...values, monthKey);
+            logger.info(`Recalculated month ${monthKey} with ${validPaymentIds.length} payments`);
+
+        } catch (error) {
+            logger.error(`Failed to recalculate month ${monthKey}:`, error.message);
             throw error;
         }
     }
@@ -480,8 +650,8 @@ class MonthlyExpenseService {
      * 获取月度支出数据
      */
     getMonthlyExpenses(startYear, startMonth, endYear, endMonth) {
-        const startKey = `${startYear}${startMonth.toString().padStart(2, '0')}`;
-        const endKey = `${endYear}${endMonth.toString().padStart(2, '0')}`;
+        const startKey = `${startYear}-${startMonth.toString().padStart(2, '0')}`;
+        const endKey = `${endYear}-${endMonth.toString().padStart(2, '0')}`;
 
         const stmt = this.db.prepare(`
             SELECT * FROM monthly_expenses

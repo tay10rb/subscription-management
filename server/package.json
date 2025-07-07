@@ -6,7 +6,10 @@
     "start": "node server.js",
     "db:init": "node db/init.js",
     "db:migrate": "node db/migrate.js",
-    "db:reset": "rm -f db/database.sqlite && node db/init.js"
+    "db:reset": "rm -f db/database.sqlite && node db/init.js",
+    "test": "jest --config tests/jest.config.js",
+    "test:watch": "jest --config tests/jest.config.js --watch",
+    "test:coverage": "jest --config tests/jest.config.js --coverage"
   },
   "keywords": [],
   "author": "",

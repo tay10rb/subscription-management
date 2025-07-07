@@ -12,6 +12,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { formatCurrency } from "@/lib/subscription-utils"
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
 import {
   Search,
   Calendar,
@@ -38,7 +40,7 @@ function generateMonthKeys(startDate: string, endDate: string): string[] {
   while (current <= actualEnd) {
     const year = current.getFullYear()
     const month = current.getMonth() + 1
-    const monthKey = `${year}${month.toString().padStart(2, '0')}`
+    const monthKey = `${year}-${month.toString().padStart(2, '0')}`
     monthKeys.push(monthKey)
     current.setMonth(current.getMonth() + 1)
   }
@@ -164,14 +166,26 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
         const date = new Date(periodData.startDate)
         const year = date.getFullYear()
         const month = date.getMonth() + 1
-        const monthKey = `${year}${month.toString().padStart(2, '0')}`
+        const monthKey = `${year}-${month.toString().padStart(2, '0')}`
 
-        const response = await fetch(`/api/monthly-expenses/${monthKey}`)
+        const response = await fetch(`${API_BASE_URL}/monthly-expenses/${monthKey}`)
         if (!response.ok) {
           throw new Error(`Failed to fetch monthly expense data: ${response.statusText}`)
         }
 
-        const data = await response.json()
+        const result = await response.json()
+
+        // Handle new unified response format
+        let data;
+        if (result.success && result.data) {
+          data = result.data;
+        } else if (result.paymentDetails) {
+          // Fallback for old format
+          data = result;
+        } else {
+          throw new Error(result.message || 'Failed to fetch monthly expense data');
+        }
+
         allPaymentDetails = data.paymentDetails || []
 
         // 为月度数据设置默认的分配次数
@@ -183,9 +197,21 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
         // 并行获取所有月份的数据
         const monthlyDataPromises = monthKeys.map(async (monthKey: string) => {
           try {
-            const response = await fetch(`/api/monthly-expenses/${monthKey}`)
+            const response = await fetch(`${API_BASE_URL}/monthly-expenses/${monthKey}`)
             if (response.ok) {
-              const data = await response.json()
+              const result = await response.json()
+
+              // Handle new unified response format
+              let data;
+              if (result.success && result.data) {
+                data = result.data;
+              } else if (result.paymentDetails) {
+                // Fallback for old format
+                data = result;
+              } else {
+                return [];
+              }
+
               return data.paymentDetails || []
             }
             return []
@@ -220,8 +246,8 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
 
   // Filter payments based on search term
   const filteredPayments = payments.filter(payment =>
-    payment.subscriptionName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    payment.subscriptionPlan.toLowerCase().includes(searchTerm.toLowerCase())
+    (payment.subscriptionName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (payment.subscriptionPlan?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   )
 
   // Paginate filtered payments
@@ -232,15 +258,21 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
   // Update pagination info based on filtered results
   const filteredTotalPages = Math.ceil(filteredPayments.length / pageSize)
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      })
+    } catch (error) {
+      return 'Invalid Date';
+    }
   }
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | null | undefined) => {
     switch (status) {
       case 'succeeded':
         return 'bg-green-100 text-green-800'
@@ -248,6 +280,9 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
         return 'bg-red-100 text-red-800'
       case 'refunded':
         return 'bg-yellow-100 text-yellow-800'
+      case 'unknown':
+      case null:
+      case undefined:
       default:
         return 'bg-gray-100 text-gray-800'
     }
@@ -357,12 +392,12 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h4 className="font-medium">{payment.subscriptionName}</h4>
+                          <h4 className="font-medium">{payment.subscriptionName || 'Unknown Subscription'}</h4>
                           <Badge variant="secondary" className="text-xs">
-                            {payment.subscriptionPlan}
+                            {payment.subscriptionPlan || 'Unknown Plan'}
                           </Badge>
-                          <Badge className={`text-xs ${getStatusColor(payment.status)}`}>
-                            {payment.status}
+                          <Badge className={`text-xs ${getStatusColor(payment.status || 'unknown')}`}>
+                            {payment.status || 'Unknown'}
                           </Badge>
                           {payment.billingCycle && payment.billingCycle !== 'monthly' && (
                             <Badge variant="outline" className="text-xs">
@@ -378,7 +413,7 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span>Paid: {formatDate(payment.paymentDate)}</span>
                           <span>
-                            Billing: {formatDate(payment.billingPeriod.start)} - {formatDate(payment.billingPeriod.end)}
+                            Billing: {formatDate(payment.billingPeriod?.start)} - {formatDate(payment.billingPeriod?.end)}
                           </span>
                         </div>
                         {payment.notes && (
