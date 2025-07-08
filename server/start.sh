@@ -42,4 +42,5 @@ if [ -z "$TIANAPI_KEY" ]; then
 fi
 
 # Start the application server
-echo "🌟 Starting server on port ${PORT:-3001}..."exec node server/server.js
+echo "🌟 Starting server on port ${PORT:-3001}..."
+exec node server/server.js
