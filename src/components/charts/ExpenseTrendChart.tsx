@@ -1,7 +1,7 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import { MonthlyExpense } from "@/lib/expense-analytics-api"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
@@ -32,7 +32,7 @@ export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendCha
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <CardTitle className="text-lg">Expense Trends</CardTitle>
-          <CardDescription>Monthly spending over time</CardDescription>
+          <CardDescription>Monthly spending over time (Last 12 months)</CardDescription>
         </div>
         {data.length >= 2 && (
           <div className="flex items-center gap-2 text-sm">
@@ -73,7 +73,7 @@ export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendCha
                 <YAxis
                   className="text-xs fill-muted-foreground"
                   tick={{ fontSize: 10 }}
-                  tickFormatter={(value) => formatCurrency(value, currency)}
+                  tickFormatter={(value) => formatCurrencyAmount(value, currency)}
                   width={60}
                 />
                 <Tooltip
@@ -88,7 +88,7 @@ export function ExpenseTrendChart({ data, currency, className }: ExpenseTrendCha
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground">Amount:</span>
                                 <span className="font-medium">
-                                  {formatCurrency(data.amount, currency)}
+                                  {formatCurrencyAmount(data.amount, currency)}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-2">

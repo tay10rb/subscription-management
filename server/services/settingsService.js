@@ -1,5 +1,6 @@
 const BaseRepository = require('../utils/BaseRepository');
 const logger = require('../utils/logger');
+const { SUPPORTED_CURRENCIES, isSupportedCurrency } = require('../config/currencies');
 
 /**
  * 设置服务类
@@ -96,12 +97,7 @@ class SettingsService extends BaseRepository {
      * @returns {boolean} 是否有效
      */
     validateCurrency(currency) {
-        const validCurrencies = [
-            'USD', 'EUR', 'GBP', 'JPY', 'CNY', 'CAD', 'AUD', 'CHF', 'SEK', 'NOK',
-            'DKK', 'PLN', 'CZK', 'HUF', 'RUB', 'BRL', 'INR', 'KRW', 'SGD', 'HKD',
-            'NZD', 'MXN', 'ZAR', 'TRY', 'ILS', 'THB', 'MYR', 'PHP', 'IDR', 'VND'
-        ];
-        return validCurrencies.includes(currency.toUpperCase());
+        return isSupportedCurrency(currency);
     }
 
     /**
@@ -148,38 +144,7 @@ class SettingsService extends BaseRepository {
      * @returns {Array} 货币列表
      */
     getSupportedCurrencies() {
-        return [
-            { code: 'USD', name: 'US Dollar', symbol: '$' },
-            { code: 'EUR', name: 'Euro', symbol: '€' },
-            { code: 'GBP', name: 'British Pound', symbol: '£' },
-            { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-            { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
-            { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-            { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-            { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF' },
-            { code: 'SEK', name: 'Swedish Krona', symbol: 'kr' },
-            { code: 'NOK', name: 'Norwegian Krone', symbol: 'kr' },
-            { code: 'DKK', name: 'Danish Krone', symbol: 'kr' },
-            { code: 'PLN', name: 'Polish Zloty', symbol: 'zł' },
-            { code: 'CZK', name: 'Czech Koruna', symbol: 'Kč' },
-            { code: 'HUF', name: 'Hungarian Forint', symbol: 'Ft' },
-            { code: 'RUB', name: 'Russian Ruble', symbol: '₽' },
-            { code: 'BRL', name: 'Brazilian Real', symbol: 'R$' },
-            { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-            { code: 'KRW', name: 'South Korean Won', symbol: '₩' },
-            { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
-            { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$' },
-            { code: 'NZD', name: 'New Zealand Dollar', symbol: 'NZ$' },
-            { code: 'MXN', name: 'Mexican Peso', symbol: '$' },
-            { code: 'ZAR', name: 'South African Rand', symbol: 'R' },
-            { code: 'TRY', name: 'Turkish Lira', symbol: '₺' },
-            { code: 'ILS', name: 'Israeli Shekel', symbol: '₪' },
-            { code: 'THB', name: 'Thai Baht', symbol: '฿' },
-            { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM' },
-            { code: 'PHP', name: 'Philippine Peso', symbol: '₱' },
-            { code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp' },
-            { code: 'VND', name: 'Vietnamese Dong', symbol: '₫' }
-        ];
+        return SUPPORTED_CURRENCIES;
     }
 
     /**

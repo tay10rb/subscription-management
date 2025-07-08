@@ -1,5 +1,6 @@
 const Database = require('better-sqlite3');
 const path = require('path');
+const fs = require('fs');
 
 class DatabaseMigrations {
   constructor(dbPath) {
@@ -8,53 +9,8 @@ class DatabaseMigrations {
     this.migrations = [
       {
         version: 1,
-        name: 'initial_schema',
-        up: () => this.migration_001_initial_schema()
-      },
-      {
-        version: 2,
-        name: 'add_categories_and_payment_methods',
-        up: () => this.migration_002_add_categories_and_payment_methods()
-      },
-      {
-        version: 3,
-        name: 'add_renewal_type_to_subscriptions',
-        up: () => this.migration_003_add_renewal_type_to_subscriptions()
-      },
-      {
-        version: 4,
-        name: 'create_payment_history_table',
-        up: () => this.migration_004_create_payment_history_table()
-      },
-      {
-        version: 5,
-        name: 'migrate_existing_subscriptions_to_payment_history',
-        up: () => this.migration_005_migrate_existing_subscriptions_to_payment_history()
-      },
-      {
-        version: 6,
-        name: 'create_monthly_expenses_table',
-        up: () => this.migration_006_create_monthly_expenses_table()
-      },
-      {
-        version: 7,
-        name: 'initialize_monthly_expenses_data',
-        up: () => this.migration_007_initialize_monthly_expenses_data()
-      },
-      {
-        version: 8,
-        name: 'add_category_breakdown_to_monthly_expenses',
-        up: () => this.migration_008_add_category_breakdown_to_monthly_expenses()
-      },
-      {
-        version: 9,
-        name: 'add_cascade_deletion_triggers',
-        up: () => this.migration_009_add_cascade_deletion_triggers()
-      },
-      {
-        version: 10,
-        name: 'update_month_key_format',
-        up: () => this.migration_010_update_month_key_format()
+        name: 'initial_schema_consolidated',
+        up: () => this.migration_001_initial_schema_consolidated()
       }
     ];
   }
@@ -84,14 +40,18 @@ class DatabaseMigrations {
   // Run all pending migrations
   async runMigrations() {
     console.log('🔄 Checking for database migrations...');
-    
+
+    // Set database pragmas first (outside transaction)
+    console.log('📝 Setting database pragmas...');
+    this.db.pragma('foreign_keys = ON');
+
     this.initMigrationsTable();
     const currentVersion = this.getCurrentVersion();
-    
+
     console.log(`📊 Current database version: ${currentVersion}`);
-    
+
     const pendingMigrations = this.migrations.filter(m => m.version > currentVersion);
-    
+
     if (pendingMigrations.length === 0) {
       console.log('✅ Database is up to date');
       return;
@@ -102,13 +62,13 @@ class DatabaseMigrations {
     for (const migration of pendingMigrations) {
       try {
         console.log(`⏳ Running migration ${migration.version}: ${migration.name}`);
-        
+
         // Run migration in transaction
         this.db.transaction(() => {
           migration.up();
           this.db.prepare('INSERT INTO migrations (version, name) VALUES (?, ?)').run(migration.version, migration.name);
         })();
-        
+
         console.log(`✅ Migration ${migration.version} completed`);
       } catch (error) {
         console.error(`❌ Migration ${migration.version} failed:`, error);
@@ -119,605 +79,88 @@ class DatabaseMigrations {
     console.log('🎉 All migrations completed successfully!');
   }
 
-  // Migration 001: Initial schema - Create core tables
-  migration_001_initial_schema() {
-    console.log('📝 Creating initial database schema...');
+  // Migration 001: Consolidated initial schema - Create all tables and data
+  migration_001_initial_schema_consolidated() {
+    console.log('📝 Creating consolidated database schema from schema.sql...');
 
-    // Create subscriptions table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS subscriptions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        plan TEXT NOT NULL,
-        billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('monthly', 'yearly', 'quarterly')),
-        next_billing_date DATE,
-        last_billing_date DATE,
-        amount DECIMAL(10, 2) NOT NULL,
-        currency TEXT NOT NULL DEFAULT 'USD',
-        payment_method TEXT NOT NULL,
-        start_date DATE,
-        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'cancelled')),
-        category TEXT NOT NULL DEFAULT 'other',
-        renewal_type TEXT NOT NULL DEFAULT 'manual' CHECK (renewal_type IN ('auto', 'manual')),
-        notes TEXT,
-        website TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+    try {
+      // Read and execute the schema.sql file
+      const schemaPath = path.join(__dirname, 'schema.sql');
+      const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
 
-    // Create settings table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS settings (
-        id INTEGER PRIMARY KEY CHECK (id = 1),
-        currency TEXT NOT NULL DEFAULT 'USD',
-        theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+      // Remove comments and PRAGMA statements
+      const cleanSQL = schemaSQL
+        .split('\n')
+        .filter(line => !line.trim().startsWith('--') && !line.trim().startsWith('PRAGMA'))
+        .join('\n');
 
-    // Create exchange_rates table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS exchange_rates (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        from_currency TEXT NOT NULL,
-        to_currency TEXT NOT NULL,
-        rate DECIMAL(15, 8) NOT NULL,
-        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(from_currency, to_currency)
-      )
-    `);
+      // Split into statements more carefully, handling multi-line statements
+      const statements = this.parseSQL(cleanSQL);
 
-    // Create triggers to update updated_at timestamp
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS subscriptions_updated_at
-      AFTER UPDATE ON subscriptions
-      FOR EACH ROW
-      BEGIN
-        UPDATE subscriptions SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-      END
-    `);
-
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS settings_updated_at
-      AFTER UPDATE ON settings
-      FOR EACH ROW
-      BEGIN
-        UPDATE settings SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-      END
-    `);
-
-    // Insert default settings if not exists
-    this.db.prepare(`
-      INSERT OR IGNORE INTO settings (id, currency, theme)
-      VALUES (1, 'USD', 'system')
-    `).run();
-
-    // Insert default exchange rates
-    this.insertDefaultExchangeRates();
-
-    console.log('✅ Initial schema created successfully');
-  }
-
-  // Helper method to insert default exchange rates
-  insertDefaultExchangeRates() {
-    const defaultRates = [
-      { from: 'USD', to: 'USD', rate: 1.0000 },
-      { from: 'USD', to: 'EUR', rate: 0.8500 },
-      { from: 'USD', to: 'GBP', rate: 0.7500 },
-      { from: 'USD', to: 'JPY', rate: 110.0000 },
-      { from: 'USD', to: 'CNY', rate: 6.5000 },
-      { from: 'USD', to: 'CAD', rate: 1.2500 },
-      { from: 'USD', to: 'AUD', rate: 1.3500 },
-      { from: 'USD', to: 'CHF', rate: 0.9200 },
-      { from: 'USD', to: 'SEK', rate: 8.5000 },
-      { from: 'USD', to: 'NOK', rate: 8.8000 },
-      { from: 'USD', to: 'DKK', rate: 6.3000 },
-      { from: 'USD', to: 'PLN', rate: 3.9000 },
-      { from: 'USD', to: 'CZK', rate: 22.0000 },
-      { from: 'USD', to: 'HUF', rate: 300.0000 },
-      { from: 'USD', to: 'RUB', rate: 75.0000 },
-      { from: 'USD', to: 'BRL', rate: 5.2000 },
-      { from: 'USD', to: 'MXN', rate: 20.0000 },
-      { from: 'USD', to: 'INR', rate: 74.0000 },
-      { from: 'USD', to: 'KRW', rate: 1180.0000 },
-      { from: 'USD', to: 'SGD', rate: 1.3500 },
-      { from: 'USD', to: 'HKD', rate: 7.8000 },
-      { from: 'USD', to: 'NZD', rate: 1.4200 },
-      { from: 'USD', to: 'ZAR', rate: 14.5000 },
-      { from: 'USD', to: 'TRY', rate: 8.5000 },
-      { from: 'USD', to: 'ILS', rate: 3.2000 },
-      { from: 'USD', to: 'THB', rate: 31.0000 },
-      { from: 'USD', to: 'MYR', rate: 4.1000 },
-      { from: 'USD', to: 'PHP', rate: 50.0000 },
-      { from: 'USD', to: 'IDR', rate: 14300.0000 },
-      { from: 'USD', to: 'VND', rate: 23000.0000 }
-    ];
-
-    const insertRate = this.db.prepare(`
-      INSERT OR IGNORE INTO exchange_rates (from_currency, to_currency, rate)
-      VALUES (?, ?, ?)
-    `);
-
-    for (const rate of defaultRates) {
-      insertRate.run(rate.from, rate.to, rate.rate);
-    }
-  }
-
-  // Migration 002: Add categories and payment_methods tables
-  migration_002_add_categories_and_payment_methods() {
-    console.log('📝 Creating categories and payment_methods tables...');
-
-    // Create categories table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        value TEXT NOT NULL UNIQUE,
-        label TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create payment_methods table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS payment_methods (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        value TEXT NOT NULL UNIQUE,
-        label TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create triggers
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS categories_updated_at
-      AFTER UPDATE ON categories
-      FOR EACH ROW
-      BEGIN
-        UPDATE categories SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-      END
-    `);
-
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS payment_methods_updated_at
-      AFTER UPDATE ON payment_methods
-      FOR EACH ROW
-      BEGIN
-        UPDATE payment_methods SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-      END
-    `);
-
-    // Create indexes
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_categories_value ON categories(value)`);
-    this.db.exec(`CREATE INDEX IF NOT EXISTS idx_payment_methods_value ON payment_methods(value)`);
-
-    // Insert default data
-    this.insertDefaultCategories();
-    this.insertDefaultPaymentMethods();
-  }
-
-  insertDefaultCategories() {
-    const defaultCategories = [
-      { value: 'video', label: 'Video Streaming' },
-      { value: 'music', label: 'Music Streaming' },
-      { value: 'software', label: 'Software' },
-      { value: 'cloud', label: 'Cloud Storage' },
-      { value: 'news', label: 'News & Magazines' },
-      { value: 'game', label: 'Games' },
-      { value: 'productivity', label: 'Productivity' },
-      { value: 'education', label: 'Education' },
-      { value: 'finance', label: 'Finance' },
-      { value: 'other', label: 'Other' }
-    ];
-
-    const insertCategory = this.db.prepare(`
-      INSERT OR IGNORE INTO categories (value, label)
-      VALUES (?, ?)
-    `);
-
-    for (const category of defaultCategories) {
-      insertCategory.run(category.value, category.label);
-    }
-  }
-
-  insertDefaultPaymentMethods() {
-    const defaultPaymentMethods = [
-      { value: 'creditcard', label: 'Credit Card' },
-      { value: 'debitcard', label: 'Debit Card' },
-      { value: 'paypal', label: 'PayPal' },
-      { value: 'applepay', label: 'Apple Pay' },
-      { value: 'googlepay', label: 'Google Pay' },
-      { value: 'banktransfer', label: 'Bank Transfer' },
-      { value: 'crypto', label: 'Cryptocurrency' },
-      { value: 'other', label: 'Other' }
-    ];
-
-    const insertPaymentMethod = this.db.prepare(`
-      INSERT OR IGNORE INTO payment_methods (value, label)
-      VALUES (?, ?)
-    `);
-
-    for (const paymentMethod of defaultPaymentMethods) {
-      insertPaymentMethod.run(paymentMethod.value, paymentMethod.label);
-    }
-  }
-
-  // Migration 003: Add renewal_type field to subscriptions table (legacy migration)
-  migration_003_add_renewal_type_to_subscriptions() {
-    console.log('📝 Checking renewal_type field in subscriptions table...');
-
-    // Check if renewal_type column already exists
-    const tableInfo = this.db.prepare("PRAGMA table_info(subscriptions)").all();
-    const renewalTypeExists = tableInfo.some(column => column.name === 'renewal_type');
-
-    if (!renewalTypeExists) {
-      // Add renewal_type column to subscriptions table (for databases created before this field was added to initial schema)
-      this.db.exec(`
-        ALTER TABLE subscriptions
-        ADD COLUMN renewal_type TEXT NOT NULL DEFAULT 'manual'
-        CHECK (renewal_type IN ('auto', 'manual'))
-      `);
-      console.log('✅ renewal_type field added successfully');
-    } else {
-      console.log('ℹ️  renewal_type field already exists (included in initial schema), skipping...');
-    }
-  }
-
-  // Migration 004: Create payment_history table
-  migration_004_create_payment_history_table() {
-    console.log('📝 Creating payment_history table');
-
-    // Create payment_history table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS payment_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        subscription_id INTEGER NOT NULL,
-        payment_date DATE NOT NULL,
-        amount_paid DECIMAL(10, 2) NOT NULL,
-        currency TEXT NOT NULL,
-        billing_period_start DATE NOT NULL,
-        billing_period_end DATE NOT NULL,
-        status TEXT NOT NULL DEFAULT 'succeeded' CHECK (status IN ('succeeded', 'failed', 'refunded')),
-        notes TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (subscription_id) REFERENCES subscriptions (id) ON DELETE CASCADE
-      )
-    `);
-
-    // Create indexes for better performance
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_payment_history_subscription_id
-      ON payment_history (subscription_id)
-    `);
-
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_payment_history_payment_date
-      ON payment_history (payment_date)
-    `);
-
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_payment_history_billing_period
-      ON payment_history (billing_period_start, billing_period_end)
-    `);
-
-    console.log('✅ Created payment_history table with indexes');
-  }
-
-  // Migration 005: Migrate existing subscriptions to payment_history
-  migration_005_migrate_existing_subscriptions_to_payment_history() {
-    console.log('📝 Migrating existing subscriptions to payment_history...');
-
-    // Get all existing subscriptions
-    const subscriptions = this.db.prepare(`
-      SELECT id, start_date, billing_cycle, amount, currency, last_billing_date, status
-      FROM subscriptions
-      WHERE start_date IS NOT NULL
-    `).all();
-
-    console.log(`Found ${subscriptions.length} subscriptions to migrate`);
-
-    const insertPayment = this.db.prepare(`
-      INSERT INTO payment_history (
-        subscription_id, payment_date, amount_paid, currency,
-        billing_period_start, billing_period_end, status, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    let migratedCount = 0;
-
-    for (const sub of subscriptions) {
-      try {
-        const payments = this.generateHistoricalPayments(sub);
-
-        for (const payment of payments) {
-          insertPayment.run(
-            sub.id,
-            payment.payment_date,
-            sub.amount,
-            sub.currency,
-            payment.billing_period_start,
-            payment.billing_period_end,
-            'succeeded',
-            'Migrated from existing subscription data'
-          );
-          migratedCount++;
+      for (const statement of statements) {
+        if (statement.trim()) {
+          try {
+            this.db.exec(statement);
+          } catch (error) {
+            // Log the problematic statement for debugging
+            console.error(`Error executing statement: ${statement.substring(0, 100)}...`);
+            throw error;
+          }
         }
-      } catch (error) {
-        console.error(`Error migrating subscription ${sub.id}:`, error);
       }
-    }
 
-    console.log(`✅ Migrated ${migratedCount} payment records for ${subscriptions.length} subscriptions`);
+
+
+      console.log('✅ Consolidated schema created successfully from schema.sql');
+    } catch (error) {
+      console.error('❌ Error creating consolidated schema:', error.message);
+      throw error;
+    }
   }
 
-  // Helper method to generate historical payments based on subscription data
-  generateHistoricalPayments(subscription) {
-    const payments = [];
-    const startDate = new Date(subscription.start_date);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+  // Helper method to parse SQL statements properly
+  parseSQL(sql) {
+    const statements = [];
+    let currentStatement = '';
+    let inTrigger = false;
 
-    // If subscription is cancelled and has no last_billing_date, only create initial payment
-    if (subscription.status === 'cancelled' && !subscription.last_billing_date) {
-      const billingPeriodEnd = this.calculateNextBillingDate(startDate, subscription.billing_cycle);
-      payments.push({
-        payment_date: startDate.toISOString().split('T')[0],
-        billing_period_start: startDate.toISOString().split('T')[0],
-        billing_period_end: billingPeriodEnd.toISOString().split('T')[0]
-      });
-      return payments;
-    }
+    const lines = sql.split('\n');
 
-    // Generate payments from start_date to last_billing_date or today
-    let currentDate = new Date(startDate);
-    const endDate = subscription.last_billing_date ?
-      new Date(subscription.last_billing_date) : today;
+    for (const line of lines) {
+      const trimmedLine = line.trim();
 
-    while (currentDate <= endDate) {
-      const nextBillingDate = this.calculateNextBillingDate(currentDate, subscription.billing_cycle);
+      if (trimmedLine === '') continue;
 
-      payments.push({
-        payment_date: currentDate.toISOString().split('T')[0],
-        billing_period_start: currentDate.toISOString().split('T')[0],
-        billing_period_end: nextBillingDate.toISOString().split('T')[0]
-      });
+      // Check if we're starting a trigger
+      if (trimmedLine.toUpperCase().startsWith('CREATE TRIGGER')) {
+        inTrigger = true;
+      }
 
-      currentDate = new Date(nextBillingDate);
-    }
+      currentStatement += line + '\n';
 
-    return payments;
-  }
-
-  // Helper method to calculate next billing date
-  calculateNextBillingDate(date, billingCycle) {
-    const nextDate = new Date(date);
-
-    switch (billingCycle) {
-      case 'monthly':
-        nextDate.setMonth(nextDate.getMonth() + 1);
-        break;
-      case 'yearly':
-        nextDate.setFullYear(nextDate.getFullYear() + 1);
-        break;
-      case 'quarterly':
-        nextDate.setMonth(nextDate.getMonth() + 3);
-        break;
-      default:
-        throw new Error(`Unknown billing cycle: ${billingCycle}`);
-    }
-
-    return nextDate;
-  }
-
-  // Migration 006: Create monthly_expenses table
-  migration_006_create_monthly_expenses_table() {
-    console.log('📝 Creating monthly_expenses table');
-
-    // Create monthly_expenses table
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS monthly_expenses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        month_key TEXT NOT NULL UNIQUE,
-        year INTEGER NOT NULL,
-        month INTEGER NOT NULL,
-        payment_history_ids TEXT NOT NULL DEFAULT '[]',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create indexes for better performance
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_monthly_expenses_month_key ON monthly_expenses(month_key);
-      CREATE INDEX IF NOT EXISTS idx_monthly_expenses_year_month ON monthly_expenses(year, month);
-    `);
-
-    // Get all supported currencies from exchange_rates table
-    const currencies = this.db.prepare(`
-      SELECT DISTINCT to_currency FROM exchange_rates
-      WHERE from_currency = 'USD'
-      ORDER BY to_currency
-    `).all();
-
-    // Add currency columns dynamically
-    for (const currency of currencies) {
-      const columnName = `amount_${currency.to_currency.toLowerCase()}`;
-      try {
-        this.db.exec(`ALTER TABLE monthly_expenses ADD COLUMN ${columnName} DECIMAL(15, 2) DEFAULT 0.00`);
-        console.log(`✅ Added column: ${columnName}`);
-      } catch (error) {
-        // Column might already exist, ignore error
-        if (!error.message.includes('duplicate column name')) {
-          console.warn(`⚠️ Warning adding column ${columnName}:`, error.message);
+      // Check if we're ending a statement
+      if (trimmedLine.endsWith(';')) {
+        if (inTrigger && trimmedLine.toUpperCase().includes('END;')) {
+          // End of trigger
+          inTrigger = false;
+          statements.push(currentStatement.trim());
+          currentStatement = '';
+        } else if (!inTrigger) {
+          // Regular statement
+          statements.push(currentStatement.trim());
+          currentStatement = '';
         }
       }
     }
 
-    // Create trigger to automatically update updated_at timestamp
-    this.db.exec(`
-      CREATE TRIGGER IF NOT EXISTS monthly_expenses_updated_at
-      AFTER UPDATE ON monthly_expenses
-      FOR EACH ROW
-      BEGIN
-        UPDATE monthly_expenses SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
-      END
-    `);
-
-    console.log('✅ Monthly expenses table created successfully');
-  }
-
-  // Migration 007: Initialize monthly_expenses data from payment_history
-  migration_007_initialize_monthly_expenses_data() {
-    console.log('📝 Initializing monthly_expenses data from payment_history...');
-
-    try {
-      // Import MonthlyExpenseService to use its recalculation logic
-      const MonthlyExpenseService = require('../services/monthlyExpenseService');
-      const monthlyExpenseService = new MonthlyExpenseService(this.dbPath);
-
-      // Use the existing recalculation method to populate the table
-      monthlyExpenseService.recalculateAllMonthlyExpenses();
-
-      console.log('✅ Monthly expenses data initialized successfully');
-    } catch (error) {
-      console.error('❌ Failed to initialize monthly expenses data:', error.message);
-      throw error;
+    // Add any remaining statement
+    if (currentStatement.trim()) {
+      statements.push(currentStatement.trim());
     }
+
+    return statements;
   }
 
-  // Migration 009: Add cascade deletion triggers for data consistency
-  migration_009_add_cascade_deletion_triggers() {
-    console.log('📝 Adding cascade deletion triggers for data consistency...');
-
-    try {
-      // Create trigger to clean up monthly_expenses when payment_history records are deleted
-      this.db.exec(`
-        CREATE TRIGGER IF NOT EXISTS payment_history_cascade_cleanup
-        AFTER DELETE ON payment_history
-        FOR EACH ROW
-        BEGIN
-          -- Update monthly_expenses records that reference the deleted payment
-          UPDATE monthly_expenses
-          SET payment_history_ids = (
-            SELECT json_group_array(value)
-            FROM json_each(payment_history_ids)
-            WHERE value != OLD.id
-          ),
-          updated_at = CURRENT_TIMESTAMP
-          WHERE json_extract(payment_history_ids, '$') LIKE '%' || OLD.id || '%';
-
-          -- Delete monthly_expenses records that have no payment_history_ids left
-          DELETE FROM monthly_expenses
-          WHERE payment_history_ids = '[]' OR payment_history_ids IS NULL;
-        END
-      `);
-
-      // Create trigger to clean up monthly_expenses when subscriptions are deleted
-      // This provides additional safety even though payment_history already cascades
-      this.db.exec(`
-        CREATE TRIGGER IF NOT EXISTS subscription_cascade_cleanup
-        AFTER DELETE ON subscriptions
-        FOR EACH ROW
-        BEGIN
-          -- Clean up any orphaned monthly_expenses records
-          DELETE FROM monthly_expenses
-          WHERE id IN (
-            SELECT me.id
-            FROM monthly_expenses me
-            LEFT JOIN payment_history ph ON json_extract(me.payment_history_ids, '$') LIKE '%' || ph.id || '%'
-            WHERE ph.id IS NULL AND me.payment_history_ids != '[]'
-          );
-        END
-      `);
-
-      console.log('✅ Cascade deletion triggers created successfully');
-    } catch (error) {
-      console.error('❌ Failed to create cascade deletion triggers:', error.message);
-      throw error;
-    }
-  }
-
-  // Migration 008: Add category_breakdown column to monthly_expenses table
-  migration_008_add_category_breakdown_to_monthly_expenses() {
-    console.log('📝 Adding category_breakdown column to monthly_expenses table');
-
-    try {
-      // Check if category_breakdown column already exists
-      const tableInfo = this.db.prepare("PRAGMA table_info(monthly_expenses)").all();
-      const categoryBreakdownExists = tableInfo.some(column => column.name === 'category_breakdown');
-
-      if (!categoryBreakdownExists) {
-        // Add category_breakdown column
-        this.db.exec(`
-          ALTER TABLE monthly_expenses
-          ADD COLUMN category_breakdown TEXT DEFAULT '{}'
-        `);
-        console.log('✅ Added category_breakdown column to monthly_expenses table');
-      } else {
-        console.log('ℹ️  category_breakdown column already exists, skipping...');
-      }
-
-      // Initialize category_breakdown data for existing records
-      console.log('📝 Initializing category_breakdown data for existing records...');
-
-      // Update all existing records to have empty category_breakdown
-      this.db.exec(`
-        UPDATE monthly_expenses
-        SET category_breakdown = '{}'
-        WHERE category_breakdown IS NULL OR category_breakdown = ''
-      `);
-
-      console.log('✅ Category breakdown data initialized successfully');
-    } catch (error) {
-      console.error('❌ Failed to add category_breakdown column:', error.message);
-      throw error;
-    }
-  }
-
-  // Migration 010: Update month_key format from YYYYMM to YYYY-MM
-  migration_010_update_month_key_format() {
-    console.log('📝 Updating month_key format from YYYYMM to YYYY-MM...');
-
-    try {
-      // Get all existing records with old format
-      const existingRecords = this.db.prepare(`
-        SELECT * FROM monthly_expenses
-        WHERE month_key NOT LIKE '%-%'
-      `).all();
-
-      console.log(`Found ${existingRecords.length} records with old month_key format`);
-
-      // Update each record
-      const updateStmt = this.db.prepare(`
-        UPDATE monthly_expenses
-        SET month_key = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `);
-
-      let updatedCount = 0;
-      for (const record of existingRecords) {
-        const oldKey = record.month_key;
-        // Convert YYYYMM to YYYY-MM
-        if (oldKey.length === 6 && /^\d{6}$/.test(oldKey)) {
-          const year = oldKey.substring(0, 4);
-          const month = oldKey.substring(4, 6);
-          const newKey = `${year}-${month}`;
-
-          updateStmt.run(newKey, record.id);
-          updatedCount++;
-          console.log(`Updated month_key: ${oldKey} -> ${newKey}`);
-        }
-      }
-
-      console.log(`✅ Updated ${updatedCount} month_key records to new format`);
-    } catch (error) {
-      console.error('❌ Failed to update month_key format:', error.message);
-      throw error;
-    }
-  }
 
   close() {
     this.db.close();

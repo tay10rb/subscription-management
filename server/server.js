@@ -16,7 +16,8 @@ const { createAnalyticsRoutes } = require('./routes/analytics');
 const { createSettingsRoutes, createProtectedSettingsRoutes } = require('./routes/settings');
 const { createExchangeRateRoutes, createProtectedExchangeRateRoutes } = require('./routes/exchangeRates');
 const { createPaymentHistoryRoutes, createProtectedPaymentHistoryRoutes } = require('./routes/paymentHistory');
-const { createMonthlyExpensesRoutes, createProtectedMonthlyExpensesRoutes } = require('./routes/monthlyExpenses');
+
+const { createMonthlyCategorySummaryRoutes, createProtectedMonthlyCategorySummaryRoutes } = require('./routes/monthlyCategorySummary');
 const { createCategoriesRoutes, createProtectedCategoriesRoutes, createPaymentMethodsRoutes, createProtectedPaymentMethodsRoutes } = require('./routes/categoriesAndPaymentMethods');
 
 const app = express();
@@ -64,8 +65,10 @@ protectedApiRouter.use('/exchange-rates', createProtectedExchangeRateRoutes(db, 
 apiRouter.use('/payment-history', createPaymentHistoryRoutes(db));
 protectedApiRouter.use('/payment-history', createProtectedPaymentHistoryRoutes(db));
 
-apiRouter.use('/monthly-expenses', createMonthlyExpensesRoutes(db));
-protectedApiRouter.use('/monthly-expenses', createProtectedMonthlyExpensesRoutes(db));
+
+
+apiRouter.use('/monthly-category-summary', createMonthlyCategorySummaryRoutes(db));
+protectedApiRouter.use('/monthly-category-summary', createProtectedMonthlyCategorySummaryRoutes(db));
 
 apiRouter.use('/categories', createCategoriesRoutes(db));
 protectedApiRouter.use('/categories', createProtectedCategoriesRoutes(db));

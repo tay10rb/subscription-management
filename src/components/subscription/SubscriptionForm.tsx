@@ -44,8 +44,8 @@ import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
 
 
 
-// Form data type - excludes auto-calculated fields
-type SubscriptionFormData = Omit<Subscription, "id" | "lastBillingDate" | "nextBillingDate">
+// Form data type - excludes auto-calculated fields and optional display fields
+type SubscriptionFormData = Omit<Subscription, "id" | "lastBillingDate" | "nextBillingDate" | "category" | "paymentMethod">
 
 interface SubscriptionFormProps {
   open: boolean
@@ -80,10 +80,10 @@ export function SubscriptionForm({
     billingCycle: "monthly",
     amount: 0,
     currency: "USD",
-    paymentMethod: "",
+    paymentMethodId: 0,
     startDate: format(new Date(), "yyyy-MM-dd"),
     status: "active",
-    category: "",
+    categoryId: 0,
     renewalType: "manual",
     notes: "",
     website: ""
@@ -101,7 +101,7 @@ export function SubscriptionForm({
   // Initialize form with initial data if provided
   useEffect(() => {
     if (initialData) {
-      const { lastBillingDate, ...formData } = initialData
+      const { lastBillingDate, category, paymentMethod, ...formData } = initialData
       setForm(formData)
     }
   }, [initialData])
@@ -116,10 +116,10 @@ export function SubscriptionForm({
           billingCycle: "monthly",
           amount: 0,
           currency: "USD",
-          paymentMethod: "",
+          paymentMethodId: 0,
           startDate: format(new Date(), "yyyy-MM-dd"),
           status: "active",
-          category: "",
+          categoryId: 0,
           renewalType: "manual",
           notes: "",
           website: ""
@@ -180,29 +180,35 @@ export function SubscriptionForm({
 
   // Handle category selection
   const handleCategorySelect = (value: string) => {
-    setForm(prev => ({ ...prev, category: value }))
+    const category = categories.find(cat => cat.value === value)
+    if (category) {
+      setForm(prev => ({ ...prev, categoryId: category.id }))
+    }
     setCategoryOpen(false)
 
     // Clear error for this field if any
-    if (errors.category) {
+    if (errors.categoryId) {
       setErrors(prev => {
         const newErrors = { ...prev }
-        delete newErrors.category
+        delete newErrors.categoryId
         return newErrors
       })
     }
   }
-  
+
   // Handle payment method selection
   const handlePaymentMethodSelect = (value: string) => {
-    setForm(prev => ({ ...prev, paymentMethod: value }))
+    const paymentMethod = paymentMethods.find(pm => pm.value === value)
+    if (paymentMethod) {
+      setForm(prev => ({ ...prev, paymentMethodId: paymentMethod.id }))
+    }
     setPaymentOpen(false)
 
     // Clear error for this field if any
-    if (errors.paymentMethod) {
+    if (errors.paymentMethodId) {
       setErrors(prev => {
         const newErrors = { ...prev }
-        delete newErrors.paymentMethod
+        delete newErrors.paymentMethodId
         return newErrors
       })
     }
@@ -219,8 +225,8 @@ export function SubscriptionForm({
 
     if (!form.name) newErrors.name = "Name is required"
     if (!form.plan) newErrors.plan = "Subscription plan is required"
-    if (!form.category) newErrors.category = "Category is required"
-    if (!form.paymentMethod) newErrors.paymentMethod = "Payment method is required"
+    if (!form.categoryId || form.categoryId === 0) newErrors.categoryId = "Category is required"
+    if (!form.paymentMethodId || form.paymentMethodId === 0) newErrors.paymentMethodId = "Payment method is required"
     if (form.amount <= 0) newErrors.amount = "Amount must be greater than 0"
 
     if (Object.keys(newErrors).length > 0) {
@@ -321,11 +327,11 @@ export function SubscriptionForm({
                       aria-expanded={categoryOpen}
                       className={cn(
                         "w-full justify-between",
-                        errors.category ? "border-destructive" : ""
+                        errors.categoryId ? "border-destructive" : ""
                       )}
                     >
-                      {form.category 
-                        ? categories.find(category => category.value === form.category)?.label || form.category
+                      {form.categoryId
+                        ? categories.find(category => category.id === form.categoryId)?.label || "Unknown category"
                         : "Select category..."
                       }
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -357,7 +363,7 @@ export function SubscriptionForm({
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  form.category === category.value ? "opacity-100" : "opacity-0"
+                                  form.categoryId === category.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               {category.label}
@@ -368,8 +374,8 @@ export function SubscriptionForm({
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {errors.category && (
-                  <p className="text-destructive text-xs mt-1">{errors.category}</p>
+                {errors.categoryId && (
+                  <p className="text-destructive text-xs mt-1">{errors.categoryId}</p>
                 )}
               </div>
             </div>
@@ -440,11 +446,11 @@ export function SubscriptionForm({
                       aria-expanded={paymentOpen}
                       className={cn(
                         "w-full justify-between",
-                        errors.paymentMethod ? "border-destructive" : ""
+                        errors.paymentMethodId ? "border-destructive" : ""
                       )}
                     >
-                      {form.paymentMethod 
-                        ? paymentMethods.find(method => method.value === form.paymentMethod)?.label || form.paymentMethod
+                      {form.paymentMethodId
+                        ? paymentMethods.find(method => method.id === form.paymentMethodId)?.label || "Unknown payment method"
                         : "Select payment method..."
                       }
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -476,7 +482,7 @@ export function SubscriptionForm({
                               <Check
                                 className={cn(
                                   "mr-2 h-4 w-4",
-                                  form.paymentMethod === method.value ? "opacity-100" : "opacity-0"
+                                  form.paymentMethodId === method.id ? "opacity-100" : "opacity-0"
                                 )}
                               />
                               {method.label}
@@ -487,8 +493,8 @@ export function SubscriptionForm({
                     </Command>
                   </PopoverContent>
                 </Popover>
-                {errors.paymentMethod && (
-                  <p className="text-destructive text-xs mt-1">{errors.paymentMethod}</p>
+                {errors.paymentMethodId && (
+                  <p className="text-destructive text-xs mt-1">{errors.paymentMethodId}</p>
                 )}
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { useSettingsStore } from "@/store/settingsStore"
 
-// Currency symbols for common currencies
+// Currency symbols for supported currencies only
+// Only includes currencies that are supported by the exchange rate API
 export const currencySymbols: Record<string, string> = {
   USD: '$',
   EUR: '€',
@@ -8,17 +9,7 @@ export const currencySymbols: Record<string, string> = {
   CAD: 'C$',
   AUD: 'A$',
   JPY: '¥',
-  CNY: '¥',
-  INR: '₹',
-  BRL: 'R$',
-  MXN: 'Mex$',
-  RUB: '₽',
-  KRW: '₩',
-  ZAR: 'R',
-  NZD: 'NZ$',
-  CHF: 'Fr',
-  SGD: 'S$',
-  HKD: 'HK$'
+  CNY: '¥'
 }
 
 /**

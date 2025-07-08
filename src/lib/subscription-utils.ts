@@ -42,7 +42,7 @@ export function calculateNextBillingDate(
 
 /**
  * Calculate the next billing date based on start date, current date and billing cycle
- * Uses the day from start date but finds the next occurrence after current date
+ * Calculates the next billing date that occurs after the current date, based on the billing cycle from start date
  */
 export function calculateNextBillingDateFromStart(
   startDate: Date,
@@ -52,15 +52,11 @@ export function calculateNextBillingDateFromStart(
   const today = new Date(currentDate)
   const start = new Date(startDate)
 
-  // Get the day of month from start date
-  const billingDay = start.getDate()
+  // Start with the start date as the base
+  let nextBilling = new Date(start)
 
-  // Start with current date
-  let nextBilling = new Date(today)
-  nextBilling.setDate(billingDay)
-
-  // If the billing date this period has already passed, move to next period
-  if (nextBilling <= today) {
+  // Keep adding billing cycles until we get a date after today
+  while (nextBilling <= today) {
     switch (billingCycle) {
       case 'monthly':
         nextBilling.setMonth(nextBilling.getMonth() + 1)
@@ -72,14 +68,6 @@ export function calculateNextBillingDateFromStart(
         nextBilling.setMonth(nextBilling.getMonth() + 3)
         break
     }
-    nextBilling.setDate(billingDay)
-  }
-
-  // Handle edge case where the target month doesn't have enough days
-  // (e.g., billing on 31st but next month only has 30 days)
-  if (nextBilling.getDate() !== billingDay) {
-    // Set to last day of the month
-    nextBilling.setDate(0)
   }
 
   return nextBilling.toISOString().split('T')[0]
@@ -152,6 +140,30 @@ export function getStatusVariant(status: SubscriptionStatus): 'default' | 'secon
     default:
       return 'secondary'
   }
+}
+
+/**
+ * Get category label from subscription data with fallback to store data
+ */
+export function getCategoryLabel(
+  subscription: any,
+  categories: Array<{ id: number; value: string; label: string }>
+): string {
+  return subscription.category?.label ||
+    categories.find(c => c.id === subscription.categoryId)?.label ||
+    'Unknown Category'
+}
+
+/**
+ * Get payment method label from subscription data with fallback to store data
+ */
+export function getPaymentMethodLabel(
+  subscription: any,
+  paymentMethods: Array<{ id: number; value: string; label: string }>
+): string {
+  return subscription.paymentMethod?.label ||
+    paymentMethods.find(p => p.id === subscription.paymentMethodId)?.label ||
+    'Unknown Payment Method'
 }
 
 /**
@@ -302,10 +314,10 @@ export function exportSubscriptionsToCSV(subscriptions: Subscription[]): string 
       sub.nextBillingDate,
       sub.amount,
       sub.currency,
-      `"${sub.paymentMethod.replace(/"/g, '""')}"`,
+      `"${(sub.paymentMethod?.label || 'Unknown').replace(/"/g, '""')}"`,
       sub.startDate,
       sub.status,
-      sub.category,
+      sub.category?.value || 'other',
       sub.renewalType,
       `"${(sub.notes || '').replace(/"/g, '""')}"`,
       `"${(sub.website || '').replace(/"/g, '""')}"`
@@ -398,20 +410,22 @@ export function parseCSVToSubscriptions(
       if (!subscription.plan) {
         subscription.plan = ''
       }
-      if (!subscription.paymentMethod) {
-        subscription.paymentMethod = ''
-      }
       if (!subscription.startDate) {
         subscription.startDate = subscription.nextBillingDate
-      }
-      if (!subscription.category) {
-        subscription.category = 'other'
       }
       if (!subscription.notes) {
         subscription.notes = ''
       }
       if (!subscription.website) {
         subscription.website = ''
+      }
+
+      // Ensure required foreign key fields have default values
+      if (!subscription.paymentMethodId) {
+        subscription.paymentMethodId = 1 // Default to first payment method
+      }
+      if (!subscription.categoryId) {
+        subscription.categoryId = 10 // Default to 'other' category
       }
 
       subscriptions.push(subscription as Omit<Subscription, 'id' | 'lastBillingDate'>)

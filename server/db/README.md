@@ -1,33 +1,37 @@
 # Database Management Guide
 
-This document explains the proper way to manage the database schema and initialization for the subscription management system.
+This document explains the database schema and initialization system for the subscription management system.
 
 ## Overview
 
-The database management system has been refactored to eliminate redundancy and ensure consistency across different environments. The system now uses a single source of truth for database schema management through the migration system.
+The database management system has been **consolidated and simplified** to use a single source of truth for all database schema definitions. The system now uses a unified approach with `schema.sql` as the definitive schema definition and a simplified migration system.
 
 ## Key Components
 
-### 1. `migrations.js` - The Schema Authority
-- **Purpose**: Defines and manages all database schema changes
-- **Responsibility**: Single source of truth for database structure evolution
-- **Contains**: All table definitions, triggers, indexes, and default data
+### 1. `schema.sql` - The Single Source of Truth
+- **Purpose**: Contains the complete, up-to-date database schema
+- **Includes**: All table definitions, triggers, indexes, and default data
+- **Benefits**: Easy to read, version control friendly, and serves as documentation
 
-### 2. `migrate.js` - Migration Executor
+### 2. `migrations.js` - Simplified Migration System
+- **Purpose**: Executes the consolidated schema for new databases
+- **Contains**: Single migration that applies the complete schema from `schema.sql`
+- **Features**:
+  - Automatically detects database version
+  - Applies complete schema for new installations
+  - Handles SQL parsing for complex statements (triggers, etc.)
+
+### 3. `migrate.js` - Migration Executor
 - **Purpose**: Executes database migrations
 - **Usage**: `node db/migrate.js` or `npm run db:migrate`
-- **Features**: 
-  - Automatically detects current database version
-  - Runs only pending migrations
-  - Works in both local and Docker environments
+- **Works**: In both local and Docker environments
 
-### 3. `init.js` - Database Initializer (Refactored)
+### 4. `init.js` - Database Initializer
 - **Purpose**: Initialize database for new environments
-- **Responsibility**: 
+- **Responsibility**:
   - Create database file if it doesn't exist
   - Call migration system to set up schema
   - Generate API key if needed
-- **No longer contains**: Manual table creation (delegated to migrations)
 
 ## Recommended Workflow
 
@@ -52,58 +56,67 @@ npm run db:migrate
 npm run db:reset
 ```
 
-## Migration System Benefits
+## Consolidated System Benefits
 
-### ✅ Advantages of the New System
-1. **Single Source of Truth**: All schema changes are managed through migrations
-2. **Version Control**: Database schema changes are tracked and versioned
-3. **Environment Consistency**: Same schema across development, staging, and production
-4. **Incremental Updates**: Only applies necessary changes, not full recreation
-5. **Rollback Safety**: Each migration is atomic and can be tracked
-6. **Docker Compatibility**: Works seamlessly in containerized environments
+### ✅ Advantages of the New Consolidated System
+1. **Single Source of Truth**: `schema.sql` contains the complete, authoritative schema
+2. **Simplified Maintenance**: Schema changes only need to be made in one place
+3. **Easy to Review**: Complete schema is visible in a single, readable SQL file
+4. **Version Control Friendly**: SQL changes are easy to track in git diffs
+5. **Documentation**: `schema.sql` serves as living documentation of the database structure
+6. **Environment Consistency**: Same schema across all environments
+7. **Docker Compatibility**: Works seamlessly in containerized environments
 
 ### ❌ Problems Solved
-1. **Eliminated Duplication**: No more maintaining schema in both `init.js` and `migrations.js`
-2. **Prevented Inconsistency**: No risk of forgetting to update `init.js` after adding migrations
-3. **Reduced Maintenance**: Schema changes only need to be defined once
-4. **Fixed Incomplete Initialization**: New environments get complete, up-to-date schema
+1. **Eliminated Complex Migration History**: No more managing multiple incremental migrations
+2. **Reduced Maintenance Overhead**: Schema changes only need to be defined once
+3. **Simplified Deployment**: New environments get the complete, current schema immediately
+4. **Eliminated Migration Conflicts**: No more complex migration dependency issues
 
-## Migration Structure
+## Current Database Schema
 
-Each migration includes:
-- **Version Number**: Sequential numbering for ordering
-- **Descriptive Name**: Clear description of what the migration does
-- **Up Method**: Code to apply the migration
-- **Atomic Execution**: Each migration runs in a transaction
+The complete database schema includes:
 
-Example migration:
-```javascript
-{
-  version: 1,
-  name: 'initial_schema',
-  up: () => this.migration_001_initial_schema()
-}
+### Core Tables
+- **settings**: Application settings (currency, theme)
+- **exchange_rates**: Currency exchange rates with automatic updates
+- **categories**: Subscription categories (foreign key reference)
+- **payment_methods**: Payment methods (foreign key reference)
+- **subscriptions**: Main subscription data with foreign key relationships
+- **payment_history**: Historical payment records with billing periods
+- **monthly_category_summary**: Pre-calculated monthly spending summaries
+
+### Features
+- **Foreign Key Relationships**: Proper referential integrity between tables
+- **Automatic Timestamps**: All tables have `created_at` and `updated_at` fields with triggers
+- **Default Data**: Pre-populated categories, payment methods, and exchange rates
+- **Indexes**: Optimized for common query patterns
+
+## Schema Management
+
+### For New Installations
+The system automatically applies the complete schema from `schema.sql`:
+```bash
+# Initialize new database
+npm run db:init
+
+# OR directly run migrations
+npm run db:migrate
 ```
 
-## Database Schema Evolution
-
-### Current Migrations
-1. **Migration 001**: Initial schema (subscriptions, settings, exchange_rates)
-2. **Migration 002**: Add categories and payment_methods tables
-3. **Migration 003**: Add renewal_type field to subscriptions (legacy compatibility)
-4. **Migration 004**: Create payment_history table
-5. **Migration 005**: Migrate existing subscriptions to payment_history
-6. **Migration 006**: Create monthly_expenses table
-7. **Migration 007**: Initialize monthly_expenses data
-8. **Migration 008**: Add category_breakdown to monthly_expenses
-
-### Adding New Migrations
+### For Schema Updates
 When you need to modify the database schema:
 
-1. Add a new migration to the `migrations` array in `migrations.js`
-2. Implement the migration method
-3. Run `npm run db:migrate` to apply the change
-4. **Do NOT** modify `init.js` - the migration system handles everything
+1. **Update `schema.sql`** with your changes
+2. **Test locally** to ensure the schema works correctly
+3. **For existing databases**: Create a specific migration if needed, or use reset for development
+4. **Deploy**: The consolidated schema will be applied to new environments automatically
+
+### Development Reset
+```bash
+# Reset database completely (applies current schema.sql)
+npm run db:reset
+```
 
 ## Environment Variables
 
@@ -119,11 +132,12 @@ The migration system automatically detects Docker environments and uses appropri
 
 ## Best Practices
 
-1. **Always use migrations** for schema changes
-2. **Never manually edit database files** in production
-3. **Test migrations** in development before deploying
-4. **Use `npm run db:migrate`** as the standard database update command
-5. **Keep migrations atomic** - each migration should be a complete, reversible unit of work
+1. **Use `schema.sql` as the authoritative source** for all schema definitions
+2. **Test schema changes locally** before deploying
+3. **Use `npm run db:migrate`** for applying schema to new environments
+4. **Use `npm run db:reset`** for development database resets
+5. **Never manually edit database files** in production
+6. **Keep `schema.sql` well-documented** with comments explaining complex structures
 
 ## Troubleshooting
 
@@ -132,15 +146,31 @@ The migration system automatically detects Docker environments and uses appropri
 # Check current database version
 sqlite3 db/database.sqlite "SELECT * FROM migrations ORDER BY version DESC LIMIT 1;"
 
-# Force re-run migrations (if needed)
+# Check if database has expected tables
+sqlite3 db/database.sqlite ".tables"
+
+# Force re-run schema (development only)
 npm run db:reset
 ```
 
-### Migration Failures
-- Migrations run in transactions - failed migrations are automatically rolled back
-- Check the error message and fix the migration code
-- Re-run `npm run db:migrate` after fixing
+### Schema Application Issues
+- The migration system parses SQL carefully to handle complex statements (triggers, etc.)
+- If schema application fails, check the error message for specific SQL issues
+- PRAGMA statements are handled separately from transactional statements
 
 ### Environment Inconsistencies
 - Always use the migration system instead of manual database modifications
-- If databases are out of sync, use `npm run db:reset` to start fresh
+- For development: use `npm run db:reset` to apply the current schema
+- For production: ensure proper deployment procedures apply the schema correctly
+
+## File Structure Summary
+
+```
+db/
+├── schema.sql          # Complete database schema (SINGLE SOURCE OF TRUTH)
+├── migrations.js       # Simplified migration system
+├── migrate.js          # Migration executor
+├── init.js            # Database initializer
+├── database.sqlite    # SQLite database file
+└── README.md          # This documentation
+```

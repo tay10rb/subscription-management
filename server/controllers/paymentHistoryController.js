@@ -2,6 +2,7 @@ const PaymentHistoryService = require('../services/paymentHistoryService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { handleQueryResult, handleDbResult, validationError } = require('../utils/responseHelper');
 const { createValidator } = require('../utils/validator');
+const { isSupportedCurrency } = require('../config/currencies');
 
 class PaymentHistoryController {
     constructor(db) {
@@ -206,6 +207,10 @@ class PaymentHistoryController {
             .range(data.amount_paid, 'amount_paid', 0)
             .string(data.currency, 'currency')
             .length(data.currency, 'currency', 3, 3)
+            .custom(data.currency, 'currency',
+                (value) => isSupportedCurrency(value),
+                'Currency is not supported'
+            )
             .date(data.billing_period_start, 'billing_period_start')
             .date(data.billing_period_end, 'billing_period_end')
             .enum(data.status, 'status', ['succeeded', 'failed', 'pending', 'cancelled', 'refunded'])

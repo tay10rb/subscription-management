@@ -7,7 +7,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 
 interface CategoryBreakdownProps {
   data: Record<string, number>
@@ -58,7 +58,7 @@ export function CategoryBreakdown({ data }: CategoryBreakdownProps) {
                   <div className="flex items-center justify-between text-sm">
                     <span>{getCategoryLabel(category)}</span>
                     <span className="font-medium">
-                      {formatCurrency(value, userCurrency)}
+                      {formatCurrencyAmount(value, userCurrency)}
                     </span>
                   </div>
                   <div className="w-full h-2 bg-secondary overflow-hidden rounded-full">

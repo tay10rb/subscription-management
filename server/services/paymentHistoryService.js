@@ -1,12 +1,12 @@
 const BaseRepository = require('../utils/BaseRepository');
-const MonthlyExpenseService = require('./monthlyExpenseService');
+const MonthlyCategorySummaryService = require('./monthlyCategorySummaryService');
 const logger = require('../utils/logger');
 const { NotFoundError } = require('../middleware/errorHandler');
 
 class PaymentHistoryService extends BaseRepository {
     constructor(db) {
         super(db, 'payment_history');
-        this.monthlyExpenseService = new MonthlyExpenseService(db.name);
+        this.monthlyCategorySummaryService = new MonthlyCategorySummaryService(db.name);
     }
 
     /**
@@ -201,13 +201,13 @@ class PaymentHistoryService extends BaseRepository {
             notes
         });
 
-        // 如果支付成功，更新月度费用
+        // 如果支付成功，更新月度分类汇总
         if (status === 'succeeded') {
             try {
-                await this.monthlyExpenseService.handlePaymentInsert(result.lastInsertRowid);
-                logger.info(`Monthly expenses updated for new payment ${result.lastInsertRowid}`);
+                this.monthlyCategorySummaryService.processNewPayment(result.lastInsertRowid);
+                logger.info(`Monthly category summary updated for new payment ${result.lastInsertRowid}`);
             } catch (error) {
-                logger.error(`Failed to update monthly expenses for payment ${result.lastInsertRowid}:`, error.message);
+                logger.error(`Failed to update monthly category summary for payment ${result.lastInsertRowid}:`, error.message);
             }
         }
 
@@ -226,13 +226,19 @@ class PaymentHistoryService extends BaseRepository {
 
         const result = this.update(id, updateData);
 
-        // 如果状态发生变化，更新月度费用
+        // 如果状态发生变化，更新月度分类汇总
         if (updateData.status && updateData.status !== existingPayment.status) {
             try {
-                await this.monthlyExpenseService.handlePaymentUpdate(id, existingPayment.status, updateData.status);
-                logger.info(`Monthly expenses updated for payment ${id} status change`);
+                // 获取支付记录的年月信息
+                const paymentDate = new Date(existingPayment.payment_date);
+                const year = paymentDate.getFullYear();
+                const month = paymentDate.getMonth() + 1;
+
+                // 重新计算该月份的汇总数据
+                this.monthlyCategorySummaryService.updateMonthlyCategorySummary(year, month);
+                logger.info(`Monthly category summary updated for payment ${id} status change`);
             } catch (error) {
-                logger.error(`Failed to update monthly expenses for payment ${id}:`, error.message);
+                logger.error(`Failed to update monthly category summary for payment ${id}:`, error.message);
             }
         }
 
@@ -251,13 +257,19 @@ class PaymentHistoryService extends BaseRepository {
 
         const result = this.delete(id);
 
-        // 更新月度费用
+        // 更新月度分类汇总
         if (existingPayment.status === 'succeeded') {
             try {
-                await this.monthlyExpenseService.handlePaymentDelete(id);
-                logger.info(`Monthly expenses updated for deleted payment ${id}`);
+                // 获取支付记录的年月信息
+                const paymentDate = new Date(existingPayment.payment_date);
+                const year = paymentDate.getFullYear();
+                const month = paymentDate.getMonth() + 1;
+
+                // 重新计算该月份的汇总数据
+                this.monthlyCategorySummaryService.processPaymentDeletion(year, month);
+                logger.info(`Monthly category summary updated for deleted payment ${id}`);
             } catch (error) {
-                logger.error(`Failed to update monthly expenses for deleted payment ${id}:`, error.message);
+                logger.error(`Failed to update monthly category summary for deleted payment ${id}:`, error.message);
             }
         }
 
@@ -279,14 +291,14 @@ class PaymentHistoryService extends BaseRepository {
     }
 
     /**
-     * 重新计算月度费用
+     * 重新计算月度分类汇总
      */
-    async recalculateMonthlyExpenses() {
+    async recalculateMonthlyCategorySummaries() {
         try {
-            await this.monthlyExpenseService.recalculateAllMonthlyExpenses();
-            logger.info('Monthly expenses recalculated successfully');
+            this.monthlyCategorySummaryService.recalculateAllMonthlyCategorySummaries();
+            logger.info('Monthly category summaries recalculated successfully');
         } catch (error) {
-            logger.error('Failed to recalculate monthly expenses:', error.message);
+            logger.error('Failed to recalculate monthly category summaries:', error.message);
             throw error;
         }
     }
@@ -295,8 +307,8 @@ class PaymentHistoryService extends BaseRepository {
      * 关闭资源
      */
     close() {
-        if (this.monthlyExpenseService) {
-            this.monthlyExpenseService.close();
+        if (this.monthlyCategorySummaryService) {
+            this.monthlyCategorySummaryService.close();
         }
     }
 }

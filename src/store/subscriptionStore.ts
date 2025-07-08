@@ -48,13 +48,16 @@ const transformFromApi = (sub: any): Subscription => {
     lastBillingDate: sub.last_billing_date,
     amount: sub.amount,
     currency: sub.currency,
-    paymentMethod: sub.payment_method,
+    paymentMethodId: sub.payment_method_id,
     startDate: sub.start_date,
     status: sub.status,
-    category: sub.category,
+    categoryId: sub.category_id,
     renewalType: sub.renewal_type || 'manual',
     notes: sub.notes,
     website: sub.website,
+    // Optional display fields populated by joins
+    paymentMethod: sub.payment_method,
+    category: sub.category,
   }
 }
 
@@ -68,10 +71,10 @@ const transformToApi = (sub: Partial<Subscription>) => {
   if (sub.lastBillingDate !== undefined) result.last_billing_date = sub.lastBillingDate
   if (sub.amount !== undefined) result.amount = sub.amount
   if (sub.currency !== undefined) result.currency = sub.currency
-  if (sub.paymentMethod !== undefined) result.payment_method = sub.paymentMethod
+  if (sub.paymentMethodId !== undefined) result.payment_method_id = sub.paymentMethodId
   if (sub.startDate !== undefined) result.start_date = sub.startDate
   if (sub.status !== undefined) result.status = sub.status
-  if (sub.category !== undefined) result.category = sub.category
+  if (sub.categoryId !== undefined) result.category_id = sub.categoryId
   if (sub.renewalType !== undefined) result.renewal_type = sub.renewalType
   if (sub.notes !== undefined) result.notes = sub.notes
   if (sub.website !== undefined) result.website = sub.website
@@ -93,22 +96,27 @@ export interface Subscription {
   lastBillingDate: string | null
   amount: number
   currency: string
-  paymentMethod: string
+  paymentMethodId: number // Changed to foreign key
   startDate: string
   status: SubscriptionStatus
-  category: SubscriptionCategory
+  categoryId: number // Changed to foreign key
   renewalType: RenewalType
   notes: string
   website?: string
+  // Optional fields for display purposes (populated by joins)
+  category?: CategoryOption
+  paymentMethod?: PaymentMethodOption
 }
 
 // Define the structured options
 interface CategoryOption {
+  id: number
   value: string
   label: string
 }
 
 interface PaymentMethodOption {
+  id: number
   value: string
   label: string
 }
@@ -170,28 +178,27 @@ interface SubscriptionState {
 
 // Initial options
 const initialCategories: CategoryOption[] = [
-  { value: 'video', label: 'Video Streaming' },
-  { value: 'music', label: 'Music Streaming' },
-  { value: 'software', label: 'Software' },
-  { value: 'cloud', label: 'Cloud Storage' },
-  { value: 'news', label: 'News & Magazines' },
-  { value: 'game', label: 'Games' },
-  { value: 'productivity', label: 'Productivity' },
-  { value: 'education', label: 'Education' },
-  { value: 'finance', label: 'Finance' },
-  { value: 'other', label: 'Other' }
+  { id: 1, value: 'video', label: 'Video Streaming' },
+  { id: 2, value: 'music', label: 'Music Streaming' },
+  { id: 3, value: 'software', label: 'Software' },
+  { id: 4, value: 'cloud', label: 'Cloud Storage' },
+  { id: 5, value: 'news', label: 'News & Magazines' },
+  { id: 6, value: 'game', label: 'Games' },
+  { id: 7, value: 'productivity', label: 'Productivity' },
+  { id: 8, value: 'education', label: 'Education' },
+  { id: 9, value: 'finance', label: 'Finance' },
+  { id: 11, value: 'other', label: 'Other' }
 ]
 
 const initialPaymentMethods: PaymentMethodOption[] = [
-  { value: 'visa', label: 'Visa Card' },
-  { value: 'mastercard', label: 'Mastercard' },
-  { value: 'amex', label: 'American Express' },
-  { value: 'paypal', label: 'PayPal' },
-  { value: 'applepay', label: 'Apple Pay' },
-  { value: 'googlepay', label: 'Google Pay' },
-  { value: 'bank', label: 'Bank Transfer' },
-  { value: 'alipay', label: 'Alipay' },
-  { value: 'wechatpay', label: 'WeChat Pay' }
+  { id: 1, value: 'creditcard', label: 'Credit Card' },
+  { id: 2, value: 'debitcard', label: 'Debit Card' },
+  { id: 3, value: 'paypal', label: 'PayPal' },
+  { id: 4, value: 'applepay', label: 'Apple Pay' },
+  { id: 5, value: 'googlepay', label: 'Google Pay' },
+  { id: 6, value: 'banktransfer', label: 'Bank Transfer' },
+  { id: 7, value: 'crypto', label: 'Cryptocurrency' },
+  { id: 8, value: 'other', label: 'Other' }
 ]
 
 const initialSubscriptionPlans: SubscriptionPlanOption[] = [
@@ -221,10 +228,10 @@ const mockSubscriptions: Subscription[] = [
     lastBillingDate: null,
     amount: 15.99,
     currency: 'USD',
-    paymentMethod: 'visa',
+    paymentMethodId: 1, // Changed to foreign key (creditcard)
     startDate: '2023-01-15',
     status: 'active',
-    category: 'video',
+    categoryId: 1, // Changed to foreign key (video)
     renewalType: 'auto',
     notes: 'Family account',
     website: 'https://netflix.com'
@@ -238,10 +245,10 @@ const mockSubscriptions: Subscription[] = [
     lastBillingDate: null,
     amount: 14.99,
     currency: 'USD',
-    paymentMethod: 'paypal',
+    paymentMethodId: 3, // Changed to foreign key (paypal)
     startDate: '2022-05-10',
     status: 'active',
-    category: 'music',
+    categoryId: 2, // Changed to foreign key (music)
     renewalType: 'auto',
     notes: 'Shared with 5 people'
   },
@@ -254,10 +261,10 @@ const mockSubscriptions: Subscription[] = [
     lastBillingDate: null,
     amount: 99.99,
     currency: 'USD',
-    paymentMethod: 'visa',
+    paymentMethodId: 1, // Changed to foreign key (creditcard)
     startDate: '2023-01-20',
     status: 'active',
-    category: 'software',
+    categoryId: 3, // Changed to foreign key (software)
     renewalType: 'manual',
     notes: '6 users, 1TB storage each',
     website: 'https://microsoft.com'
@@ -271,10 +278,10 @@ const mockSubscriptions: Subscription[] = [
     lastBillingDate: null,
     amount: 0.99,
     currency: 'USD',
-    paymentMethod: 'applepay',
+    paymentMethodId: 4, // Changed to foreign key (applepay)
     startDate: '2022-08-01',
     status: 'active',
-    category: 'cloud',
+    categoryId: 4, // Changed to foreign key (cloud)
     renewalType: 'auto',
     notes: 'Personal storage'
   },
@@ -287,10 +294,10 @@ const mockSubscriptions: Subscription[] = [
     lastBillingDate: null,
     amount: 11.99,
     currency: 'USD',
-    paymentMethod: 'googlepay',
+    paymentMethodId: 5, // Changed to foreign key (googlepay)
     startDate: '2023-02-15',
     status: 'active',
-    category: 'video',
+    categoryId: 1, // Changed to foreign key (video)
     renewalType: 'manual',
     notes: 'No ads, background play'
   }
@@ -778,19 +785,22 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       
       // Get spending by category
       getSpendingByCategory: () => {
-        const { subscriptions } = get();
+        const { subscriptions, categories } = get();
         const { currency: userCurrency } = useSettingsStore.getState();
-        
-        // Get all unique categories from subscriptions
-        const uniqueCategories = [...new Set(subscriptions.map(sub => sub.category))];
-        
-        return uniqueCategories.reduce((acc, category) => {
+
+        // Get all unique category IDs from subscriptions
+        const uniqueCategoryIds = [...new Set(subscriptions.map(sub => sub.categoryId).filter(id => id != null))];
+
+        return uniqueCategoryIds.reduce((acc, categoryId) => {
+          const category = categories.find(cat => cat.id === categoryId);
+          const categoryValue = category?.value || 'other';
+
           const categoryTotal = subscriptions
-            .filter(sub => sub.status === 'active' && sub.category === category)
+            .filter(sub => sub.status === 'active' && sub.categoryId === categoryId)
             .reduce((total, sub) => {
               // Convert the amount to user's preferred currency
               const convertedAmount = convertCurrency(sub.amount, sub.currency, userCurrency);
-              
+
               switch (sub.billingCycle) {
                 case 'monthly':
                   return total + (convertedAmount * 12);
@@ -802,8 +812,8 @@ export const useSubscriptionStore = create<SubscriptionState>()(
                   return total;
               }
             }, 0);
-          
-          acc[category] = categoryTotal;
+
+          acc[categoryValue] = categoryTotal;
           return acc;
         }, {} as Record<string, number>);
       },
@@ -812,17 +822,17 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       getUniqueCategories: () => {
         const { subscriptions, categories } = get()
 
-        // Get all unique category values from subscriptions
-        const usedCategoryValues = [...new Set(subscriptions.map(sub => sub.category))]
+        // Get all unique category IDs from subscriptions
+        const usedCategoryIds = [...new Set(subscriptions.map(sub => sub.categoryId).filter(id => id != null))]
 
-        // Map these to full category objects, or create new ones for custom categories
-        return usedCategoryValues.map(value => {
-          const existingCategory = categories.find(cat => cat.value === value)
+        // Map these to full category objects
+        return usedCategoryIds.map(categoryId => {
+          const existingCategory = categories.find(cat => cat.id === categoryId)
           if (existingCategory) return existingCategory
 
-          // For custom categories not in our predefined list
-          return { value, label: value.charAt(0).toUpperCase() + value.slice(1) }
-        })
+          // Fallback for categories not found in the predefined list
+          return { id: categoryId, value: 'other', label: 'Other' }
+        }).filter(Boolean) // Remove any null/undefined entries
       },
 
       // Process automatic renewals for subscriptions that are due
@@ -959,8 +969,12 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       initializeWithRenewals: async () => {
         set({ isLoading: true, error: null })
         try {
-          // First fetch subscriptions
-          await get().fetchSubscriptions()
+          // First fetch all data in parallel
+          await Promise.all([
+            get().fetchSubscriptions(),
+            get().fetchCategories(),
+            get().fetchPaymentMethods()
+          ])
 
           // Then process renewals without additional fetches
           const [autoRenewalResult, expiredResult] = await Promise.all([

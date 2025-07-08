@@ -63,12 +63,14 @@ export function ExpenseReportsPage() {
 
   // Get yearly date range presets (fixed recent 3 years)
   const yearlyDateRangePresets = useMemo(() => {
-    const currentYear = new Date().getFullYear()
+    const now = new Date()
+    const currentYear = now.getFullYear()
+    const currentMonth = now.getMonth() // 0-11
     return [
       {
         label: `${currentYear - 2} - ${currentYear}`,
         startDate: new Date(currentYear - 2, 0, 1), // January 1st of 3 years ago
-        endDate: new Date(currentYear, 11, 31) // December 31st of current year
+        endDate: new Date(currentYear, currentMonth, new Date(currentYear, currentMonth + 1, 0).getDate()) // Last day of current month
       }
     ]
   }, [])
@@ -87,8 +89,14 @@ export function ExpenseReportsPage() {
       }
       
       // Category filter
-      if (selectedCategories.length > 0 && !selectedCategories.includes(subscription.category)) {
-        return false
+      if (selectedCategories.length > 0) {
+        const hasMatchingCategory = selectedCategories.some(categoryValue => {
+          const category = categories.find(cat => cat.value === categoryValue)
+          return category && subscription.categoryId === category.id
+        })
+        if (!hasMatchingCategory) {
+          return false
+        }
       }
       
 

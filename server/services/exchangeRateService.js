@@ -1,5 +1,6 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
+const { SUPPORTED_CURRENCY_CODES } = require('../config/currencies');
 
 /**
  * 汇率API服务
@@ -9,7 +10,7 @@ class ExchangeRateApiService {
     constructor(apiKey) {
         this.apiKey = apiKey;
         this.baseUrl = 'https://apis.tianapi.com/fxrate/index';
-        this.supportedCurrencies = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CNY'];
+        this.supportedCurrencies = SUPPORTED_CURRENCY_CODES;
     }
 
     /**

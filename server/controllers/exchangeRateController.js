@@ -2,6 +2,7 @@ const ExchangeRateDbService = require('../services/exchangeRateDbService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { handleQueryResult, handleDbResult, validationError, success, notFound } = require('../utils/responseHelper');
 const { createValidator } = require('../utils/validator');
+const { isSupportedCurrency } = require('../config/currencies');
 
 /**
  * 汇率控制器
@@ -82,9 +83,17 @@ class ExchangeRateController {
             .required(from_currency, 'from_currency')
             .string(from_currency, 'from_currency')
             .length(from_currency, 'from_currency', 3, 3)
+            .custom(from_currency, 'from_currency',
+                (value) => isSupportedCurrency(value),
+                'Currency is not supported'
+            )
             .required(to_currency, 'to_currency')
             .string(to_currency, 'to_currency')
             .length(to_currency, 'to_currency', 3, 3)
+            .custom(to_currency, 'to_currency',
+                (value) => isSupportedCurrency(value),
+                'Currency is not supported'
+            )
             .required(rate, 'rate')
             .number(rate, 'rate')
             .range(rate, 'rate', 0.000001, Infinity)
@@ -140,9 +149,17 @@ class ExchangeRateController {
                 .required(rateData.from_currency, `rates[${i}].from_currency`)
                 .string(rateData.from_currency, `rates[${i}].from_currency`)
                 .length(rateData.from_currency, `rates[${i}].from_currency`, 3, 3)
+                .custom(rateData.from_currency, `rates[${i}].from_currency`,
+                    (value) => isSupportedCurrency(value),
+                    'Currency is not supported'
+                )
                 .required(rateData.to_currency, `rates[${i}].to_currency`)
                 .string(rateData.to_currency, `rates[${i}].to_currency`)
                 .length(rateData.to_currency, `rates[${i}].to_currency`, 3, 3)
+                .custom(rateData.to_currency, `rates[${i}].to_currency`,
+                    (value) => isSupportedCurrency(value),
+                    'Currency is not supported'
+                )
                 .required(rateData.rate, `rates[${i}].rate`)
                 .number(rateData.rate, `rates[${i}].rate`)
                 .range(rateData.rate, `rates[${i}].rate`, 0.000001, Infinity);
@@ -200,9 +217,17 @@ class ExchangeRateController {
             .required(from, 'from')
             .string(from, 'from')
             .length(from, 'from', 3, 3)
+            .custom(from, 'from',
+                (value) => isSupportedCurrency(value),
+                'Currency is not supported'
+            )
             .required(to, 'to')
             .string(to, 'to')
-            .length(to, 'to', 3, 3);
+            .length(to, 'to', 3, 3)
+            .custom(to, 'to',
+                (value) => isSupportedCurrency(value),
+                'Currency is not supported'
+            );
 
         if (validator.hasErrors()) {
             return validationError(res, validator.getErrors());
@@ -237,11 +262,15 @@ class ExchangeRateController {
         // 验证源货币
         if (!from_currency || typeof from_currency !== 'string' || from_currency.length !== 3) {
             errors.push({ field: 'from_currency', message: 'from_currency must be a 3-character currency code' });
+        } else if (!isSupportedCurrency(from_currency)) {
+            errors.push({ field: 'from_currency', message: 'from_currency is not supported' });
         }
 
         // 验证目标货币
         if (!to_currency || typeof to_currency !== 'string' || to_currency.length !== 3) {
             errors.push({ field: 'to_currency', message: 'to_currency must be a 3-character currency code' });
+        } else if (!isSupportedCurrency(to_currency)) {
+            errors.push({ field: 'to_currency', message: 'to_currency is not supported' });
         }
 
         // 验证汇率

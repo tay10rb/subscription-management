@@ -2,12 +2,12 @@
 
 /**
  * 数据重置脚本
- * 用于重置 payment_history 和 monthly_expenses 表的数据
+ * 用于重置 payment_history 和 monthly_category_summary 表的数据
  */
 
 const Database = require('better-sqlite3');
 const config = require('../config');
-const MonthlyExpenseService = require('../services/monthlyExpenseService');
+const MonthlyCategorySummaryService = require('../services/monthlyCategorySummaryService');
 const logger = require('../utils/logger');
 
 const dbPath = config.getDatabasePath();
@@ -18,11 +18,11 @@ console.log(`📂 数据库路径: ${dbPath}`);
 // 解析命令行参数
 const args = process.argv.slice(2);
 const resetPaymentHistory = args.includes('--payment-history') || args.includes('--all');
-const resetMonthlyExpenses = args.includes('--monthly-expenses') || args.includes('--all');
+const resetMonthlyCategorySummary = args.includes('--monthly-category-summary') || args.includes('--all');
 const recalculateAfterReset = args.includes('--recalculate');
 const rebuildFromSubscriptions = args.includes('--rebuild-from-subscriptions');
 
-if (!resetPaymentHistory && !resetMonthlyExpenses && !rebuildFromSubscriptions) {
+if (!resetPaymentHistory && !resetMonthlyCategorySummary && !rebuildFromSubscriptions) {
     console.log(`
 使用方法:
   node resetData.js [选项]

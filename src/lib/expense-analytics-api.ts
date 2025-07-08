@@ -1,4 +1,12 @@
-import { MonthlyExpensesApi, MonthlyExpenseApiResponse, MonthlyExpensesSummaryResponse, CategoryBreakdownData } from '@/services/monthlyExpensesApi';
+import {
+  getMonthlyCategorySummaries,
+  getMonthCategorySummary,
+  getTotalSummary,
+  type MonthlyCategorySummariesResponse,
+  type MonthCategorySummaryResponse,
+  type TotalSummaryResponse
+} from '@/services/monthlyCategorySummaryApi';
+import { convertCurrency } from '@/utils/currency';
 
 // 适配API的数据类型定义
 export interface MonthlyExpense {
@@ -33,57 +41,70 @@ export interface CategoryExpense {
 }
 
 /**
- * 将API响应的月度费用数据转换为图表组件需要的格式
+ * 将新的月度分类汇总数据转换为图表组件需要的格式
  */
-export function transformApiMonthlyExpenses(
-  apiExpenses: MonthlyExpenseApiResponse[], 
-  currency: string
+export function transformMonthlyCategorySummaries(
+  summariesResponse: MonthlyCategorySummariesResponse,
+  targetCurrency: string = 'USD'
 ): MonthlyExpense[] {
-  return apiExpenses.map(expense => {
-    // 获取指定货币的金额
-    const amount = expense.currency === currency 
-      ? expense.amount || 0
-      : expense.amounts?.[currency] || 0;
+  // 按月份分组汇总数据
+  const monthlyMap = new Map<string, { amount: number; transactionCount: number }>();
 
-    // 格式化月份显示
-    const date = new Date(expense.year, expense.month - 1);
-    const monthDisplay = date.toLocaleDateString('en-US', {
-      month: 'short',
-      year: 'numeric'
-    });
+  summariesResponse.summaries.forEach(summary => {
+    const monthKey = summary.monthKey;
 
-    // Convert monthKey from YYYYMM to YYYY-MM format
-    const formattedMonthKey = `${expense.year}-${String(expense.month).padStart(2, '0')}`;
+    if (!monthlyMap.has(monthKey)) {
+      monthlyMap.set(monthKey, { amount: 0, transactionCount: 0 });
+    }
 
-    return {
-      monthKey: formattedMonthKey,
-      month: monthDisplay,
-      year: expense.year,
-      amount,
-      subscriptionCount: expense.paymentHistoryIds.length,
-      paymentHistoryIds: expense.paymentHistoryIds
-    };
+    const monthData = monthlyMap.get(monthKey)!;
+    // Convert from USD to target currency
+    const convertedAmount = convertCurrency(summary.totalAmount, 'USD', targetCurrency);
+    monthData.amount += convertedAmount;
+    monthData.transactionCount += summary.transactionsCount;
   });
+
+  // 转换为 MonthlyExpense 格式
+  return Array.from(monthlyMap.entries())
+    .map(([monthKey, data]) => {
+      const [yearStr, monthStr] = monthKey.split('-');
+      const year = parseInt(yearStr);
+      const month = parseInt(monthStr);
+
+      // 格式化月份显示
+      const date = new Date(year, month - 1);
+      const monthDisplay = date.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric'
+      });
+
+      return {
+        monthKey,
+        month: monthDisplay,
+        year,
+        amount: Math.round(data.amount * 100) / 100,
+        subscriptionCount: data.transactionCount,
+        paymentHistoryIds: Array.from({ length: data.transactionCount }, (_, i) => i + 1) // 生成支付ID数组用于计算支付数量
+      };
+    })
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
 }
 
 /**
- * 获取基于API的月度费用数据
+ * 获取基于新API的月度费用数据
  */
 export async function getApiMonthlyExpenses(
   startDate: Date,
   endDate: Date,
-  currency: string
+  currency: string // 保持兼容性，但新系统统一使用USD
 ): Promise<MonthlyExpense[]> {
-  const params = {
-    start_year: startDate.getFullYear(),
-    start_month: startDate.getMonth() + 1,
-    end_year: endDate.getFullYear(),
-    end_month: endDate.getMonth() + 1,
-    currency
-  };
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth() + 1;
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth() + 1;
 
-  const response = await MonthlyExpensesApi.getMonthlyExpenses(params);
-  return transformApiMonthlyExpenses(response.expenses, currency);
+  const response = await getMonthlyCategorySummaries(startYear, startMonth, endYear, endMonth);
+  return transformMonthlyCategorySummaries(response, currency);
 }
 
 
@@ -128,24 +149,10 @@ export async function getCurrentMonthSpending(currency: string): Promise<number>
   const currentMonth = now.getMonth() + 1;
 
   try {
-    const params = {
-      start_year: currentYear,
-      start_month: currentMonth,
-      end_year: currentYear,
-      end_month: currentMonth,
-      currency
-    };
-
-    const response = await MonthlyExpensesApi.getMonthlyExpenses(params);
-
-    if (response.expenses.length > 0) {
-      const expense = response.expenses[0];
-      return expense.currency === currency
-        ? expense.amount || 0
-        : expense.amounts?.[currency] || 0;
-    }
-
-    return 0;
+    const response = await getMonthCategorySummary(currentYear, currentMonth);
+    // Convert from base currency (USD) to user's preferred currency
+    const convertedAmount = convertCurrency(response.totalAmount, 'USD', currency);
+    return convertedAmount;
   } catch (error) {
     console.error('Failed to get current month spending:', error);
     return 0;
@@ -153,23 +160,18 @@ export async function getCurrentMonthSpending(currency: string): Promise<number>
 }
 
 /**
- * 获取当年总支出
+ * 获取当年总支出（只计算到当前月份）
  */
 export async function getCurrentYearSpending(currency: string): Promise<number> {
   const now = new Date();
   const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1; // getMonth() returns 0-11, so add 1
 
   try {
-    const params = {
-      start_year: currentYear,
-      start_month: 1,
-      end_year: currentYear,
-      end_month: 12,
-      currency
-    };
-
-    const summaryResponse = await MonthlyExpensesApi.getMonthlyExpensesSummary(params);
-    return summaryResponse.summary.totalAmount;
+    const response = await getTotalSummary(currentYear, 1, currentYear, currentMonth);
+    // Convert from base currency (USD) to user's preferred currency
+    const convertedAmount = convertCurrency(response.totalAmount, 'USD', currency);
+    return convertedAmount;
   } catch (error) {
     console.error('Failed to get current year spending:', error);
     return 0;
@@ -177,39 +179,29 @@ export async function getCurrentYearSpending(currency: string): Promise<number> 
 }
 
 /**
- * 从API数据计算分类支出
+ * 从新API数据计算分类支出
  */
-export function calculateCategoryExpensesFromApi(
-  apiExpenses: MonthlyExpenseApiResponse[],
-  currency: string
+export function calculateCategoryExpensesFromNewApi(
+  summariesResponse: MonthlyCategorySummariesResponse,
+  targetCurrency: string = 'USD'
 ): CategoryExpense[] {
-  const categoryMap = new Map<string, { amount: number; paymentIds: Set<number> }>();
+  const categoryMap = new Map<string, { amount: number; transactionCount: number }>();
   let totalAmount = 0;
 
   // 聚合所有月份的分类数据
-  apiExpenses.forEach(expense => {
-    const categoryBreakdown = expense.categoryBreakdown || {};
+  summariesResponse.summaries.forEach(summary => {
+    const categoryLabel = summary.categoryLabel;
+    // Convert from USD to target currency
+    const convertedAmount = convertCurrency(summary.totalAmount, 'USD', targetCurrency);
 
-    Object.entries(categoryBreakdown).forEach(([category, data]) => {
-      // 获取指定货币的金额
-      const amount = expense.currency === currency
-        ? data.amount || 0
-        : data.amounts?.[currency] || 0;
+    if (!categoryMap.has(categoryLabel)) {
+      categoryMap.set(categoryLabel, { amount: 0, transactionCount: 0 });
+    }
 
-      if (amount > 0) {
-        if (!categoryMap.has(category)) {
-          categoryMap.set(category, { amount: 0, paymentIds: new Set() });
-        }
-
-        const categoryData = categoryMap.get(category)!;
-        categoryData.amount += amount;
-
-        // 添加支付ID
-        data.payment_ids.forEach(id => categoryData.paymentIds.add(id));
-
-        totalAmount += amount;
-      }
-    });
+    const categoryData = categoryMap.get(categoryLabel)!;
+    categoryData.amount += convertedAmount;
+    categoryData.transactionCount += summary.transactionsCount;
+    totalAmount += convertedAmount;
   });
 
   // 转换为CategoryExpense数组并计算百分比
@@ -218,27 +210,24 @@ export function calculateCategoryExpensesFromApi(
       category,
       amount: Math.round(data.amount * 100) / 100,
       percentage: totalAmount > 0 ? (data.amount / totalAmount) * 100 : 0,
-      subscriptionCount: data.paymentIds.size
+      subscriptionCount: data.transactionCount
     }))
     .sort((a, b) => b.amount - a.amount); // 按金额降序排列
 }
 
 /**
- * 获取基于API的分类支出数据
+ * 获取基于新API的分类支出数据
  */
 export async function getApiCategoryExpenses(
   startDate: Date,
   endDate: Date,
   currency: string
 ): Promise<CategoryExpense[]> {
-  const params = {
-    start_year: startDate.getFullYear(),
-    start_month: startDate.getMonth() + 1,
-    end_year: endDate.getFullYear(),
-    end_month: endDate.getMonth() + 1,
-    currency
-  };
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth() + 1;
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth() + 1;
 
-  const response = await MonthlyExpensesApi.getMonthlyExpenses(params);
-  return calculateCategoryExpensesFromApi(response.expenses, currency);
+  const response = await getMonthlyCategorySummaries(startYear, startMonth, endYear, endMonth);
+  return calculateCategoryExpensesFromNewApi(response, currency);
 }

@@ -118,11 +118,11 @@ export const useSettingsStore = create<SettingsState>()(
             }
             throw new Error('Failed to fetch settings from backend.')
           }
-          const data = await response.json()
-          
+          const response_data = await response.json()
+
           const loadedSettings = {
-            currency: data.currency || initialSettings.currency,
-            theme: data.theme || initialSettings.theme,
+            currency: response_data.data.currency || initialSettings.currency,
+            theme: response_data.data.theme || initialSettings.theme,
           }
 
           set({ ...loadedSettings, isLoading: false })

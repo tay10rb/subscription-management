@@ -1,27 +1,127 @@
 const BaseRepository = require('../utils/BaseRepository');
-const { calculateLastBillingDate, calculateNextBillingDate, getTodayString } = require('../utils/dateUtils');
-const MonthlyExpenseService = require('./monthlyExpenseService');
+const { calculateLastBillingDate, calculateNextBillingDate, calculateNextBillingDateFromStart, getTodayString } = require('../utils/dateUtils');
+const MonthlyCategorySummaryService = require('./monthlyCategorySummaryService');
 const logger = require('../utils/logger');
 const { NotFoundError } = require('../middleware/errorHandler');
 
 class SubscriptionService extends BaseRepository {
     constructor(db) {
         super(db, 'subscriptions');
-        this.monthlyExpenseService = new MonthlyExpenseService(db.name);
+        this.monthlyCategorySummaryService = new MonthlyCategorySummaryService(db.name);
     }
 
     /**
-     * 获取所有订阅
+     * 获取所有订阅（包含关联的 category 和 payment method 数据）
      */
     async getAllSubscriptions() {
-        return this.findAll({ orderBy: 'name ASC' });
+        const query = `
+            SELECT
+                s.*,
+                c.id as category_join_id,
+                c.value as category_join_value,
+                c.label as category_join_label,
+                pm.id as payment_method_join_id,
+                pm.value as payment_method_join_value,
+                pm.label as payment_method_join_label
+            FROM subscriptions s
+            LEFT JOIN categories c ON s.category_id = c.id
+            LEFT JOIN payment_methods pm ON s.payment_method_id = pm.id
+            ORDER BY s.name ASC
+        `;
+
+        const stmt = this.db.prepare(query);
+        const results = stmt.all();
+
+        // 转换数据格式，将关联数据嵌套为对象
+        return results.map(row => ({
+            id: row.id,
+            name: row.name,
+            plan: row.plan,
+            billing_cycle: row.billing_cycle,
+            next_billing_date: row.next_billing_date,
+            last_billing_date: row.last_billing_date,
+            amount: row.amount,
+            currency: row.currency,
+            payment_method_id: row.payment_method_id,
+            start_date: row.start_date,
+            status: row.status,
+            category_id: row.category_id,
+            renewal_type: row.renewal_type,
+            notes: row.notes,
+            website: row.website,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            // 嵌套的关联对象
+            category: row.category_join_id ? {
+                id: row.category_join_id,
+                value: row.category_join_value,
+                label: row.category_join_label
+            } : null,
+            paymentMethod: row.payment_method_join_id ? {
+                id: row.payment_method_join_id,
+                value: row.payment_method_join_value,
+                label: row.payment_method_join_label
+            } : null
+        }));
     }
 
     /**
-     * 根据ID获取订阅
+     * 根据ID获取订阅（包含关联的 category 和 payment method 数据）
      */
     async getSubscriptionById(id) {
-        return this.findById(id);
+        const query = `
+            SELECT
+                s.*,
+                c.id as category_join_id,
+                c.value as category_join_value,
+                c.label as category_join_label,
+                pm.id as payment_method_join_id,
+                pm.value as payment_method_join_value,
+                pm.label as payment_method_join_label
+            FROM subscriptions s
+            LEFT JOIN categories c ON s.category_id = c.id
+            LEFT JOIN payment_methods pm ON s.payment_method_id = pm.id
+            WHERE s.id = ?
+        `;
+
+        const stmt = this.db.prepare(query);
+        const row = stmt.get(id);
+
+        if (!row) {
+            return null;
+        }
+
+        // 转换数据格式，将关联数据嵌套为对象
+        return {
+            id: row.id,
+            name: row.name,
+            plan: row.plan,
+            billing_cycle: row.billing_cycle,
+            next_billing_date: row.next_billing_date,
+            last_billing_date: row.last_billing_date,
+            amount: row.amount,
+            currency: row.currency,
+            payment_method_id: row.payment_method_id,
+            start_date: row.start_date,
+            status: row.status,
+            category_id: row.category_id,
+            renewal_type: row.renewal_type,
+            notes: row.notes,
+            website: row.website,
+            created_at: row.created_at,
+            updated_at: row.updated_at,
+            // 嵌套的关联对象
+            category: row.category_join_id ? {
+                id: row.category_join_id,
+                value: row.category_join_value,
+                label: row.category_join_label
+            } : null,
+            paymentMethod: row.payment_method_join_id ? {
+                id: row.payment_method_join_id,
+                value: row.payment_method_join_value,
+                label: row.payment_method_join_label
+            } : null
+        };
     }
 
     /**
@@ -35,10 +135,10 @@ class SubscriptionService extends BaseRepository {
             next_billing_date,
             amount,
             currency,
-            payment_method,
+            payment_method_id,
             start_date,
             status = 'active',
-            category = 'other',
+            category_id,
             renewal_type = 'manual',
             notes,
             website
@@ -59,10 +159,10 @@ class SubscriptionService extends BaseRepository {
             last_billing_date,
             amount,
             currency,
-            payment_method,
+            payment_method_id,
             start_date,
             status,
-            category,
+            category_id,
             renewal_type,
             notes,
             website
@@ -105,12 +205,24 @@ class SubscriptionService extends BaseRepository {
             throw new NotFoundError('Subscription');
         }
 
-        // 如果更新了计费周期或日期，重新计算 last_billing_date
+        // 如果更新了计费周期或日期，重新计算计费日期
         if (updateData.billing_cycle || updateData.next_billing_date || updateData.start_date) {
             const billing_cycle = updateData.billing_cycle || existingSubscription.billing_cycle;
-            const next_billing_date = updateData.next_billing_date || existingSubscription.next_billing_date;
             const start_date = updateData.start_date || existingSubscription.start_date;
-            
+            let next_billing_date = updateData.next_billing_date || existingSubscription.next_billing_date;
+
+            // 如果更新了 start_date，需要重新计算 next_billing_date
+            if (updateData.start_date) {
+                const currentDate = getTodayString();
+                next_billing_date = calculateNextBillingDateFromStart(
+                    start_date,
+                    currentDate,
+                    billing_cycle
+                );
+                updateData.next_billing_date = next_billing_date;
+            }
+
+            // 重新计算 last_billing_date
             updateData.last_billing_date = calculateLastBillingDate(
                 next_billing_date,
                 start_date,
@@ -290,15 +402,15 @@ class SubscriptionService extends BaseRepository {
         return this.transaction(() => {
             // 删除所有订阅（级联删除会处理相关数据）
             const subscriptionResult = this.db.prepare('DELETE FROM subscriptions').run();
-            
-            // 显式清理月度费用表
-            const monthlyExpensesResult = this.db.prepare('DELETE FROM monthly_expenses').run();
 
-            logger.info(`Reset completed: ${subscriptionResult.changes} subscriptions, ${monthlyExpensesResult.changes} monthly expenses deleted`);
+            // 显式清理月度分类汇总表
+            const monthlyCategorySummaryResult = this.db.prepare('DELETE FROM monthly_category_summary').run();
+
+            logger.info(`Reset completed: ${subscriptionResult.changes} subscriptions, ${monthlyCategorySummaryResult.changes} monthly category summaries deleted`);
 
             return {
                 subscriptions: subscriptionResult.changes,
-                monthlyExpenses: monthlyExpensesResult.changes,
+                monthlyCategorySummary: monthlyCategorySummaryResult.changes,
                 message: 'All subscription data has been reset successfully'
             };
         });
@@ -343,13 +455,13 @@ class SubscriptionService extends BaseRepository {
 
             logger.info(`Generated ${payments.length} payment history records for subscription ${subscriptionId}`);
 
-            // 触发月度支出重新计算
-            if (this.monthlyExpenseService && payments.length > 0) {
+            // 触发月度分类汇总重新计算
+            if (this.monthlyCategorySummaryService && payments.length > 0) {
                 // 获取最新插入的支付记录ID并处理
                 const lastPaymentId = this.db.prepare('SELECT last_insert_rowid() as id').get().id;
                 for (let i = 0; i < payments.length; i++) {
                     const paymentId = lastPaymentId - payments.length + 1 + i;
-                    await this.monthlyExpenseService.processNewPayment(paymentId);
+                    this.monthlyCategorySummaryService.processNewPayment(paymentId);
                 }
             }
         } catch (error) {
@@ -443,8 +555,8 @@ class SubscriptionService extends BaseRepository {
      * 关闭资源
      */
     close() {
-        if (this.monthlyExpenseService) {
-            this.monthlyExpenseService.close();
+        if (this.monthlyCategorySummaryService) {
+            this.monthlyCategorySummaryService.close();
         }
     }
 }

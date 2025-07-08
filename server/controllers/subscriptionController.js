@@ -1,10 +1,11 @@
 const SubscriptionService = require('../services/subscriptionService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { handleQueryResult, handleDbResult, validationError } = require('../utils/responseHelper');
-const { validateSubscription } = require('../utils/validator');
+const { validateSubscription, validateSubscriptionWithForeignKeys } = require('../utils/validator');
 
 class SubscriptionController {
     constructor(db) {
+        this.db = db;
         this.subscriptionService = new SubscriptionService(db);
     }
 
@@ -30,9 +31,9 @@ class SubscriptionController {
      */
     createSubscription = asyncHandler(async (req, res) => {
         const subscriptionData = req.body;
-        
-        // 验证数据
-        const validator = validateSubscription(subscriptionData);
+
+        // 验证数据（包含外键验证）
+        const validator = validateSubscriptionWithForeignKeys(subscriptionData, this.db);
         if (validator.hasErrors()) {
             return validationError(res, validator.getErrors());
         }
@@ -53,7 +54,7 @@ class SubscriptionController {
 
         // 验证每个订阅
         for (let i = 0; i < subscriptionsData.length; i++) {
-            const validator = validateSubscription(subscriptionsData[i]);
+            const validator = validateSubscriptionWithForeignKeys(subscriptionsData[i], this.db);
             if (validator.hasErrors()) {
                 return validationError(res, `Subscription ${i + 1}: ${validator.getErrors().map(e => e.message).join(', ')}`);
             }
@@ -69,12 +70,12 @@ class SubscriptionController {
     updateSubscription = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
-        
+
         // 验证数据（更新时不需要所有字段都必填）
-        const validator = validateSubscription(updateData);
+        const validator = validateSubscriptionWithForeignKeys(updateData, this.db);
         // 移除必填验证，因为更新时可能只更新部分字段
         validator.errors = validator.errors.filter(error => !error.message.includes('is required'));
-        
+
         if (validator.hasErrors()) {
             return validationError(res, validator.getErrors());
         }

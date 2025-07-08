@@ -12,7 +12,7 @@ import {
   Subscription
 } from "@/store/subscriptionStore"
 import { useSettingsStore } from "@/store/settingsStore"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import { getCurrentMonthSpending, getCurrentYearSpending } from "@/lib/expense-analytics-api"
 
 import { SubscriptionForm } from "@/components/subscription/SubscriptionForm"
@@ -157,13 +157,13 @@ function HomePage() {
           <div className="grid gap-4 md:grid-cols-3">
             <StatCard
               title="Monthly Spending"
-              value={formatCurrency(monthlySpending, userCurrency)}
+              value={formatCurrencyAmount(monthlySpending, userCurrency)}
               description="Current month expenses"
               icon={CreditCard}
             />
             <StatCard
               title="Yearly Spending"
-              value={formatCurrency(yearlySpending, userCurrency)}
+              value={formatCurrencyAmount(yearlySpending, userCurrency)}
               description="Current year total expenses"
               icon={DollarSign}
             />

@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import { ExpenseMetrics as ExpenseMetricsType } from "@/lib/expense-analytics-api"
 import { 
   DollarSign, 
@@ -30,7 +30,7 @@ export function ExpenseMetrics({ metrics, currency, className }: ExpenseMetricsP
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatCurrency(metrics.totalSpent, currency)}
+            {formatCurrencyAmount(metrics.totalSpent, currency)}
           </div>
           <p className="text-xs text-muted-foreground">
             Across all subscriptions
@@ -46,7 +46,7 @@ export function ExpenseMetrics({ metrics, currency, className }: ExpenseMetricsP
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatCurrency(metrics.averageMonthly, currency)}
+            {formatCurrencyAmount(metrics.averageMonthly, currency)}
           </div>
           <p className="text-xs text-muted-foreground">
             Monthly spending average
@@ -62,7 +62,7 @@ export function ExpenseMetrics({ metrics, currency, className }: ExpenseMetricsP
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold">
-            {formatCurrency(metrics.averagePerSubscription, currency)}
+            {formatCurrencyAmount(metrics.averagePerSubscription, currency)}
           </div>
           <p className="text-xs text-muted-foreground">
             Average cost per service
@@ -95,7 +95,7 @@ export function ExpenseMetrics({ metrics, currency, className }: ExpenseMetricsP
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(metrics.highestMonth.amount, currency)}
+              {formatCurrencyAmount(metrics.highestMonth.amount, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
               {metrics.highestMonth.month} • {metrics.highestMonth.subscriptionCount} subscriptions
@@ -113,7 +113,7 @@ export function ExpenseMetrics({ metrics, currency, className }: ExpenseMetricsP
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(metrics.lowestMonth.amount, currency)}
+              {formatCurrencyAmount(metrics.lowestMonth.amount, currency)}
             </div>
             <p className="text-xs text-muted-foreground">
               {metrics.lowestMonth.month} • {metrics.lowestMonth.subscriptionCount} subscriptions

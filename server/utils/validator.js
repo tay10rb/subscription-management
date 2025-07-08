@@ -1,4 +1,5 @@
 const { ValidationError } = require('../middleware/errorHandler');
+const { isSupportedCurrency } = require('../config/currencies');
 
 /**
  * 数据验证工具类
@@ -249,6 +250,22 @@ class Validator {
         }
         return this;
     }
+
+    /**
+     * 验证外键是否存在
+     * @param {number} value - 外键值
+     * @param {string} field - 字段名
+     * @param {Function} existsCheckFn - 检查函数，返回 true 表示外键存在
+     * @param {string} entityName - 实体名称（用于错误消息）
+     */
+    foreignKey(value, field, existsCheckFn, entityName) {
+        if (value !== undefined && value !== null) {
+            if (!existsCheckFn(value)) {
+                this.addError(field, `${entityName} with id ${value} does not exist`);
+            }
+        }
+        return this;
+    }
 }
 
 /**
@@ -266,45 +283,82 @@ function createValidator() {
  */
 function validateSubscription(data) {
     const validator = createValidator();
-    
+
     validator
         .required(data.name, 'name')
         .string(data.name, 'name')
         .length(data.name, 'name', 1, 255)
-        
+
         .required(data.plan, 'plan')
         .string(data.plan, 'plan')
         .length(data.plan, 'plan', 1, 255)
-        
+
         .required(data.billing_cycle, 'billing_cycle')
         .enum(data.billing_cycle, 'billing_cycle', ['monthly', 'yearly', 'quarterly'])
-        
+
         .required(data.amount, 'amount')
         .number(data.amount, 'amount')
         .range(data.amount, 'amount', 0)
-        
+
         .required(data.currency, 'currency')
         .string(data.currency, 'currency')
         .length(data.currency, 'currency', 3, 3)
-        
-        .required(data.payment_method, 'payment_method')
-        .string(data.payment_method, 'payment_method')
-        
+        .custom(data.currency, 'currency',
+            (value) => isSupportedCurrency(value),
+            'Currency is not supported'
+        )
+
+        .required(data.payment_method_id, 'payment_method_id')
+        .integer(data.payment_method_id, 'payment_method_id')
+        .range(data.payment_method_id, 'payment_method_id', 1)
+
         .date(data.next_billing_date, 'next_billing_date')
         .date(data.start_date, 'start_date')
-        
+
         .enum(data.status, 'status', ['active', 'inactive', 'cancelled'])
         .enum(data.renewal_type, 'renewal_type', ['auto', 'manual'])
-        
-        .string(data.category, 'category')
+
+        .required(data.category_id, 'category_id')
+        .integer(data.category_id, 'category_id')
+        .range(data.category_id, 'category_id', 1)
+
         .string(data.notes, 'notes')
         .url(data.website, 'website');
-    
+
+    return validator;
+}
+
+/**
+ * 验证订阅数据（包含外键验证）
+ * @param {Object} data - 订阅数据
+ * @param {Object} db - 数据库连接
+ * @returns {Validator}
+ */
+function validateSubscriptionWithForeignKeys(data, db) {
+    const validator = validateSubscription(data);
+
+    // 验证 category_id 外键
+    if (data.category_id !== undefined && data.category_id !== null) {
+        const categoryExists = db.prepare('SELECT COUNT(*) as count FROM categories WHERE id = ?').get(data.category_id);
+        validator.custom(data.category_id, 'category_id',
+            () => categoryExists.count > 0,
+            `Category with id ${data.category_id} does not exist`);
+    }
+
+    // 验证 payment_method_id 外键
+    if (data.payment_method_id !== undefined && data.payment_method_id !== null) {
+        const paymentMethodExists = db.prepare('SELECT COUNT(*) as count FROM payment_methods WHERE id = ?').get(data.payment_method_id);
+        validator.custom(data.payment_method_id, 'payment_method_id',
+            () => paymentMethodExists.count > 0,
+            `Payment method with id ${data.payment_method_id} does not exist`);
+    }
+
     return validator;
 }
 
 module.exports = {
     Validator,
     createValidator,
-    validateSubscription
+    validateSubscription,
+    validateSubscriptionWithForeignKeys
 };

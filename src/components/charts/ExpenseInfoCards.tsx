@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import {
   Calendar,
   DollarSign,
@@ -96,7 +96,7 @@ export function ExpenseInfoCards({
               <span className="text-sm text-muted-foreground">Total</span>
             </div>
             <span className="text-lg font-bold">
-              {formatCurrency(data.totalSpent, currency)}
+              {formatCurrencyAmount(data.totalSpent, currency)}
             </span>
           </div>
 
@@ -107,7 +107,7 @@ export function ExpenseInfoCards({
               <span className="text-sm text-muted-foreground">Daily Avg</span>
             </div>
             <span className="text-sm font-medium">
-              {formatCurrency(data.dailyAverage, currency)}
+              {formatCurrencyAmount(data.dailyAverage, currency)}
             </span>
           </div>
 

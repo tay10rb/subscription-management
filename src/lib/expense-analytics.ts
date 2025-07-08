@@ -131,7 +131,7 @@ export function generateExpenseData(
       expenses.push({
         date: `${currentMonth.getFullYear()}-${String(currentMonth.getMonth() + 1).padStart(2, '0')}-01`,
         amount: monthlyAmount,
-        category: subscription.category,
+        category: subscription.category?.value || 'other', // Use category value or fallback
         subscription
       })
     }
@@ -247,11 +247,12 @@ export function getCategoryExpenses(
     const subscriptionTotal = expenseData.reduce((sum, expense) => sum + expense.amount, 0)
     
     if (subscriptionTotal > 0) {
-      if (!categoryMap.has(subscription.category)) {
-        categoryMap.set(subscription.category, { amount: 0, subscriptions: new Set() })
+      const categoryValue = subscription.category?.value || 'other'
+      if (!categoryMap.has(categoryValue)) {
+        categoryMap.set(categoryValue, { amount: 0, subscriptions: new Set() })
       }
-      
-      const categoryData = categoryMap.get(subscription.category)!
+
+      const categoryData = categoryMap.get(categoryValue)!
       categoryData.amount += subscriptionTotal
       categoryData.subscriptions.add(subscription.id)
       totalAmount += subscriptionTotal
@@ -352,11 +353,13 @@ export function getExpensesByPaymentMethod(
     const subscriptionTotal = expenseData.reduce((sum, expense) => sum + expense.amount, 0)
 
     if (subscriptionTotal > 0) {
-      if (!paymentMethodMap.has(subscription.paymentMethod)) {
-        paymentMethodMap.set(subscription.paymentMethod, { amount: 0, subscriptions: new Set() })
+      // Use the payment method label for the map key
+      const paymentMethodKey = subscription.paymentMethod?.label || 'Unknown'
+      if (!paymentMethodMap.has(paymentMethodKey)) {
+        paymentMethodMap.set(paymentMethodKey, { amount: 0, subscriptions: new Set() })
       }
 
-      const methodData = paymentMethodMap.get(subscription.paymentMethod)!
+      const methodData = paymentMethodMap.get(paymentMethodKey)!
       methodData.amount += subscriptionTotal
       methodData.subscriptions.add(subscription.id)
     }

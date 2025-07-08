@@ -108,9 +108,12 @@ export function SubscriptionsPage() {
       (currentView === "active" && sub.status !== "cancelled") ||
       (currentView === "cancelled" && sub.status === "cancelled")
     
-    const matchesCategory = 
-      selectedCategories.length === 0 || 
-      selectedCategories.includes(sub.category)
+    const matchesCategory =
+      selectedCategories.length === 0 ||
+      selectedCategories.some(categoryValue => {
+        const category = categories.find(cat => cat.value === categoryValue)
+        return category && sub.categoryId === category.id
+      })
       
     const matchesBillingCycle =
       selectedBillingCycles.length === 0 ||
@@ -438,7 +441,7 @@ export function SubscriptionsPage() {
                     </div>
                     <div className="text-sm">{category.label}</div>
                     <Badge variant="outline" className="ml-auto text-xs">
-                      {subscriptions.filter(s => s.category === category.value).length}
+                      {subscriptions.filter(s => s.category?.value === category.value).length}
                     </Badge>
                   </div>
                 ))}

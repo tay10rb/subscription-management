@@ -1,7 +1,7 @@
 import { PieChart, Pie, Cell, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import { CategoryExpense } from "@/lib/expense-analytics-api"
 import { useSubscriptionStore } from "@/store/subscriptionStore"
 
@@ -54,7 +54,7 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
     <Card className={className}>
       <CardHeader>
         <CardTitle className="text-lg">Spending by Category</CardTitle>
-        <CardDescription>Breakdown of expenses by subscription category</CardDescription>
+        <CardDescription>Breakdown of expenses by subscription category (Last 12 months)</CardDescription>
       </CardHeader>
       <CardContent className="px-2 sm:px-6">
         {data.length === 0 ? (
@@ -95,7 +95,7 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-muted-foreground">Amount:</span>
                                     <span className="font-medium">
-                                      {formatCurrency(data.amount, currency)}
+                                      {formatCurrencyAmount(data.amount, currency)}
                                     </span>
                                   </div>
                                   <div className="flex items-center justify-between gap-2">
@@ -139,7 +139,7 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
                     </div>
                     <div className="text-right flex-shrink-0 ml-3">
                       <div className="font-semibold text-sm">
-                        {formatCurrency(item.amount, currency)}
+                        {formatCurrencyAmount(item.amount, currency)}
                       </div>
                       <div className="text-xs text-muted-foreground">
                         {item.percentage.toFixed(1)}%

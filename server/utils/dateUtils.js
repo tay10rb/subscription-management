@@ -70,9 +70,39 @@ function isDateDueOrOverdue(dateString) {
     return targetDate <= today;
 }
 
+// Function to calculate next billing date based on start date, current date and billing cycle
+// Calculates the next billing date that occurs after the current date, based on the billing cycle from start date
+function calculateNextBillingDateFromStart(startDate, currentDate, billingCycle) {
+    const today = new Date(currentDate);
+    const start = new Date(startDate);
+
+    // Start with the start date as the base
+    let nextBilling = new Date(start);
+
+    // Keep adding billing cycles until we get a date after today
+    while (nextBilling <= today) {
+        switch (billingCycle) {
+            case 'monthly':
+                nextBilling.setMonth(nextBilling.getMonth() + 1);
+                break;
+            case 'yearly':
+                nextBilling.setFullYear(nextBilling.getFullYear() + 1);
+                break;
+            case 'quarterly':
+                nextBilling.setMonth(nextBilling.getMonth() + 3);
+                break;
+            default:
+                throw new Error('Invalid billing cycle');
+        }
+    }
+
+    return nextBilling.toISOString().split('T')[0];
+}
+
 module.exports = {
     calculateLastBillingDate,
     calculateNextBillingDate,
+    calculateNextBillingDateFromStart,
     getTodayString,
     isDateDueOrOverdue
 };

@@ -15,7 +15,9 @@ import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
 import {
   formatDate,
   daysUntil,
-  getBillingCycleLabel
+  getBillingCycleLabel,
+  getCategoryLabel,
+  getPaymentMethodLabel
 } from "@/lib/subscription-utils"
 import { formatWithUserCurrency } from "@/utils/currency"
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -77,12 +79,9 @@ export function SubscriptionDetailDialog({
     website
   } = subscription
 
-  // Get the category and payment method labels
-  const categoryInfo = categories.find(c => c.value === category)
-  const paymentMethodInfo = paymentMethods.find(p => p.value === paymentMethod)
-
-  const categoryLabel = categoryInfo?.label || category
-  const paymentMethodLabel = paymentMethodInfo?.label || paymentMethod
+  // Get the category and payment method labels using unified utility functions
+  const categoryLabel = getCategoryLabel(subscription, categories)
+  const paymentMethodLabel = getPaymentMethodLabel(subscription, paymentMethods)
 
   const daysLeft = daysUntil(nextBillingDate)
   const isExpiringSoon = daysLeft <= 7

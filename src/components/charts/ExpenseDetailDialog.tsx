@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { formatCurrency } from "@/lib/subscription-utils"
+import { transformPaymentsFromApi, type PaymentRecord } from '@/utils/dataTransform'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
 import {
@@ -48,66 +49,9 @@ function generateMonthKeys(startDate: string, endDate: string): string[] {
   return monthKeys
 }
 
-// 按订阅ID合并支付详情，累加分配金额（仅针对yearly和quarterly订阅）
-function mergePaymentDetailsBySubscriptionWithCount(paymentDetails: PaymentRecord[]): {
-  mergedPayments: PaymentRecord[],
-  allocatedCount: number
-} {
-  const mergedMap = new Map<number, PaymentRecord>()
-  const monthlyPayments: PaymentRecord[] = []
-  let allocatedCount = 0
 
-  paymentDetails.forEach(payment => {
-    const subscriptionId = payment.subscriptionId
-    const billingCycle = payment.billingCycle?.toLowerCase()
 
-    // 只对yearly和quarterly订阅进行合并，monthly订阅保持原样
-    if (billingCycle === 'yearly' || billingCycle === 'quarterly') {
-      allocatedCount++ // 每次遇到yearly/quarterly订阅就计数
 
-      if (!mergedMap.has(subscriptionId)) {
-        // 首次遇到此订阅，直接存储
-        mergedMap.set(subscriptionId, {
-          ...payment,
-          allocatedAmount: payment.allocatedAmount || payment.amountPaid
-        })
-      } else {
-        // 已存在此订阅，累加分配金额
-        const existing = mergedMap.get(subscriptionId)!
-        existing.allocatedAmount = (existing.allocatedAmount || existing.amountPaid) +
-                                  (payment.allocatedAmount || payment.amountPaid)
-      }
-    } else {
-      // monthly订阅直接添加到结果中，不进行合并
-      monthlyPayments.push(payment)
-    }
-  })
-
-  // 合并yearly/quarterly订阅和monthly订阅
-  return {
-    mergedPayments: [...Array.from(mergedMap.values()), ...monthlyPayments],
-    allocatedCount
-  }
-}
-
-interface PaymentRecord {
-  id: number
-  subscriptionId: number
-  subscriptionName: string
-  subscriptionPlan: string
-  paymentDate: string
-  amountPaid: number
-  allocatedAmount?: number
-  currency: string
-  billingPeriod: {
-    start: string
-    end: string
-  }
-  billingCycle?: string
-  isActualPaymentMonth?: boolean
-  status: string
-  notes?: string
-}
 
 interface PaymentHistoryResponse {
   payments: PaymentRecord[]
@@ -162,76 +106,48 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
       let allPaymentDetails: PaymentRecord[] = []
 
       if (periodData.periodType === 'monthly') {
-        // 月度数据：直接获取单个月份的数据
-        const date = new Date(periodData.startDate)
-        const year = date.getFullYear()
-        const month = date.getMonth() + 1
-        const monthKey = `${year}-${month.toString().padStart(2, '0')}`
+        // 月度数据：直接从 payment-history API 获取数据
+        const startDate = new Date(periodData.startDate)
+        const endDate = new Date(periodData.endDate)
 
-        const response = await fetch(`${API_BASE_URL}/monthly-expenses/${monthKey}`)
+        const startDateStr = startDate.toISOString().split('T')[0]
+        const endDateStr = endDate.toISOString().split('T')[0]
+
+        const response = await fetch(`${API_BASE_URL}/payment-history?start_date=${startDateStr}&end_date=${endDateStr}&status=succeeded`)
         if (!response.ok) {
-          throw new Error(`Failed to fetch monthly expense data: ${response.statusText}`)
+          throw new Error(`Failed to fetch payment history data: ${response.statusText}`)
         }
 
         const result = await response.json()
 
-        // Handle new unified response format
-        let data;
         if (result.success && result.data) {
-          data = result.data;
-        } else if (result.paymentDetails) {
-          // Fallback for old format
-          data = result;
+          const rawData = result.data || []
+          allPaymentDetails = transformPaymentsFromApi(rawData)
         } else {
-          throw new Error(result.message || 'Failed to fetch monthly expense data');
+          throw new Error(result.message || 'Failed to fetch payment history data');
         }
 
-        allPaymentDetails = data.paymentDetails || []
-
-        // 为月度数据设置默认的分配次数
-        ;(allPaymentDetails as any).allocatedCount = 0
       } else {
-        // 季度或年度数据：获取多个月份的数据并合并
-        const monthKeys = generateMonthKeys(periodData.startDate, periodData.endDate)
+        // 季度或年度数据：直接从 payment-history API 获取整个时间范围的数据
+        const startDate = new Date(periodData.startDate)
+        const endDate = new Date(periodData.endDate)
 
-        // 并行获取所有月份的数据
-        const monthlyDataPromises = monthKeys.map(async (monthKey: string) => {
-          try {
-            const response = await fetch(`${API_BASE_URL}/monthly-expenses/${monthKey}`)
-            if (response.ok) {
-              const result = await response.json()
+        const startDateStr = startDate.toISOString().split('T')[0]
+        const endDateStr = endDate.toISOString().split('T')[0]
 
-              // Handle new unified response format
-              let data;
-              if (result.success && result.data) {
-                data = result.data;
-              } else if (result.paymentDetails) {
-                // Fallback for old format
-                data = result;
-              } else {
-                return [];
-              }
+        const response = await fetch(`${API_BASE_URL}/payment-history?start_date=${startDateStr}&end_date=${endDateStr}&status=succeeded`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch payment history data: ${response.statusText}`)
+        }
 
-              return data.paymentDetails || []
-            }
-            return []
-          } catch (error) {
-            console.warn(`Failed to fetch data for month ${monthKey}:`, error)
-            return []
-          }
-        })
+        const result = await response.json()
 
-        const monthlyDataResults = await Promise.all(monthlyDataPromises)
-
-        // 将所有月份的 paymentDetails 合并到一个大数组
-        const combinedPaymentDetails = monthlyDataResults.flat()
-
-        // 按 subscriptionId 合并相同订阅的数据，同时记录分配次数
-        const { mergedPayments, allocatedCount } = mergePaymentDetailsBySubscriptionWithCount(combinedPaymentDetails)
-        allPaymentDetails = mergedPayments
-
-        // 存储分配次数供后续使用
-        ;(allPaymentDetails as any).allocatedCount = allocatedCount
+        if (result.success && result.data) {
+          const rawData = result.data || []
+          allPaymentDetails = transformPaymentsFromApi(rawData)
+        } else {
+          throw new Error(result.message || 'Failed to fetch payment history data');
+        }
       }
 
       setPayments(allPaymentDetails)
@@ -322,12 +238,7 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                 <div>
                   <p className="text-sm text-muted-foreground">Payments</p>
                   <p className="font-semibold">
-                    {payments.filter(p => p.billingCycle === 'monthly').length}
-                    {(payments as any).allocatedCount > 0 && (
-                      <span className="text-xs text-muted-foreground ml-1">
-                        (+{(payments as any).allocatedCount} allocated)
-                      </span>
-                    )}
+                    {payments.length}
                   </p>
                 </div>
               </div>
@@ -416,32 +327,12 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                             Billing: {formatDate(payment.billingPeriod?.start)} - {formatDate(payment.billingPeriod?.end)}
                           </span>
                         </div>
-                        {payment.notes && (
-                          <p className="text-xs text-muted-foreground mt-1">{payment.notes}</p>
-                        )}
                       </div>
                       <div className="text-right">
-                        {payment.allocatedAmount && payment.allocatedAmount !== payment.amountPaid &&
-                         (payment.billingCycle === 'yearly' || payment.billingCycle === 'quarterly') ? (
-                          <>
-                            <p className="font-semibold">
-                              {formatCurrency(payment.allocatedAmount, payment.currency)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {periodData.periodType !== 'monthly'
-                                ? `Total allocated for ${periodData.period}`
-                                : `Allocated from ${formatCurrency(payment.amountPaid, payment.currency)}`
-                              }
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="font-semibold">
-                              {formatCurrency(payment.amountPaid, payment.currency)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">{payment.currency}</p>
-                          </>
-                        )}
+                        <p className="font-semibold">
+                          {formatCurrency(payment.amountPaid, payment.currency)}
+                        </p>
+                        <p className="text-xs text-muted-foreground">{payment.currency}</p>
                       </div>
                     </div>
                   </CardContent>

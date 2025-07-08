@@ -34,10 +34,10 @@ enum ImportStep {
   Complete
 }
 
-export function ImportModal({ 
-  open, 
-  onOpenChange, 
-  onImport 
+export function ImportModal({
+  open,
+  onOpenChange,
+  onImport
 }: ImportModalProps) {
   const [step, setStep] = useState<ImportStep>(ImportStep.Upload)
   const [file, setFile] = useState<File | null>(null)
@@ -103,10 +103,10 @@ export function ImportModal({
               nextBillingDate: sub.nextBillingDate,
               amount: sub.amount,
               currency: sub.currency,
-              paymentMethod: sub.paymentMethod,
+              paymentMethodId: sub.paymentMethodId || 1,
               startDate: sub.startDate,
               status: sub.status,
-              category: sub.category,
+              categoryId: sub.categoryId || 10,
               renewalType: sub.renewalType || 'manual',
               notes: sub.notes,
               website: sub.website,
@@ -121,10 +121,10 @@ export function ImportModal({
                 nextBillingDate: sub.nextBillingDate || new Date().toISOString().split('T')[0],
                 amount: Number(sub.amount) || 0,
                 currency: sub.currency || 'USD',
-                paymentMethod: sub.paymentMethod || 'other',
+                paymentMethodId: sub.paymentMethodId || 1,
                 startDate: sub.startDate || new Date().toISOString().split('T')[0],
                 status: sub.status || 'active',
-                category: sub.category || 'other',
+                categoryId: sub.categoryId || 10,
                 renewalType: sub.renewalType || 'manual',
                 notes: sub.notes || '',
                 website: sub.website || '',
@@ -141,10 +141,10 @@ export function ImportModal({
               nextBillingDate: sub.nextBillingDate || new Date().toISOString().split('T')[0],
               amount: Number(sub.amount) || 0,
               currency: sub.currency || 'USD',
-              paymentMethod: sub.paymentMethod || 'other',
+              paymentMethodId: sub.paymentMethodId || 1,
               startDate: sub.startDate || new Date().toISOString().split('T')[0],
               status: sub.status || 'active',
-              category: sub.category || 'other',
+              categoryId: sub.categoryId || 10,
               renewalType: sub.renewalType || 'manual',
               notes: sub.notes || '',
               website: sub.website || '',

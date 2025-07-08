@@ -1,7 +1,7 @@
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import { YearlyExpense } from "@/lib/expense-analytics-api"
 import { TrendingUp, TrendingDown } from "lucide-react"
 
@@ -70,7 +70,7 @@ export function YearlyTrendChart({ data, currency, className }: YearlyTrendChart
                 <YAxis
                   className="text-xs fill-muted-foreground"
                   tick={{ fontSize: 10 }}
-                  tickFormatter={(value) => formatCurrency(value, currency)}
+                  tickFormatter={(value) => formatCurrencyAmount(value, currency)}
                   width={60}
                 />
                 <Tooltip
@@ -85,7 +85,7 @@ export function YearlyTrendChart({ data, currency, className }: YearlyTrendChart
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground">Amount:</span>
                                 <span className="font-medium">
-                                  {formatCurrency(data.amount, currency)}
+                                  {formatCurrencyAmount(data.amount, currency)}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-2">

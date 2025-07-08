@@ -48,6 +48,8 @@ export function MainLayout({ children }: MainLayoutProps) {
               </Button>
             </Link>
 
+
+
             <Link to="/settings">
               <Button variant={location.pathname === '/settings' ? "default" : "ghost"} size="sm" className="px-2 sm:px-3">
                 <Settings className="h-4 w-4 sm:mr-2" />

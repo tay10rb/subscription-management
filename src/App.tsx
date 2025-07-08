@@ -10,6 +10,7 @@ const SubscriptionsPage = lazy(() => import("./pages/SubscriptionsPage").then(mo
 const SettingsPage = lazy(() => import("./pages/SettingsPage").then(module => ({ default: module.SettingsPage })))
 const ExpenseReportsPage = lazy(() => import("./pages/ExpenseReportsPage").then(module => ({ default: module.ExpenseReportsPage })))
 
+
 function App() {
   return (
     <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
@@ -19,6 +20,7 @@ function App() {
             <Route path="/" element={<HomePage />} />
             <Route path="/subscriptions" element={<SubscriptionsPage />} />
             <Route path="/expense-reports" element={<ExpenseReportsPage />} />
+
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </Suspense>

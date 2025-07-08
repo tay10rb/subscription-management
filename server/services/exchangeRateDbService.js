@@ -34,12 +34,34 @@ class ExchangeRateDbService extends BaseRepository {
             const from = fromCurrency.toUpperCase();
             const to = toCurrency.toUpperCase();
 
-            const rate = this.findOne({
+            // 首先尝试直接查找汇率
+            let rate = this.findOne({
                 from_currency: from,
                 to_currency: to
             });
 
-            return rate;
+            if (rate) {
+                return rate;
+            }
+
+            // 如果没有直接汇率，尝试反向汇率
+            const reverseRate = this.findOne({
+                from_currency: to,
+                to_currency: from
+            });
+
+            if (reverseRate && reverseRate.rate !== 0) {
+                // 返回反向汇率的倒数
+                return {
+                    ...reverseRate,
+                    from_currency: from,
+                    to_currency: to,
+                    rate: 1 / reverseRate.rate,
+                    is_reverse: true // 标记这是反向计算的汇率
+                };
+            }
+
+            return null;
         } catch (error) {
             logger.error(`Failed to get exchange rate ${fromCurrency}/${toCurrency}:`, error.message);
             throw error;

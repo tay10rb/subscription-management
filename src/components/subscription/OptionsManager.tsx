@@ -190,7 +190,16 @@ export function OptionsManager() {
   const handleSaveEdit = async (newName: string) => {
     const { type, value: oldValue } = editDialog
     const newValue = generateValue(newName)
-    const newOption = { value: newValue, label: newName }
+    // Find the existing option to get its ID
+    const existingOption = type === 'category'
+      ? categories.find(cat => cat.value === oldValue)
+      : paymentMethods.find(method => method.value === oldValue)
+
+    if (!existingOption) {
+      throw new Error(`${type} option not found`)
+    }
+
+    const newOption = { id: existingOption.id, value: newValue, label: newName }
 
     try {
       switch (type) {
@@ -246,7 +255,8 @@ export function OptionsManager() {
   const handleSaveAdd = async (name: string) => {
     const { type } = addDialog
     const value = generateValue(name)
-    const newOption = { value, label: name }
+    // For new options, we don't need to provide an ID as the server will assign one
+    const newOption = { id: 0, value, label: name }
 
     try {
       switch (type) {
