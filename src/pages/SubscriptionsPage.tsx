@@ -69,19 +69,20 @@ export function SubscriptionsPage() {
     deleteSubscription,
     fetchSubscriptions,
     getUniqueCategories,
+    initializeData,
     initializeWithRenewals,
     manualRenewSubscription,
     isLoading
   } = useSubscriptionStore()
 
-  // Initialize subscriptions and process renewals
+  // Initialize subscriptions without auto-renewals
   useEffect(() => {
-    const initializeData = async () => {
+    const initialize = async () => {
       await fetchSettings()
-      await initializeWithRenewals()
+      await initializeData()
     }
 
-    initializeData()
+    initialize()
   }, []) // Remove dependencies to prevent infinite re-renders
   
   // Get categories actually in use

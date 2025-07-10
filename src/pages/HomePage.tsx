@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom"
 import {
   CreditCard,
   DollarSign,
-  Clock
+  Clock,
+  RefreshCw
 } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { useToast } from "@/hooks/use-toast"
 
 import {
@@ -38,6 +40,7 @@ function HomePage() {
     getUpcomingRenewals,
     getRecentlyPaid,
     getSpendingByCategory,
+    initializeData,
     initializeWithRenewals,
     isLoading
   } = useSubscriptionStore()
@@ -46,15 +49,16 @@ function HomePage() {
   const [monthlySpending, setMonthlySpending] = useState<number>(0)
   const [yearlySpending, setYearlySpending] = useState<number>(0)
   const [isLoadingSpending, setIsLoadingSpending] = useState(false)
+  const [isRefreshing, setIsRefreshing] = useState(false)
 
-  // Initialize subscriptions and process renewals
+  // Initialize subscriptions without auto-renewals
   useEffect(() => {
-    const initializeData = async () => {
+    const initialize = async () => {
       await fetchSettings()
-      await initializeWithRenewals()
+      await initializeData()
     }
 
-    initializeData()
+    initialize()
   }, []) // Remove dependencies to prevent infinite re-renders
 
   // Load spending data from API
@@ -85,7 +89,7 @@ function HomePage() {
   // Handler for updating subscription
   const handleUpdateSubscription = async (id: number, data: Omit<Subscription, "id" | "lastBillingDate">) => {
     const { error } = await updateSubscription(id, data)
-    
+
     if (error) {
       toast({
         title: "Error updating subscription",
@@ -94,12 +98,44 @@ function HomePage() {
       })
       return
     }
-    
+
     setEditingSubscription(null)
     toast({
       title: "Subscription updated",
       description: `${data.name} has been updated successfully.`
     })
+  }
+
+  // Handler for manual refresh with renewals
+  const handleRefreshWithRenewals = async () => {
+    setIsRefreshing(true)
+    try {
+      await initializeWithRenewals()
+
+      // Also refresh spending data
+      if (userCurrency) {
+        const [currentMonth, currentYear] = await Promise.all([
+          getCurrentMonthSpending(userCurrency),
+          getCurrentYearSpending(userCurrency)
+        ])
+        setMonthlySpending(currentMonth)
+        setYearlySpending(currentYear)
+      }
+
+      toast({
+        title: "Data refreshed",
+        description: "Subscription data and renewals have been processed."
+      })
+    } catch (error) {
+      console.error('Error refreshing data:', error)
+      toast({
+        title: "Refresh failed",
+        description: "Failed to refresh data. Please try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsRefreshing(false)
+    }
   }
 
 
@@ -145,11 +181,23 @@ function HomePage() {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Overview of your subscription expenses and activity
-        </p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of your subscription expenses and activity
+          </p>
+        </div>
+        <Button
+          onClick={handleRefreshWithRenewals}
+          disabled={isRefreshing}
+          variant="outline"
+          size="sm"
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh Data'}
+        </Button>
       </div>
 
       {/* Dashboard Content */}

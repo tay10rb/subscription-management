@@ -153,6 +153,7 @@ interface SubscriptionState {
 
   // Combined initialization
   initializeWithRenewals: () => Promise<void>
+  initializeData: () => Promise<void>
 
   // Option management
   addCategory: (category: CategoryOption) => Promise<void>
@@ -879,7 +880,24 @@ export const useSubscriptionStore = create<SubscriptionState>()(
         }
       },
 
-      // Combined initialization method to reduce API calls
+      // Simple initialization method without auto-renewals
+      initializeData: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          // Fetch all data in parallel
+          await Promise.all([
+            get().fetchSubscriptions(),
+            get().fetchCategories(),
+            get().fetchPaymentMethods()
+          ])
+          set({ isLoading: false })
+        } catch (error: any) {
+          console.error('Error during initialization:', error)
+          set({ error: error.message, isLoading: false })
+        }
+      },
+
+      // Combined initialization method with renewals (for manual trigger)
       initializeWithRenewals: async () => {
         set({ isLoading: true, error: null })
         try {
@@ -914,6 +932,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           if (expiredResult.errors > 0) {
             console.warn(`Failed to cancel ${expiredResult.errors} expired subscription(s)`)
           }
+          set({ isLoading: false })
         } catch (error: any) {
           console.error('Error during initialization:', error)
           set({ error: error.message, isLoading: false })
