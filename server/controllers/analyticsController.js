@@ -2,6 +2,7 @@ const AnalyticsService = require('../services/analyticsService');
 const { asyncHandler } = require('../middleware/errorHandler');
 const { handleQueryResult, validationError } = require('../utils/responseHelper');
 const { createValidator } = require('../utils/validator');
+const { getBaseCurrency } = require('../config/currencies');
 
 /**
  * 分析控制器
@@ -82,10 +83,10 @@ class AnalyticsController {
      * 获取收入趋势分析
      */
     getRevenueTrends = asyncHandler(async (req, res) => {
-        const { 
-            start_date, 
-            end_date, 
-            currency = 'USD',
+        const {
+            start_date,
+            end_date,
+            currency = getBaseCurrency(),
             period = 'monthly' // monthly, quarterly, yearly
         } = req.query;
 

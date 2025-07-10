@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Loader2, RefreshCw, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { useSettingsStore, CurrencyType } from '@/store/settingsStore';
+import { useSettingsStore } from '@/store/settingsStore';
+import { type CurrencyType, isBaseCurrency } from '@/config/currency';
 import { formatCurrencyAmount } from '@/utils/currency';
 import { logger } from '@/utils/logger';
 
@@ -87,13 +88,13 @@ export function ExchangeRateManager() {
                   <SelectValue placeholder="Select a currency" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
                   <SelectItem value="USD">USD - US Dollar</SelectItem>
                   <SelectItem value="EUR">EUR - Euro</SelectItem>
                   <SelectItem value="GBP">GBP - British Pound</SelectItem>
                   <SelectItem value="CAD">CAD - Canadian Dollar</SelectItem>
                   <SelectItem value="AUD">AUD - Australian Dollar</SelectItem>
                   <SelectItem value="JPY">JPY - Japanese Yen</SelectItem>
-                  <SelectItem value="CNY">CNY - Chinese Yuan</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-sm text-muted-foreground mt-1">
@@ -212,7 +213,7 @@ export function ExchangeRateManager() {
         <CardHeader>
           <CardTitle>Current Exchange Rates</CardTitle>
           <CardDescription>
-            All rates are relative to USD (1 USD = X currency)
+            All rates are relative to {currency} (1 {currency} = X currency)
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -231,7 +232,7 @@ export function ExchangeRateManager() {
                     {formatCurrencyAmount(rate, currency, false)}
                   </p>
                 </div>
-                {currency === 'USD' && (
+                {isBaseCurrency(currency) && (
                   <CheckCircle className="h-4 w-4 text-green-500" />
                 )}
               </div>

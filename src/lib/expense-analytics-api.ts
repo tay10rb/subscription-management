@@ -7,6 +7,7 @@ import {
   type TotalSummaryResponse
 } from '@/services/monthlyCategorySummaryApi';
 import { convertCurrency } from '@/utils/currency';
+import { getBaseCurrency } from '@/config/currency';
 
 // 适配API的数据类型定义
 export interface MonthlyExpense {
@@ -45,7 +46,7 @@ export interface CategoryExpense {
  */
 export function transformMonthlyCategorySummaries(
   summariesResponse: MonthlyCategorySummariesResponse,
-  targetCurrency: string = 'USD'
+  targetCurrency: string
 ): MonthlyExpense[] {
   // 按月份分组汇总数据
   const monthlyMap = new Map<string, { amount: number; transactionCount: number }>();
@@ -58,8 +59,8 @@ export function transformMonthlyCategorySummaries(
     }
 
     const monthData = monthlyMap.get(monthKey)!;
-    // Convert from USD to target currency
-    const convertedAmount = convertCurrency(summary.totalAmount, 'USD', targetCurrency);
+    // Convert from base currency to target currency
+    const convertedAmount = convertCurrency(summary.totalAmount, getBaseCurrency(), targetCurrency);
     monthData.amount += convertedAmount;
     monthData.transactionCount += summary.transactionsCount;
   });
@@ -96,7 +97,7 @@ export function transformMonthlyCategorySummaries(
 export async function getApiMonthlyExpenses(
   startDate: Date,
   endDate: Date,
-  currency: string // 保持兼容性，但新系统统一使用USD
+  currency: string // 保持兼容性，但新系统统一使用基础货币
 ): Promise<MonthlyExpense[]> {
   const startYear = startDate.getFullYear();
   const startMonth = startDate.getMonth() + 1;
@@ -150,8 +151,8 @@ export async function getCurrentMonthSpending(currency: string): Promise<number>
 
   try {
     const response = await getMonthCategorySummary(currentYear, currentMonth);
-    // Convert from base currency (USD) to user's preferred currency
-    const convertedAmount = convertCurrency(response.totalAmount, 'USD', currency);
+    // Convert from base currency to user's preferred currency
+    const convertedAmount = convertCurrency(response.totalAmount, getBaseCurrency(), currency);
     return convertedAmount;
   } catch (error) {
     console.error('Failed to get current month spending:', error);
@@ -169,8 +170,8 @@ export async function getCurrentYearSpending(currency: string): Promise<number> 
 
   try {
     const response = await getTotalSummary(currentYear, 1, currentYear, currentMonth);
-    // Convert from base currency (USD) to user's preferred currency
-    const convertedAmount = convertCurrency(response.totalAmount, 'USD', currency);
+    // Convert from base currency to user's preferred currency
+    const convertedAmount = convertCurrency(response.totalAmount, getBaseCurrency(), currency);
     return convertedAmount;
   } catch (error) {
     console.error('Failed to get current year spending:', error);
@@ -183,7 +184,7 @@ export async function getCurrentYearSpending(currency: string): Promise<number> 
  */
 export function calculateCategoryExpensesFromNewApi(
   summariesResponse: MonthlyCategorySummariesResponse,
-  targetCurrency: string = 'USD'
+  targetCurrency: string = getBaseCurrency()
 ): CategoryExpense[] {
   const categoryMap = new Map<string, { amount: number; transactionCount: number }>();
   let totalAmount = 0;
@@ -191,8 +192,8 @@ export function calculateCategoryExpensesFromNewApi(
   // 聚合所有月份的分类数据
   summariesResponse.summaries.forEach(summary => {
     const categoryLabel = summary.categoryLabel;
-    // Convert from USD to target currency
-    const convertedAmount = convertCurrency(summary.totalAmount, 'USD', targetCurrency);
+    // Convert from base currency to target currency
+    const convertedAmount = convertCurrency(summary.totalAmount, getBaseCurrency(), targetCurrency);
 
     if (!categoryMap.has(categoryLabel)) {
       categoryMap.set(categoryLabel, { amount: 0, transactionCount: 0 });

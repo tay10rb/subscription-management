@@ -1,6 +1,6 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
-const { SUPPORTED_CURRENCY_CODES } = require('../config/currencies');
+const { SUPPORTED_CURRENCY_CODES, getBaseCurrency } = require('../config/currencies');
 
 /**
  * 汇率API服务
@@ -58,7 +58,7 @@ class ExchangeRateApiService {
     }
 
     /**
-     * 批量获取汇率（以USD为基准）
+     * 批量获取汇率（以基础货币为准）
      * @returns {Promise<Array>} 汇率数组
      */
     async getAllExchangeRates() {
@@ -68,16 +68,16 @@ class ExchangeRateApiService {
         }
 
         const rates = [];
-        const baseCurrency = 'USD';
+        const baseCurrency = getBaseCurrency();
 
-        // 添加USD到USD的汇率
+        // 添加基础货币到自身的汇率
         rates.push({
             from_currency: baseCurrency,
             to_currency: baseCurrency,
             rate: 1.0
         });
 
-        // 获取其他货币相对于USD的汇率
+        // 获取其他货币相对于基础货币的汇率
         for (const currency of this.supportedCurrencies) {
             if (currency === baseCurrency) continue;
 
@@ -119,7 +119,7 @@ class ExchangeRateApiService {
         }
 
         try {
-            await this.getExchangeRate('USD', 'CNY');
+            await this.getExchangeRate(getBaseCurrency(), 'USD');
             return true;
         } catch (error) {
             console.error('API Key validation failed:', error.message);

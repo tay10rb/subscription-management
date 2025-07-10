@@ -1,16 +1,11 @@
 import { useSettingsStore } from "@/store/settingsStore"
+import { CURRENCY_INFO } from "@/config/currency"
 
 // Currency symbols for supported currencies only
-// Only includes currencies that are supported by the exchange rate API
-export const currencySymbols: Record<string, string> = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  CAD: 'C$',
-  AUD: 'A$',
-  JPY: '¥',
-  CNY: '¥'
-}
+// Uses central configuration to ensure consistency
+export const currencySymbols: Record<string, string> = Object.fromEntries(
+  Object.entries(CURRENCY_INFO).map(([code, info]) => [code, info.symbol])
+)
 
 /**
  * Format amount in the specified currency
@@ -31,7 +26,7 @@ export function formatCurrencyAmount(
   
   const formattedAmount = formatter.format(amount)
   
-  // Return formatted amount with symbol (removed the currency code display for CNY/JPY)
+  // Return formatted amount with symbol
   return symbol + formattedAmount
 }
 
@@ -57,7 +52,7 @@ export function convertCurrency(
   }
   
   // Direct calculation using the ratio of the exchange rates
-  // This is more accurate than converting to USD and back
+  // This is more accurate than converting to base currency and back
   const conversionRate = exchangeRates[toCurrency] / exchangeRates[fromCurrency]
   return amount * conversionRate
 }

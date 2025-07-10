@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { ExchangeRateApi } from '@/services/exchangeRateApi'
 import { logger } from '@/utils/logger'
 import { applyTheme } from '@/lib/theme-sync'
+import { BASE_CURRENCY, DEFAULT_EXCHANGE_RATES, type CurrencyType } from '@/config/currency'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
 
@@ -21,7 +22,6 @@ const getHeaders = () => {
 
 export type ThemeType = 'light' | 'dark' | 'system'
 export type DefaultViewType = 'dashboard' | 'subscriptions'
-export type CurrencyType = 'USD' | 'EUR' | 'GBP' | 'CAD' | 'AUD' | 'JPY' | 'CNY'
 export type NotificationFrequencyType = 'once' | 'twice' | 'custom'
 
 interface SettingsState {
@@ -73,9 +73,9 @@ interface SettingsState {
 export const initialSettings = {
   // Synced
   apiKey: null,
-  currency: 'USD' as CurrencyType,
+  currency: BASE_CURRENCY,
   theme: 'system' as ThemeType,
-  
+
   // Frontend-only
   defaultView: 'dashboard' as DefaultViewType,
   showInactiveSubs: true,
@@ -85,15 +85,7 @@ export const initialSettings = {
   reminderDays: 7,
   notificationFrequency: 'once' as NotificationFrequencyType,
   enableBrowserNotifications: true,
-  exchangeRates: {
-    USD: 1,
-    EUR: 0.93,
-    GBP: 0.79,
-    CAD: 1.36,
-    AUD: 1.52,
-    JPY: 151.16,
-    CNY: 7.24
-  },
+  exchangeRates: DEFAULT_EXCHANGE_RATES,
   lastExchangeRateUpdate: null,
   isLoading: false,
   error: null

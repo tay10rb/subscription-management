@@ -693,9 +693,9 @@ Get all exchange rates.
 [
   {
     "id": 1,
-    "from_currency": "USD",
-    "to_currency": "EUR",
-    "rate": 0.8488,
+    "from_currency": "CNY",
+    "to_currency": "USD",
+    "rate": 0.1538,
     "created_at": "2025-07-01T00:00:00.000Z",
     "updated_at": "2025-07-03T00:51:57.000Z"
   }

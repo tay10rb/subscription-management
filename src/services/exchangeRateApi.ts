@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger';
+import { getBaseCurrency, isBaseCurrency } from '@/config/currency';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
@@ -147,18 +148,19 @@ export class ExchangeRateApi {
    */
   static ratesToMap(rates: ExchangeRate[]): Record<string, number> {
     const rateMap: Record<string, number> = {};
-    
+    const baseCurrency = getBaseCurrency();
+
     for (const rate of rates) {
       // 使用 from_currency 作为键，rate 作为值
-      // 这样可以直接查找从USD到其他货币的汇率
-      if (rate.from_currency === 'USD') {
+      // 这样可以直接查找从基础货币到其他货币的汇率
+      if (rate.from_currency === baseCurrency) {
         rateMap[rate.to_currency] = rate.rate;
       }
     }
-    
-    // 确保USD到USD的汇率为1
-    rateMap['USD'] = 1;
-    
+
+    // 确保基础货币到自身的汇率为1
+    rateMap[baseCurrency] = 1;
+
     return rateMap;
   }
 }

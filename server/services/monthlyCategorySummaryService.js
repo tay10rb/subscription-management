@@ -1,5 +1,6 @@
 const Database = require('better-sqlite3');
 const logger = require('../utils/logger');
+const { getBaseCurrency } = require('../config/currencies');
 
 /**
  * 月度分类汇总服务
@@ -8,7 +9,7 @@ const logger = require('../utils/logger');
 class MonthlyCategorySummaryService {
     constructor(dbPath) {
         this.db = new Database(dbPath);
-        this.baseCurrency = 'USD'; // 基础货币
+        this.baseCurrency = 'CNY'; // 基础货币
     }
 
     /**
@@ -44,12 +45,13 @@ class MonthlyCategorySummaryService {
             }
         }
 
-        // 如果没有直接汇率和反向汇率，尝试通过USD转换
-        if (fromCurrency !== 'USD' && toCurrency !== 'USD') {
-            const toUsdRate = this.getExchangeRate(fromCurrency, 'USD');
-            const fromUsdRate = this.getExchangeRate('USD', toCurrency);
-            if (toUsdRate !== 1.0 && fromUsdRate !== 1.0) {
-                return toUsdRate * fromUsdRate;
+        // 如果没有直接汇率和反向汇率，尝试通过基础货币转换
+        const baseCurrency = getBaseCurrency();
+        if (fromCurrency !== baseCurrency && toCurrency !== baseCurrency) {
+            const toBaseRate = this.getExchangeRate(fromCurrency, baseCurrency);
+            const fromBaseRate = this.getExchangeRate(baseCurrency, toCurrency);
+            if (toBaseRate !== 1.0 && fromBaseRate !== 1.0) {
+                return toBaseRate * fromBaseRate;
             }
         }
 

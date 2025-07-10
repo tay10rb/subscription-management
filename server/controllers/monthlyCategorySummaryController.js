@@ -2,6 +2,7 @@ const MonthlyCategorySummaryService = require('../services/monthlyCategorySummar
 const { asyncHandler } = require('../middleware/errorHandler');
 const { handleQueryResult, handleDbResult, validationError } = require('../utils/responseHelper');
 const { createValidator } = require('../utils/validator');
+const { getBaseCurrency } = require('../config/currencies');
 
 /**
  * 月度分类汇总控制器
@@ -126,7 +127,7 @@ class MonthlyCategorySummaryController {
             })),
             totalAmount: summaries.reduce((sum, s) => sum + parseFloat(s.total_amount_in_base_currency), 0),
             totalTransactions: summaries.reduce((sum, s) => sum + s.transactions_count, 0),
-            baseCurrency: summaries.length > 0 ? summaries[0].base_currency : 'USD'
+            baseCurrency: summaries.length > 0 ? summaries[0].base_currency : getBaseCurrency()
         };
 
         handleQueryResult(res, result, 'Month category summary');
@@ -190,7 +191,7 @@ class MonthlyCategorySummaryController {
             },
             totalAmount: total ? parseFloat(total.total_amount) : 0,
             totalTransactions: total ? total.total_transactions : 0,
-            baseCurrency: total ? total.base_currency : 'USD'
+            baseCurrency: total ? total.base_currency : getBaseCurrency()
         };
 
         handleQueryResult(res, result, 'Total summary');

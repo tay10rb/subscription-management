@@ -93,7 +93,7 @@ CREATE TABLE subscriptions (
 ```sql
 CREATE TABLE settings (
     id INTEGER PRIMARY KEY CHECK (id = 1), -- 单例模式
-    currency TEXT NOT NULL DEFAULT 'USD',   -- 默认货币
+    currency TEXT NOT NULL DEFAULT 'CNY',   -- 默认货币
     theme TEXT NOT NULL DEFAULT 'system',   -- 主题: light/dark/system
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -197,7 +197,7 @@ GET /api/subscriptions
     "next_billing_date": "2025-07-15",
     "last_billing_date": "2025-06-15",
     "amount": 15.99,
-    "currency": "USD",
+    "currency": "CNY",
     "payment_method": "Credit Card",
     "status": "active",
     "category": "entertainment"
@@ -212,7 +212,7 @@ GET /api/settings
 **响应:**
 ```json
 {
-  "currency": "USD",
+  "currency": "CNY",
   "theme": "system",
   "showOriginalCurrency": true
 }
@@ -375,13 +375,13 @@ const response = await axios.get('https://apis.tianapi.com/fxrate/index', {
 - 🛡 **降级策略**: API失败时使用缓存汇率
 
 ### 支持货币
-- USD (美元) - 基准货币
+- CNY (人民币) - 基准货币
+- USD (美元)
 - EUR (欧元)
 - GBP (英镑)
 - CAD (加拿大元)
 - AUD (澳大利亚元)
 - JPY (日元)
-- CNY (人民币)
 
 ## 🚀 部署配置
 

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { Check, ChevronsUpDown, Settings } from "lucide-react"
 import { format } from "date-fns"
 import { useNavigate } from "react-router-dom"
+import { getBaseCurrency } from '@/config/currency'
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -79,7 +80,7 @@ export function SubscriptionForm({
     plan: "",
     billingCycle: "monthly",
     amount: 0,
-    currency: "USD",
+    currency: getBaseCurrency(),
     paymentMethodId: 0,
     startDate: format(new Date(), "yyyy-MM-dd"),
     status: "active",

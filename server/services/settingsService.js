@@ -1,6 +1,6 @@
 const BaseRepository = require('../utils/BaseRepository');
 const logger = require('../utils/logger');
-const { SUPPORTED_CURRENCIES, isSupportedCurrency } = require('../config/currencies');
+const { SUPPORTED_CURRENCIES, isSupportedCurrency, getBaseCurrency } = require('../config/currencies');
 
 /**
  * 设置服务类
@@ -117,7 +117,7 @@ class SettingsService extends BaseRepository {
      */
     _getDefaultSettings() {
         return {
-            currency: 'USD',
+            currency: getBaseCurrency(),
             theme: 'system',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()

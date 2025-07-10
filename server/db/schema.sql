@@ -10,9 +10,10 @@ PRAGMA foreign_keys = ON;
 -- ============================================================================
 
 -- Create settings table
+-- Note: Default currency is set via application configuration (BASE_CURRENCY)
 CREATE TABLE IF NOT EXISTS settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    currency TEXT NOT NULL DEFAULT 'USD',
+    currency TEXT NOT NULL DEFAULT 'CNY',
     theme TEXT NOT NULL DEFAULT 'system' CHECK (theme IN ('light', 'dark', 'system')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -56,7 +57,7 @@ CREATE TABLE IF NOT EXISTS subscriptions (
     next_billing_date DATE,
     last_billing_date DATE,
     amount DECIMAL(10, 2) NOT NULL,
-    currency TEXT NOT NULL DEFAULT 'USD',
+    currency TEXT NOT NULL DEFAULT 'CNY', -- Default currency from BASE_CURRENCY config
     payment_method_id INTEGER NOT NULL,
     start_date DATE,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive', 'cancelled')),
@@ -91,7 +92,7 @@ CREATE TABLE IF NOT EXISTS monthly_category_summary (
     month INTEGER NOT NULL,
     category_id INTEGER NOT NULL,
     total_amount_in_base_currency DECIMAL(12, 2) NOT NULL DEFAULT 0.00,
-    base_currency TEXT NOT NULL DEFAULT 'USD',
+    base_currency TEXT NOT NULL DEFAULT 'CNY', -- Base currency from BASE_CURRENCY config
     transactions_count INTEGER NOT NULL DEFAULT 0,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (year, month, category_id),
@@ -182,8 +183,9 @@ CREATE INDEX IF NOT EXISTS idx_monthly_category_summary_year_month_category ON m
 -- ============================================================================
 
 -- Insert default settings
+-- Note: Currency value should match BASE_CURRENCY from application config
 INSERT OR IGNORE INTO settings (id, currency, theme)
-VALUES (1, 'USD', 'system');
+VALUES (1, 'CNY', 'system');
 
 -- Insert default categories
 INSERT OR IGNORE INTO categories (value, label) VALUES
@@ -209,13 +211,14 @@ INSERT OR IGNORE INTO payment_methods (value, label) VALUES
 ('crypto', 'Cryptocurrency'),
 ('other', 'Other');
 
--- Insert default exchange rates (USD as base currency)
+-- Insert default exchange rates (Base currency from application config)
+-- Note: These rates should match BASE_CURRENCY configuration
 -- Only supported currencies: USD, EUR, GBP, CAD, AUD, JPY, CNY
 INSERT OR IGNORE INTO exchange_rates (from_currency, to_currency, rate) VALUES
-('USD', 'USD', 1.0000),
-('USD', 'EUR', 0.8500),
-('USD', 'GBP', 0.7500),
-('USD', 'JPY', 110.0000),
-('USD', 'CNY', 6.5000),
-('USD', 'CAD', 1.2500),
-('USD', 'AUD', 1.3500);
+('CNY', 'CNY', 1.0000),
+('CNY', 'USD', 0.1538),
+('CNY', 'EUR', 0.1308),
+('CNY', 'GBP', 0.1154),
+('CNY', 'JPY', 16.9231),
+('CNY', 'CAD', 0.1923),
+('CNY', 'AUD', 0.2077);
