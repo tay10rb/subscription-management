@@ -8,7 +8,8 @@ import {
   DollarSign,
   User,
   FileText,
-  Globe
+  Globe,
+  Receipt
 } from "lucide-react"
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
@@ -37,6 +38,9 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { PaymentHistorySection } from "./PaymentHistorySection"
+import { Category, PaymentMethod } from "@/utils/dataTransform"
 
 interface SubscriptionDetailDialogProps {
   subscription: Subscription | null
@@ -46,21 +50,24 @@ interface SubscriptionDetailDialogProps {
   onManualRenew?: (id: number) => void
 }
 
-export function SubscriptionDetailDialog({
+interface ContentComponentProps {
+  subscription: Subscription
+  categories: Category[]
+  paymentMethods: PaymentMethod[]
+  onEdit?: (id: number) => void
+  onManualRenew?: (id: number) => void
+  onOpenChange: (open: boolean) => void
+}
+
+// Moved ContentComponent outside of SubscriptionDetailDialog
+const ContentComponent = ({
   subscription,
-  open,
-  onOpenChange,
+  categories,
+  paymentMethods,
   onEdit,
-  onManualRenew
-}: SubscriptionDetailDialogProps) {
-  const isMobile = useIsMobile()
-
-  // Get options from the store - must be called before any early returns
-  const { categories, paymentMethods } = useSubscriptionStore()
-
-  // Early return after all hooks have been called
-  if (!subscription) return null
-
+  onManualRenew,
+  onOpenChange
+}: ContentComponentProps) => {
   const {
     id,
     name,
@@ -79,14 +86,11 @@ export function SubscriptionDetailDialog({
     website
   } = subscription
 
-  // Get the category and payment method labels using unified utility functions
   const categoryLabel = getCategoryLabel(subscription, categories)
   const paymentMethodLabel = getPaymentMethodLabel(subscription, paymentMethods)
-
   const daysLeft = daysUntil(nextBillingDate)
   const isExpiringSoon = daysLeft <= 7
 
-  // Helper function to determine badge color based on urgency
   const getBadgeVariant = () => {
     if (status === 'cancelled') return "secondary"
     if (daysLeft <= 3) return "destructive"
@@ -94,7 +98,6 @@ export function SubscriptionDetailDialog({
     return "secondary"
   }
 
-  // Helper function to get billing cycle badge variant
   const getBillingCycleBadgeVariant = () => {
     switch (billingCycle) {
       case 'monthly':
@@ -108,9 +111,14 @@ export function SubscriptionDetailDialog({
     }
   }
 
-  // Content component that will be used in both Dialog and Drawer
-  const ContentComponent = () => (
-    <div className="space-y-3 sm:space-y-4">
+  return (
+    <Tabs defaultValue="details" className="w-full">
+      <TabsList className="grid w-full grid-cols-2 mb-4">
+        <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
+        <TabsTrigger value="payments" className="text-xs sm:text-sm">Payment History</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="details" className="space-y-3 sm:space-y-4 mt-0">
 
       {/* Basic Information */}
       <div className="space-y-2">
@@ -294,8 +302,29 @@ export function SubscriptionDetailDialog({
           </Button>
         )}
       </div>
-    </div>
+      </TabsContent>
+
+      <TabsContent value="payments" className="mt-0">
+        <PaymentHistorySection
+          subscriptionId={id}
+          subscriptionName={name}
+        />
+      </TabsContent>
+    </Tabs>
   )
+}
+
+export function SubscriptionDetailDialog({
+  subscription,
+  open,
+  onOpenChange,
+  onEdit,
+  onManualRenew
+}: SubscriptionDetailDialogProps) {
+  const isMobile = useIsMobile()
+  const { categories, paymentMethods } = useSubscriptionStore()
+
+  if (!subscription) return null
 
   if (isMobile) {
     return (
@@ -303,14 +332,21 @@ export function SubscriptionDetailDialog({
         <DrawerContent className="max-h-[80vh]">
           <DrawerHeader className="text-left pb-2">
             <DrawerTitle className="flex flex-col gap-1">
-              <span className="text-base">{name}</span>
-              <Badge variant={status === 'active' ? 'default' : 'secondary'} className="self-start text-xs">
-                {status.charAt(0).toUpperCase() + status.slice(1)}
+              <span className="text-base">{subscription.name}</span>
+              <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'} className="self-start text-xs">
+                {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
               </Badge>
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-4">
-            <ContentComponent />
+            <ContentComponent
+              subscription={subscription}
+              categories={categories}
+              paymentMethods={paymentMethods}
+              onEdit={onEdit}
+              onManualRenew={onManualRenew}
+              onOpenChange={onOpenChange}
+            />
           </div>
         </DrawerContent>
       </Drawer>
@@ -322,13 +358,20 @@ export function SubscriptionDetailDialog({
       <DialogContent className="max-w-md sm:max-w-lg max-h-[85vh] overflow-y-auto p-4">
         <DialogHeader className="pb-3">
           <DialogTitle className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-            <span className="text-base sm:text-lg">{name}</span>
-            <Badge variant={status === 'active' ? 'default' : 'secondary'} className="self-start sm:self-auto text-xs">
-              {status.charAt(0).toUpperCase() + status.slice(1)}
+            <span className="text-base sm:text-lg">{subscription.name}</span>
+            <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'} className="self-start sm:self-auto text-xs">
+              {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
             </Badge>
           </DialogTitle>
         </DialogHeader>
-        <ContentComponent />
+        <ContentComponent
+          subscription={subscription}
+          categories={categories}
+          paymentMethods={paymentMethods}
+          onEdit={onEdit}
+          onManualRenew={onManualRenew}
+          onOpenChange={onOpenChange}
+        />
       </DialogContent>
     </Dialog>
   )

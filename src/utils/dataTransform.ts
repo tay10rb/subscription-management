@@ -3,6 +3,17 @@
  * 统一处理前后端数据格式转换（snake_case <-> camelCase）
  */
 
+// 分类和支付方式的类型定义
+export interface Category {
+  id: number
+  name: string
+}
+
+export interface PaymentMethod {
+  id: number
+  name: string
+}
+
 // 支付记录相关类型定义
 export interface PaymentRecordApi {
   id: number
