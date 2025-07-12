@@ -130,26 +130,30 @@ export function DatePicker({
         <Button
           variant="outline"
           className={cn(
-            "w-full justify-start text-left font-normal",
+            "w-full justify-between text-left font-normal",
             !selectedDate && "text-muted-foreground",
             className
           )}
           disabled={disabled}
         >
-          <Calendar className="mr-2 h-4 w-4" />
-          {selectedDate ? format(selectedDate, "PPP") : placeholder}
-          <ChevronDown className="ml-auto h-4 w-4 opacity-50" />
+          <span className="flex items-center gap-2 flex-1 min-w-0">
+            <Calendar className="h-4 w-4 shrink-0" />
+            <span className="truncate">
+              {selectedDate ? format(selectedDate, "PPP") : placeholder}
+            </span>
+          </span>
+          <ChevronDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
+      <PopoverContent className="w-[max(var(--radix-popover-trigger-width),280px)] p-0" align="start">
         <div className="p-3 space-y-3">
           {/* Quick selection buttons */}
-          <div className="flex justify-center space-x-1 pb-2 border-b">
+          <div className="flex justify-center space-x-1 pb-2 border-b flex-wrap gap-1">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => handleQuickSelect(new Date())}
-              className="text-xs h-7"
+              className="text-xs h-7 px-2"
             >
               Today
             </Button>
@@ -161,7 +165,7 @@ export function DatePicker({
                 tomorrow.setDate(tomorrow.getDate() + 1)
                 handleQuickSelect(tomorrow)
               }}
-              className="text-xs h-7"
+              className="text-xs h-7 px-2"
             >
               Tomorrow
             </Button>
@@ -173,7 +177,7 @@ export function DatePicker({
                 nextWeek.setDate(nextWeek.getDate() + 7)
                 handleQuickSelect(nextWeek)
               }}
-              className="text-xs h-7"
+              className="text-xs h-7 px-2"
             >
               Next Week
             </Button>
@@ -182,7 +186,7 @@ export function DatePicker({
           {/* Month and Year selectors */}
           <div className="flex justify-center items-center space-x-2">
             <Select value={viewDate.getMonth().toString()} onValueChange={handleMonthChange}>
-              <SelectTrigger className="w-32 h-8 text-sm">
+              <SelectTrigger className="flex-1 h-8 text-sm min-w-[100px]">
                 <SelectValue>
                   {months[viewDate.getMonth()].label}
                 </SelectValue>
@@ -195,7 +199,7 @@ export function DatePicker({
                 ))}
               </SelectContent>
             </Select>
-            
+
             <Select value={viewDate.getFullYear().toString()} onValueChange={handleYearChange}>
               <SelectTrigger className="w-20 h-8 text-sm">
                 <SelectValue>

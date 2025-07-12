@@ -21,12 +21,25 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { DatePicker } from "@/components/ui/date-picker"
 import { CurrencySelector } from "@/components/subscription/CurrencySelector"
 import { PaymentRecord } from "@/utils/dataTransform"
 import { getBaseCurrency } from "@/config/currency"
 
-// Form data type for payment record
+// Form data type for payment record (internal use with Date objects)
 interface PaymentFormData {
+  subscriptionId: number
+  paymentDate: Date
+  amountPaid: number
+  currency: string
+  billingPeriodStart: Date
+  billingPeriodEnd: Date
+  status: string
+  notes?: string
+}
+
+// API data type for payment record (for submission with string dates)
+interface PaymentApiData {
   subscriptionId: number
   paymentDate: string
   amountPaid: number
@@ -43,7 +56,7 @@ interface PaymentHistorySheetProps {
   initialData?: PaymentRecord
   subscriptionId: number
   subscriptionName: string
-  onSubmit: (data: PaymentFormData) => Promise<void>
+  onSubmit: (data: PaymentApiData) => Promise<void>
 }
 
 // Form validation types
@@ -64,11 +77,11 @@ export function PaymentHistorySheet({
   // State for form data and validation errors
   const [form, setForm] = useState<PaymentFormData>({
     subscriptionId,
-    paymentDate: format(new Date(), "yyyy-MM-dd"),
+    paymentDate: new Date(),
     amountPaid: 0,
     currency: getBaseCurrency(),
-    billingPeriodStart: format(new Date(), "yyyy-MM-dd"),
-    billingPeriodEnd: format(new Date(), "yyyy-MM-dd"),
+    billingPeriodStart: new Date(),
+    billingPeriodEnd: new Date(),
     status: "succeeded",
     notes: ""
   })
@@ -80,11 +93,11 @@ export function PaymentHistorySheet({
     if (initialData) {
       setForm({
         subscriptionId: initialData.subscriptionId,
-        paymentDate: format(new Date(initialData.paymentDate), "yyyy-MM-dd"),
+        paymentDate: new Date(initialData.paymentDate),
         amountPaid: initialData.amountPaid,
         currency: initialData.currency,
-        billingPeriodStart: format(new Date(initialData.billingPeriod.start), "yyyy-MM-dd"),
-        billingPeriodEnd: format(new Date(initialData.billingPeriod.end), "yyyy-MM-dd"),
+        billingPeriodStart: new Date(initialData.billingPeriod.start),
+        billingPeriodEnd: new Date(initialData.billingPeriod.end),
         status: initialData.status,
         notes: initialData.notes || ""
       })
@@ -92,11 +105,11 @@ export function PaymentHistorySheet({
       // Reset form for new payment
       setForm({
         subscriptionId,
-        paymentDate: format(new Date(), "yyyy-MM-dd"),
+        paymentDate: new Date(),
         amountPaid: 0,
         currency: getBaseCurrency(),
-        billingPeriodStart: format(new Date(), "yyyy-MM-dd"),
-        billingPeriodEnd: format(new Date(), "yyyy-MM-dd"),
+        billingPeriodStart: new Date(),
+        billingPeriodEnd: new Date(),
         status: "succeeded",
         notes: ""
       })
@@ -152,7 +165,14 @@ export function PaymentHistorySheet({
 
     setIsSubmitting(true)
     try {
-      await onSubmit(form)
+      // Convert Date objects to strings for API
+      const submitData = {
+        ...form,
+        paymentDate: format(form.paymentDate, "yyyy-MM-dd"),
+        billingPeriodStart: format(form.billingPeriodStart, "yyyy-MM-dd"),
+        billingPeriodEnd: format(form.billingPeriodEnd, "yyyy-MM-dd")
+      }
+      await onSubmit(submitData)
       onOpenChange(false) // Close sheet on successful submission
     } catch (error) {
       // Error handling is done in the parent component
@@ -172,7 +192,7 @@ export function PaymentHistorySheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-[400px] sm:w-[540px] overflow-y-auto">
+      <SheetContent className="w-full sm:w-[400px] md:w-[500px] lg:w-[540px] overflow-y-auto">
         <SheetHeader>
           <SheetTitle>
             {initialData ? "Edit Payment" : "Add Payment"}
@@ -186,11 +206,10 @@ export function PaymentHistorySheet({
           {/* Payment Date */}
           <div className="space-y-2">
             <Label htmlFor="paymentDate">Payment Date *</Label>
-            <Input
-              id="paymentDate"
-              type="date"
+            <DatePicker
               value={form.paymentDate}
-              onChange={(e) => handleFieldChange("paymentDate", e.target.value)}
+              onChange={(date) => handleFieldChange("paymentDate", date || new Date())}
+              placeholder="Select payment date"
               className={errors.paymentDate ? "border-destructive" : ""}
             />
             {errors.paymentDate && (
@@ -199,7 +218,7 @@ export function PaymentHistorySheet({
           </div>
 
           {/* Amount and Currency */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="amountPaid">Amount *</Label>
               <Input
@@ -229,14 +248,13 @@ export function PaymentHistorySheet({
           </div>
 
           {/* Billing Period */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="billingPeriodStart">Billing Period Start *</Label>
-              <Input
-                id="billingPeriodStart"
-                type="date"
+              <DatePicker
                 value={form.billingPeriodStart}
-                onChange={(e) => handleFieldChange("billingPeriodStart", e.target.value)}
+                onChange={(date) => handleFieldChange("billingPeriodStart", date || new Date())}
+                placeholder="Select start date"
                 className={errors.billingPeriodStart ? "border-destructive" : ""}
               />
               {errors.billingPeriodStart && (
@@ -245,11 +263,10 @@ export function PaymentHistorySheet({
             </div>
             <div className="space-y-2">
               <Label htmlFor="billingPeriodEnd">Billing Period End *</Label>
-              <Input
-                id="billingPeriodEnd"
-                type="date"
+              <DatePicker
                 value={form.billingPeriodEnd}
-                onChange={(e) => handleFieldChange("billingPeriodEnd", e.target.value)}
+                onChange={(date) => handleFieldChange("billingPeriodEnd", date || new Date())}
+                placeholder="Select end date"
                 className={errors.billingPeriodEnd ? "border-destructive" : ""}
               />
               {errors.billingPeriodEnd && (
@@ -293,14 +310,15 @@ export function PaymentHistorySheet({
           </div>
         </div>
 
-        <SheetFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+        <SheetFooter className="flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full sm:w-auto">
             Cancel
           </Button>
           <Button
             type="submit"
             onClick={handleSubmit}
             disabled={isSubmitting}
+            className="w-full sm:w-auto"
           >
             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {initialData ? "Update Payment" : "Add Payment"}

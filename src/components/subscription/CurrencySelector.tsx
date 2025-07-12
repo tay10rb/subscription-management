@@ -78,20 +78,19 @@ export function CurrencySelector({
           variant="outline"
           role="combobox"
           aria-expanded={open}
-          className={cn("w-full justify-between", className)}
+          className={cn("w-full justify-between text-left", className)}
         >
-          {selectedCurrency ? (
-            <span className="flex items-center gap-2">
-              <span className="text-sm w-6 text-center">{selectedCurrency.symbol}</span>
-              <span>{selectedCurrency.value}</span>
-            </span>
-          ) : (
-            "Select currency"
-          )}
-          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          <span className="flex items-center gap-2 flex-1 min-w-0">
+            {selectedCurrency ? (
+              <span className="truncate">{selectedCurrency.value}</span>
+            ) : (
+              <span className="text-muted-foreground">Select currency</span>
+            )}
+          </span>
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
         <Command>
           <CommandInput placeholder="Search currency..." />
           <CommandEmpty>No currency found.</CommandEmpty>

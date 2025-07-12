@@ -5,15 +5,23 @@ import {
   Edit,
   Trash2,
   Calendar,
-  DollarSign,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  MoreHorizontal,
+  Copy
 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
 import { PaymentRecord, transformPaymentsFromApi } from "@/utils/dataTransform"
 import { formatWithUserCurrency } from "@/utils/currency"
@@ -149,6 +157,19 @@ export function PaymentHistorySection({ subscriptionId, subscriptionName }: Paym
     }
   }
 
+  // Handle copying payment details
+  const handleCopyPaymentDetails = (payment: PaymentRecord) => {
+    const paymentDetails = `Payment: ${formatWithUserCurrency(payment.amountPaid, payment.currency)}
+Date: ${formatDate(payment.paymentDate)}
+Status: ${payment.status}
+Period: ${formatDate(payment.billingPeriod.start)} - ${formatDate(payment.billingPeriod.end)}`
+    navigator.clipboard.writeText(paymentDetails)
+    toast({
+      title: "Copied",
+      description: "Payment details copied to clipboard",
+    })
+  }
+
   // Handle deleting payment
   const handleDeletePayment = async (paymentId: number) => {
     if (!confirm('Are you sure you want to delete this payment record?')) {
@@ -208,33 +229,35 @@ export function PaymentHistorySection({ subscriptionId, subscriptionName }: Paym
   return (
     <div className="space-y-4">
       {/* Header with Add Button and Search */}
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium text-sm">Payment History</span>
-          <Badge variant="outline" className="text-xs">
-            {filteredPayments.length} records
-          </Badge>
+      <div className="flex flex-col gap-3 sm:gap-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <span className="font-medium text-sm">Payment History</span>
+            <Badge variant="outline" className="text-xs">
+              {filteredPayments.length} records
+            </Badge>
+          </div>
+          <Button
+            onClick={() => setShowAddForm(true)}
+            size="sm"
+            className="gap-1.5 text-xs h-8 w-full sm:w-auto"
+          >
+            <Plus className="h-3 w-3" />
+            Add Payment
+          </Button>
         </div>
-        <Button
-          onClick={() => setShowAddForm(true)}
-          size="sm"
-          className="gap-1.5 text-xs h-8"
-        >
-          <Plus className="h-3 w-3" />
-          Add Payment
-        </Button>
-      </div>
 
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search payments..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 text-sm h-8"
-        />
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search payments..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 text-sm h-8"
+          />
+        </div>
       </div>
 
       {/* Payment List */}
@@ -261,50 +284,78 @@ export function PaymentHistorySection({ subscriptionId, subscriptionName }: Paym
           </div>
         ) : (
           filteredPayments.map((payment) => (
-            <Card key={payment.id} className="hover:bg-muted/50 transition-colors">
-              <CardContent className="p-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm">
+            <Card key={payment.id} className="group hover:bg-muted/50 transition-all duration-200 border hover:border-muted-foreground/20">
+              <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-1 space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                      <span className="font-semibold text-base">
                         {formatWithUserCurrency(payment.amountPaid, payment.currency)}
                       </span>
-                      <Badge variant={getStatusBadgeVariant(payment.status)} className="text-xs h-4">
-                        {payment.status}
+                      <Badge 
+                        variant={getStatusBadgeVariant(payment.status)} 
+                        className="text-xs h-5 px-2 w-fit font-medium"
+                      >
+                        {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                      <span>Paid: {formatDate(payment.paymentDate)}</span>
-                      <span>
-                        Period: {formatDate(payment.billingPeriod.start)} - {formatDate(payment.billingPeriod.end)}
-                      </span>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="h-3 w-3" />
+                        <span>Paid: {formatDate(payment.paymentDate)}</span>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        <span className="font-medium">Billing Period:</span>
+                        <br className="sm:hidden" />
+                        <span className="sm:ml-2">
+                          {formatDate(payment.billingPeriod.start)} - {formatDate(payment.billingPeriod.end)}
+                        </span>
+                      </div>
                     </div>
+                    {payment.notes && (
+                      <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md">
+                        <span className="font-medium">Notes:</span> {payment.notes}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        setEditingPayment(payment)
-                      }}
-                      className="h-7 w-7 p-0"
-                    >
-                      <Edit className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        handleDeletePayment(payment.id)
-                      }}
-                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+                  
+                  <div className="flex items-start justify-end sm:justify-start">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 w-8 p-0 opacity-60 group-hover:opacity-100 transition-opacity"
+                        >
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Open menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem
+                          onClick={() => setEditingPayment(payment)}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit Payment
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleCopyPaymentDetails(payment)}
+                          className="flex items-center gap-2 cursor-pointer"
+                        >
+                          <Copy className="h-4 w-4" />
+                          Copy Details
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => handleDeletePayment(payment.id)}
+                          className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete Payment
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </div>
               </CardContent>
