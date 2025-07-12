@@ -42,8 +42,133 @@ export interface CategoryExpense {
 }
 
 /**
- * 将新的月度分类汇总数据转换为图表组件需要的格式
+ * 将月度分类汇总数据转换为分组柱状图需要的格式
  */
+export function transformMonthlyCategorySummariesToGroupedData(
+  summariesResponse: MonthlyCategorySummariesResponse,
+  targetCurrency: string
+): { month: string; monthKey: string; year: number; categories: { [categoryName: string]: number }; total: number }[] {
+  // 按月份分组数据
+  const monthlyMap = new Map<string, { categories: Map<string, number>; total: number }>();
+
+  summariesResponse.summaries.forEach(summary => {
+    const monthKey = summary.monthKey;
+
+    if (!monthlyMap.has(monthKey)) {
+      monthlyMap.set(monthKey, { categories: new Map(), total: 0 });
+    }
+
+    const monthData = monthlyMap.get(monthKey)!;
+    const convertedAmount = convertCurrency(summary.totalAmount, getBaseCurrency(), targetCurrency);
+    const categoryName = summary.categoryLabel.toLowerCase();
+    
+    monthData.categories.set(categoryName, (monthData.categories.get(categoryName) || 0) + convertedAmount);
+    monthData.total += convertedAmount;
+  });
+
+  // 转换为图表需要的格式
+  return Array.from(monthlyMap.entries())
+    .map(([monthKey, data]) => {
+      const [yearStr, monthStr] = monthKey.split('-');
+      const year = parseInt(yearStr);
+      const month = parseInt(monthStr);
+
+      // 格式化月份显示
+      const date = new Date(year, month - 1);
+      const monthDisplay = date.toLocaleDateString('en-US', {
+        month: 'short',
+        year: 'numeric'
+      });
+
+      // 将 Map 转换为对象
+      const categories: { [categoryName: string]: number } = {};
+      data.categories.forEach((amount, category) => {
+        categories[category] = Math.round(amount * 100) / 100;
+      });
+
+      return {
+        monthKey,
+        month: monthDisplay,
+        year,
+        categories,
+        total: Math.round(data.total * 100) / 100
+      };
+    })
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey));
+}
+
+/**
+ * 将月度分类汇总数据转换为年度分组数据
+ */
+export function transformMonthlyCategorySummariesToYearlyGroupedData(
+  summariesResponse: MonthlyCategorySummariesResponse,
+  targetCurrency: string
+): { year: number; categories: { [categoryName: string]: number }; total: number }[] {
+  // 按年份分组数据
+  const yearlyMap = new Map<number, { categories: Map<string, number>; total: number }>();
+
+  summariesResponse.summaries.forEach(summary => {
+    const year = summary.year;
+
+    if (!yearlyMap.has(year)) {
+      yearlyMap.set(year, { categories: new Map(), total: 0 });
+    }
+
+    const yearData = yearlyMap.get(year)!;
+    const convertedAmount = convertCurrency(summary.totalAmount, getBaseCurrency(), targetCurrency);
+    const categoryName = summary.categoryLabel.toLowerCase();
+    
+    yearData.categories.set(categoryName, (yearData.categories.get(categoryName) || 0) + convertedAmount);
+    yearData.total += convertedAmount;
+  });
+
+  // 转换为图表需要的格式
+  return Array.from(yearlyMap.entries())
+    .map(([year, data]) => {
+      // 将 Map 转换为对象
+      const categories: { [categoryName: string]: number } = {};
+      data.categories.forEach((amount, category) => {
+        categories[category] = Math.round(amount * 100) / 100;
+      });
+
+      return {
+        year,
+        categories,
+        total: Math.round(data.total * 100) / 100
+      };
+    })
+    .sort((a, b) => a.year - b.year);
+}
+
+/**
+ * 获取基于新API的年度分类分组数据
+ */
+export async function getApiYearlyCategoryExpenses(
+  startDate: Date,
+  endDate: Date,
+  currency: string
+): Promise<{ year: number; categories: { [categoryName: string]: number }; total: number }[]> {
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth() + 1;
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth() + 1;
+
+  const response = await getMonthlyCategorySummaries(startYear, startMonth, endYear, endMonth);
+  return transformMonthlyCategorySummariesToYearlyGroupedData(response, currency);
+}
+export async function getApiMonthlyCategoryExpenses(
+  startDate: Date,
+  endDate: Date,
+  currency: string
+): Promise<{ month: string; monthKey: string; year: number; categories: { [categoryName: string]: number }; total: number }[]> {
+  const startYear = startDate.getFullYear();
+  const startMonth = startDate.getMonth() + 1;
+  const endYear = endDate.getFullYear();
+  const endMonth = endDate.getMonth() + 1;
+
+  const response = await getMonthlyCategorySummaries(startYear, startMonth, endYear, endMonth);
+  return transformMonthlyCategorySummariesToGroupedData(response, currency);
+}
 export function transformMonthlyCategorySummaries(
   summariesResponse: MonthlyCategorySummariesResponse,
   targetCurrency: string
