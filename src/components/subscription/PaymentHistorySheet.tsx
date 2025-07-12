@@ -30,7 +30,7 @@ import { getBaseCurrency } from "@/config/currency"
 interface PaymentFormData {
   subscriptionId: number
   paymentDate: Date
-  amountPaid: number
+  amountPaid: number | string
   currency: string
   billingPeriodStart: Date
   billingPeriodEnd: Date
@@ -125,7 +125,8 @@ export function PaymentHistorySheet({
       newErrors.paymentDate = "Payment date is required"
     }
 
-    if (!form.amountPaid || form.amountPaid <= 0) {
+    const amountValue = typeof form.amountPaid === 'string' ? parseFloat(form.amountPaid) : form.amountPaid;
+    if (!amountValue || isNaN(amountValue) || amountValue <= 0) {
       newErrors.amountPaid = "Amount must be greater than 0"
     }
 
@@ -165,9 +166,11 @@ export function PaymentHistorySheet({
 
     setIsSubmitting(true)
     try {
-      // Convert Date objects to strings for API
+      // Convert Date objects to strings and ensure amountPaid is a number for API
+      const amountValue = typeof form.amountPaid === 'string' ? parseFloat(form.amountPaid) : form.amountPaid;
       const submitData = {
         ...form,
+        amountPaid: amountValue,
         paymentDate: format(form.paymentDate, "yyyy-MM-dd"),
         billingPeriodStart: format(form.billingPeriodStart, "yyyy-MM-dd"),
         billingPeriodEnd: format(form.billingPeriodEnd, "yyyy-MM-dd")
@@ -227,7 +230,7 @@ export function PaymentHistorySheet({
                 step="0.01"
                 min="0"
                 value={form.amountPaid}
-                onChange={(e) => handleFieldChange("amountPaid", parseFloat(e.target.value) || 0)}
+                onChange={(e) => handleFieldChange("amountPaid", e.target.value)}
                 className={errors.amountPaid ? "border-destructive" : ""}
               />
               {errors.amountPaid && (

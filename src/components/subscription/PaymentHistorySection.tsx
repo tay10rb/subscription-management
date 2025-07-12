@@ -23,6 +23,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/hooks/use-toast"
+import { useSettingsStore } from "@/store/settingsStore"
 import { PaymentRecord, transformPaymentsFromApi } from "@/utils/dataTransform"
 import { formatWithUserCurrency } from "@/utils/currency"
 import { formatDate } from "@/lib/subscription-utils"
@@ -44,6 +45,18 @@ export function PaymentHistorySection({ subscriptionId, subscriptionName }: Paym
   const [showAddForm, setShowAddForm] = useState(false)
   const [editingPayment, setEditingPayment] = useState<PaymentRecord | null>(null)
   const { toast } = useToast()
+  const { apiKey } = useSettingsStore()
+
+  // Helper function to get headers with authentication
+  const getHeaders = () => {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    }
+    if (apiKey) {
+      headers['X-API-KEY'] = apiKey
+    }
+    return headers
+  }
 
   // Fetch payment history for this subscription
   const fetchPaymentHistory = async () => {
@@ -83,12 +96,19 @@ export function PaymentHistorySection({ subscriptionId, subscriptionName }: Paym
 
   // Handle adding new payment
   const handleAddPayment = async (paymentData: any) => {
+    if (!apiKey) {
+      toast({
+        title: "Error",
+        description: "API key not configured. Please set your API key in Settings.",
+        variant: "destructive",
+      })
+      throw new Error('API key not configured')
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/protected/payment-history`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getHeaders(),
         body: JSON.stringify(paymentData),
       })
 
@@ -121,13 +141,20 @@ export function PaymentHistorySection({ subscriptionId, subscriptionName }: Paym
   // Handle editing payment
   const handleEditPayment = async (paymentData: any) => {
     if (!editingPayment) return
+    
+    if (!apiKey) {
+      toast({
+        title: "Error",
+        description: "API key not configured. Please set your API key in Settings.",
+        variant: "destructive",
+      })
+      throw new Error('API key not configured')
+    }
 
     try {
       const response = await fetch(`${API_BASE_URL}/protected/payment-history/${editingPayment.id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: getHeaders(),
         body: JSON.stringify(paymentData),
       })
 
@@ -176,9 +203,19 @@ Period: ${formatDate(payment.billingPeriod.start)} - ${formatDate(payment.billin
       return
     }
 
+    if (!apiKey) {
+      toast({
+        title: "Error",
+        description: "API key not configured. Please set your API key in Settings.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/protected/payment-history/${paymentId}`, {
         method: 'DELETE',
+        headers: getHeaders(),
       })
 
       if (!response.ok) {
@@ -261,7 +298,7 @@ Period: ${formatDate(payment.billingPeriod.start)} - ${formatDate(payment.billin
       </div>
 
       {/* Payment List */}
-      <div className="space-y-2 max-h-[400px] overflow-y-auto">
+      <div className="space-y-2">
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -312,11 +349,6 @@ Period: ${formatDate(payment.billingPeriod.start)} - ${formatDate(payment.billin
                         </span>
                       </div>
                     </div>
-                    {payment.notes && (
-                      <div className="text-sm text-muted-foreground bg-muted/30 p-2 rounded-md">
-                        <span className="font-medium">Notes:</span> {payment.notes}
-                      </div>
-                    )}
                   </div>
                   
                   <div className="flex items-start justify-end sm:justify-start">

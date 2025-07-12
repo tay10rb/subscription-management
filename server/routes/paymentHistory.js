@@ -5,10 +5,10 @@ function createPaymentHistoryRoutes(db) {
     const router = express.Router();
     const controller = new PaymentHistoryController(db);
 
-    // GET payment history with filters (Public)
+    // GET payment history list (Public)
     router.get('/', controller.getPaymentHistory);
 
-    // GET single payment record by ID (Public)
+    // GET payment record by ID (Public)
     router.get('/:id', controller.getPaymentById);
 
     // GET monthly payment statistics (Public)

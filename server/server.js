@@ -87,7 +87,7 @@ protectedApiRouter.use('/subscription-renewal-scheduler', createProtectedSubscri
 
 // Register routers
 app.use('/api', apiRouter);
-app.use('/api', protectedApiRouter);
+app.use('/api/protected', protectedApiRouter);
 
 // SPA fallback: serve index.html for all non-API routes
 // Use a more specific pattern to avoid path-to-regexp issues

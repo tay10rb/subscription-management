@@ -119,14 +119,17 @@ class PaymentHistoryController {
      */
     createPayment = asyncHandler(async (req, res) => {
         const paymentData = req.body;
-        
+
+        // 转换前端camelCase字段名为数据库snake_case字段名
+        const transformedData = this.transformPaymentData(paymentData);
+
         // 验证数据
-        const validator = this.validatePaymentData(paymentData);
+        const validator = this.validatePaymentData(transformedData);
         if (validator.hasErrors()) {
             return validationError(res, validator.getErrors());
         }
 
-        const result = await this.paymentHistoryService.createPayment(paymentData);
+        const result = await this.paymentHistoryService.createPayment(transformedData);
         handleDbResult(res, result, 'create', 'Payment record');
     });
 
@@ -136,14 +139,17 @@ class PaymentHistoryController {
     updatePayment = asyncHandler(async (req, res) => {
         const { id } = req.params;
         const updateData = req.body;
-        
+
+        // 转换前端camelCase字段名为数据库snake_case字段名
+        const transformedData = this.transformPaymentData(updateData);
+
         // 验证数据
-        const validator = this.validatePaymentData(updateData, false);
+        const validator = this.validatePaymentData(transformedData, false);
         if (validator.hasErrors()) {
             return validationError(res, validator.getErrors());
         }
 
-        const result = await this.paymentHistoryService.updatePayment(id, updateData);
+        const result = await this.paymentHistoryService.updatePayment(id, transformedData);
         handleDbResult(res, result, 'update', 'Payment record');
     });
 
@@ -161,20 +167,23 @@ class PaymentHistoryController {
      */
     bulkCreatePayments = asyncHandler(async (req, res) => {
         const paymentsData = req.body;
-        
+
         if (!Array.isArray(paymentsData)) {
             return validationError(res, 'Request body must be an array of payment records');
         }
 
-        // 验证每条记录
+        // 转换并验证每条记录
+        const transformedPaymentsData = [];
         for (let i = 0; i < paymentsData.length; i++) {
-            const validator = this.validatePaymentData(paymentsData[i]);
+            const transformedData = this.transformPaymentData(paymentsData[i]);
+            const validator = this.validatePaymentData(transformedData);
             if (validator.hasErrors()) {
                 return validationError(res, `Record ${i + 1}: ${validator.getErrors().map(e => e.message).join(', ')}`);
             }
+            transformedPaymentsData.push(transformedData);
         }
 
-        const result = await this.paymentHistoryService.bulkCreatePayments(paymentsData);
+        const result = await this.paymentHistoryService.bulkCreatePayments(transformedPaymentsData);
         handleDbResult(res, result, 'create', 'Payment records');
     });
 
@@ -217,6 +226,30 @@ class PaymentHistoryController {
             .string(data.notes, 'notes');
 
         return validator;
+    }
+
+    /**
+     * 转换前端camelCase字段名为数据库snake_case字段名
+     */
+    transformPaymentData(data) {
+        const transformed = {};
+
+        // 字段名映射表
+        const fieldMapping = {
+            subscriptionId: 'subscription_id',
+            paymentDate: 'payment_date',
+            amountPaid: 'amount_paid',
+            billingPeriodStart: 'billing_period_start',
+            billingPeriodEnd: 'billing_period_end'
+        };
+
+        // 转换字段名
+        Object.keys(data).forEach(key => {
+            const dbFieldName = fieldMapping[key] || key;
+            transformed[dbFieldName] = data[key];
+        });
+
+        return transformed;
     }
 }
 

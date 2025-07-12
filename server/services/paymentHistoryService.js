@@ -226,17 +226,49 @@ class PaymentHistoryService extends BaseRepository {
 
         const result = this.update(id, updateData);
 
-        // 如果状态发生变化，更新月度分类汇总
-        if (updateData.status && updateData.status !== existingPayment.status) {
-            try {
-                // 获取支付记录的年月信息
-                const paymentDate = new Date(existingPayment.payment_date);
-                const year = paymentDate.getFullYear();
-                const month = paymentDate.getMonth() + 1;
+        // 检查是否有影响月度汇总的字段发生变化（除了notes字段）
+        const fieldsAffectingSummary = [
+            'payment_date', 'amount_paid', 'currency', 'status',
+            'billing_period_start', 'billing_period_end'
+        ];
 
-                // 重新计算该月份的汇总数据
-                this.monthlyCategorySummaryService.updateMonthlyCategorySummary(year, month);
-                logger.info(`Monthly category summary updated for payment ${id} status change`);
+        const hasSignificantChanges = fieldsAffectingSummary.some(field => {
+            return updateData[field] !== undefined && updateData[field] !== existingPayment[field];
+        });
+
+        if (hasSignificantChanges) {
+            try {
+                // 需要更新的月份集合
+                const monthsToUpdate = new Set();
+
+                // 如果支付日期发生变化，需要更新原日期和新日期所在的月份
+                if (updateData.payment_date && updateData.payment_date !== existingPayment.payment_date) {
+                    // 原日期所在月份
+                    const oldPaymentDate = new Date(existingPayment.payment_date);
+                    const oldYear = oldPaymentDate.getFullYear();
+                    const oldMonth = oldPaymentDate.getMonth() + 1;
+                    monthsToUpdate.add(`${oldYear}-${oldMonth}`);
+
+                    // 新日期所在月份
+                    const newPaymentDate = new Date(updateData.payment_date);
+                    const newYear = newPaymentDate.getFullYear();
+                    const newMonth = newPaymentDate.getMonth() + 1;
+                    monthsToUpdate.add(`${newYear}-${newMonth}`);
+                } else {
+                    // 如果支付日期没有变化，只需要更新当前月份
+                    const paymentDate = new Date(existingPayment.payment_date);
+                    const year = paymentDate.getFullYear();
+                    const month = paymentDate.getMonth() + 1;
+                    monthsToUpdate.add(`${year}-${month}`);
+                }
+
+                // 更新所有涉及的月份
+                monthsToUpdate.forEach(monthKey => {
+                    const [year, month] = monthKey.split('-').map(Number);
+                    this.monthlyCategorySummaryService.updateMonthlyCategorySummary(year, month);
+                });
+
+                logger.info(`Monthly category summary updated for payment ${id} field changes. Updated months: ${Array.from(monthsToUpdate).join(', ')}`);
             } catch (error) {
                 logger.error(`Failed to update monthly category summary for payment ${id}:`, error.message);
             }

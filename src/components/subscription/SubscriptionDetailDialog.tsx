@@ -22,6 +22,7 @@ import {
 } from "@/lib/subscription-utils"
 import { formatWithUserCurrency } from "@/utils/currency"
 import { useIsMobile } from "@/hooks/use-mobile"
+import { useState } from "react"
 
 import {
   Dialog,
@@ -38,9 +39,21 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 import { PaymentHistorySection } from "./PaymentHistorySection"
-import { Category, PaymentMethod } from "@/utils/dataTransform"
+
+// Use the correct types from the store
+interface CategoryOption {
+  id: number
+  value: string
+  label: string
+}
+
+interface PaymentMethodOption {
+  id: number
+  value: string
+  label: string
+}
 
 interface SubscriptionDetailDialogProps {
   subscription: Subscription | null
@@ -52,8 +65,8 @@ interface SubscriptionDetailDialogProps {
 
 interface ContentComponentProps {
   subscription: Subscription
-  categories: Category[]
-  paymentMethods: PaymentMethod[]
+  categories: CategoryOption[]
+  paymentMethods: PaymentMethodOption[]
   onEdit?: (id: number) => void
   onManualRenew?: (id: number) => void
   onOpenChange: (open: boolean) => void
@@ -111,14 +124,34 @@ const ContentComponent = ({
     }
   }
 
-  return (
-    <Tabs defaultValue="details" className="w-full">
-      <TabsList className="grid w-full grid-cols-2 mb-4">
-        <TabsTrigger value="details" className="text-xs sm:text-sm">Details</TabsTrigger>
-        <TabsTrigger value="payments" className="text-xs sm:text-sm">Payment History</TabsTrigger>
-      </TabsList>
+  const [activeTab, setActiveTab] = useState("details")
 
-      <TabsContent value="details" className="space-y-3 sm:space-y-4 mt-0">
+  return (
+    <div className="w-full">
+      <div className="grid w-full grid-cols-2 mb-4 h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+        <button
+          onClick={() => setActiveTab("details")}
+          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+            activeTab === "details"
+              ? "bg-background text-foreground shadow"
+              : ""
+          }`}
+        >
+          Details
+        </button>
+        <button
+          onClick={() => setActiveTab("payments")}
+          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+            activeTab === "payments"
+              ? "bg-background text-foreground shadow"
+              : ""
+          }`}
+        >
+          Payment History
+        </button>
+      </div>
+
+      <div className={`space-y-3 sm:space-y-4 mt-0 ${activeTab !== "details" ? "hidden" : ""}`}>
 
       {/* Basic Information */}
       <div className="space-y-2">
@@ -302,15 +335,15 @@ const ContentComponent = ({
           </Button>
         )}
       </div>
-      </TabsContent>
+      </div>
 
-      <TabsContent value="payments" className="mt-0">
+      <div className={`mt-0 ${activeTab !== "payments" ? "hidden" : ""}`}>
         <PaymentHistorySection
           subscriptionId={id}
           subscriptionName={name}
         />
-      </TabsContent>
-    </Tabs>
+      </div>
+    </div>
   )
 }
 
