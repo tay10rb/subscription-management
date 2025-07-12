@@ -19,21 +19,3 @@ export function applyTheme(theme: ThemeType): void {
     }
   }
 }
-
-// Setup listener for system preference changes (for 'system' theme)
-export function setupSystemThemeListener(): () => void {
-  const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-  
-  const handleChange = () => {
-    // Get current theme from localStorage
-    const theme = localStorage.getItem('vite-ui-theme') || 'system';
-    if (theme === 'system') {
-      applyTheme('system');
-    }
-  };
-  
-  mediaQuery.addEventListener('change', handleChange);
-  
-  // Return cleanup function
-  return () => mediaQuery.removeEventListener('change', handleChange);
-}

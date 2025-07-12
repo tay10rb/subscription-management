@@ -41,9 +41,6 @@ export function ExpenseReportsPage() {
     const currentYear = new Date().getFullYear()
     return `${currentYear - 2} - ${currentYear}`
   })
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([])
-
-  const [selectedStatus, setSelectedStatus] = useState<string>('active')
 
   // Fetch data when component mounts
   useEffect(() => {
@@ -81,31 +78,6 @@ export function ExpenseReportsPage() {
     return yearlyDateRangePresets.find(preset => preset.label === selectedYearlyDateRange)
       || yearlyDateRangePresets[0] // Default to Recent 3 Years
   }, [selectedYearlyDateRange, yearlyDateRangePresets])
-  
-  // Filter subscriptions based on selected filters
-  const filteredSubscriptions = useMemo(() => {
-    return subscriptions.filter(subscription => {
-      // Status filter
-      if (selectedStatus !== 'all' && subscription.status !== selectedStatus) {
-        return false
-      }
-      
-      // Category filter
-      if (selectedCategories.length > 0) {
-        const hasMatchingCategory = selectedCategories.some(categoryValue => {
-          const category = categories.find(cat => cat.value === categoryValue)
-          return category && subscription.categoryId === category.id
-        })
-        if (!hasMatchingCategory) {
-          return false
-        }
-      }
-      
-
-      
-      return true
-    })
-  }, [subscriptions, selectedStatus, selectedCategories])
   
   // State for API data
   const [monthlyExpenses, setMonthlyExpenses] = useState<MonthlyExpense[]>([])

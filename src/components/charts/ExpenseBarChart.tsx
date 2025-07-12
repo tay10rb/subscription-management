@@ -1,7 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartConfig } from "@/components/ui/chart"
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import { MonthlyExpense } from "@/lib/expense-analytics-api"
 
 interface ExpenseBarChartProps {
@@ -53,18 +53,18 @@ export function ExpenseBarChart({
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <div>
               <span className="font-medium">Average: </span>
-              {formatCurrency(average, currency)}
+              {formatCurrencyAmount(average, currency)}
             </div>
             {highest && (
               <div>
                 <span className="font-medium">Highest: </span>
-                {formatCurrency(highest.amount, currency)} ({highest.month})
+                {formatCurrencyAmount(highest.amount, currency)} ({highest.month})
               </div>
             )}
             {lowest && (
               <div>
                 <span className="font-medium">Lowest: </span>
-                {formatCurrency(lowest.amount, currency)} ({lowest.month})
+                {formatCurrencyAmount(lowest.amount, currency)} ({lowest.month})
               </div>
             )}
           </div>
@@ -90,7 +90,7 @@ export function ExpenseBarChart({
                 <YAxis 
                   className="text-xs fill-muted-foreground"
                   tick={{ fontSize: 12 }}
-                  tickFormatter={(value) => formatCurrency(value, currency)}
+                  tickFormatter={(value) => formatCurrencyAmount(value, currency)}
                 />
                 <Tooltip
                   content={({ active, payload, label }) => {
@@ -104,7 +104,7 @@ export function ExpenseBarChart({
                               <div className="flex items-center justify-between gap-2">
                                 <span className="text-muted-foreground">Amount:</span>
                                 <span className="font-medium">
-                                  {formatCurrency(data.amount, currency)}
+                                  {formatCurrencyAmount(data.amount, currency)}
                                 </span>
                               </div>
                               <div className="flex items-center justify-between gap-2">
@@ -115,7 +115,7 @@ export function ExpenseBarChart({
                                 <span className="text-muted-foreground">vs Average:</span>
                                 <span className={`font-medium ${data.amount > average ? 'text-red-500' : 'text-green-500'}`}>
                                   {data.amount > average ? '+' : ''}
-                                  {formatCurrency(data.amount - average, currency)}
+                                  {formatCurrencyAmount(data.amount - average, currency)}
                                 </span>
                               </div>
                             </div>

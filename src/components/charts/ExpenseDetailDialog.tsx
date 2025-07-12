@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
-import { formatCurrency } from "@/lib/subscription-utils"
+import { formatCurrencyAmount } from "@/utils/currency"
 import { transformPaymentsFromApi, type PaymentRecord } from '@/utils/dataTransform'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
@@ -225,7 +225,7 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                 <DollarSign className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Total</p>
-                  <p className="font-semibold">{formatCurrency(periodData.totalSpent, periodData.currency)}</p>
+                  <p className="font-semibold">{formatCurrencyAmount(periodData.totalSpent, periodData.currency)}</p>
                 </div>
               </div>
             </CardContent>
@@ -251,7 +251,7 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                 <CreditCard className="h-4 w-4 text-muted-foreground" />
                 <div>
                   <p className="text-sm text-muted-foreground">Daily Avg</p>
-                  <p className="font-semibold">{formatCurrency(periodData.dailyAverage, periodData.currency)}</p>
+                  <p className="font-semibold">{formatCurrencyAmount(periodData.dailyAverage, periodData.currency)}</p>
                 </div>
               </div>
             </CardContent>
@@ -330,7 +330,7 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">
-                          {formatCurrency(payment.amountPaid, payment.currency)}
+                          {formatCurrencyAmount(payment.amountPaid, payment.currency)}
                         </p>
                         <p className="text-xs text-muted-foreground">{payment.currency}</p>
                       </div>

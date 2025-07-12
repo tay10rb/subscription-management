@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react"
 import { useNavigate, useSearchParams } from "react-router-dom"
-import { ChevronLeft, Download, Upload, Eye, EyeOff } from "lucide-react"
+import { Download, Upload, Eye, EyeOff } from "lucide-react"
 
 import {
   Card,

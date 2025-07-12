@@ -2,16 +2,6 @@ import { Subscription } from "@/store/subscriptionStore"
 import { formatCurrencyAmount } from "@/utils/currency"
 
 /**
- * Types of emails that can be sent to users
- */
-export enum EmailType {
-  RENEWAL_REMINDER = 'renewal_reminder',
-  RENEWAL_ALERT = 'renewal_alert',
-  TRIAL_ENDING = 'trial_ending',
-  WELCOME = 'welcome'
-}
-
-/**
  * Mock function to send email notifications
  * In a real application this would connect to an email service
  */
@@ -20,9 +10,10 @@ export async function sendEmail(
   subject: string,
   body: string
 ): Promise<{ success: boolean; message?: string }> {
-  console.log(`Email would be sent to: ${to}`)
-  console.log(`Subject: ${subject}`)
-  console.log(`Body: ${body}`)
+  // In production, replace these with actual email service integration
+  // console.log(`Email would be sent to: ${to}`)
+  // console.log(`Subject: ${subject}`)
+  // console.log(`Body: ${body}`)
   
   // Simulate API call delay
   await new Promise((resolve) => setTimeout(resolve, 1000))

@@ -3,20 +3,6 @@ import { BillingCycle, Subscription, SubscriptionStatus } from '@/store/subscrip
 
 
 /**
- * Format a currency amount with its symbol
- */
-export function formatCurrency(amount: number, currency: string): string {
-  const formatter = new Intl.NumberFormat(undefined, {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  
-  return formatter.format(amount);
-}
-
-/**
  * Calculate the next billing date based on the current date and billing cycle
  */
 export function calculateNextBillingDate(
@@ -213,22 +199,6 @@ export function getStatusColor(status: SubscriptionStatus): string {
 }
 
 /**
- * Generate a human-readable string for billing cycle
- */
-export function getBillingFrequencyText(billingCycle: BillingCycle): string {
-  switch (billingCycle) {
-    case 'monthly':
-      return 'monthly'
-    case 'yearly':
-      return 'annually'
-    case 'quarterly':
-      return 'quarterly'
-    default:
-      return billingCycle
-  }
-}
-
-/**
  * Get a formatted label for billing cycle
  */
 export function getBillingCycleLabel(billingCycle: BillingCycle): string {
@@ -241,24 +211,6 @@ export function getBillingCycleLabel(billingCycle: BillingCycle): string {
       return 'Quarterly'
     default:
       return String(billingCycle)
-  }
-}
-
-/**
- * Calculate the annualized cost of a subscription
- */
-export function calculateAnnualCost(subscription: Subscription): number {
-  const { amount, billingCycle } = subscription
-  
-  switch (billingCycle) {
-    case 'monthly':
-      return amount * 12
-    case 'yearly':
-      return amount
-    case 'quarterly':
-      return amount * 4
-    default:
-      return amount
   }
 }
 

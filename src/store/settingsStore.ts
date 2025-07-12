@@ -2,7 +2,6 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { ExchangeRateApi } from '@/services/exchangeRateApi'
 import { logger } from '@/utils/logger'
-import { applyTheme } from '@/lib/theme-sync'
 import { BASE_CURRENCY, DEFAULT_EXCHANGE_RATES, type CurrencyType } from '@/config/currency'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
@@ -136,7 +135,7 @@ export const useSettingsStore = create<SettingsState>()(
         
         // Sync to backend
         try {
-          const response = await fetch(`${API_BASE_URL}/settings`, {
+          const response = await fetch(`${API_BASE_URL}/protected/settings`, {
             method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify({ currency })
@@ -159,7 +158,7 @@ export const useSettingsStore = create<SettingsState>()(
 
         // Sync to backend
         try {
-          const response = await fetch(`${API_BASE_URL}/settings`, {
+          const response = await fetch(`${API_BASE_URL}/protected/settings`, {
             method: 'PUT',
             headers: getHeaders(),
             body: JSON.stringify({ theme })
@@ -224,7 +223,7 @@ export const useSettingsStore = create<SettingsState>()(
       
       resetSettings: async () => {
         try {
-          const response = await fetch(`${API_BASE_URL}/settings/reset`, {
+          const response = await fetch(`${API_BASE_URL}/protected/settings/reset`, {
             method: 'POST',
             headers: getHeaders(),
           });
