@@ -3,21 +3,23 @@ FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app
 
-# Copy frontend package files
+# Copy frontend package files first (for better caching)
 COPY package*.json ./
+
+# Install frontend dependencies
+RUN npm install
+
+# Copy configuration files
 COPY tsconfig*.json ./
 COPY vite.config.ts ./
 COPY tailwind.config.js ./
 COPY postcss.config.js ./
 COPY components.json ./
 COPY index.html ./
-
-# Install frontend dependencies
-RUN npm install
-
-# Copy frontend source code
-COPY src/ ./src/
 COPY env.d.ts ./
+
+# Copy frontend source code (most likely to change)
+COPY src/ ./src/
 
 # Build frontend
 RUN npm run build
@@ -72,12 +74,11 @@ USER nodeuser
 EXPOSE 3001
 
 # Set environment variables
-ENV NODE_ENV=production \
-    LOG_LEVEL=warn
+ENV NODE_ENV=production
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "const http=require('http');const options={hostname:'localhost',port:3001,path:'/',timeout:2000};const req=http.request(options,res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.end();"
+# Health check - checks the API health endpoint
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD node -e "const http=require('http');const options={hostname:'localhost',port:process.env.PORT||3001,path:'/api/health',timeout:2000};const req=http.request(options,res=>{process.exit(res.statusCode===200?0:1)});req.on('error',()=>process.exit(1));req.end();"
 
 # Use dumb-init to handle signals properly
 ENTRYPOINT ["dumb-init", "--"]

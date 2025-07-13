@@ -78,11 +78,21 @@ class Config {
     }
 
     /**
+     * 获取基础货币
+     * @returns {string} 基础货币代码
+     */
+    getBaseCurrency() {
+        return process.env.BASE_CURRENCY || 'CNY';
+    }
+
+    /**
      * 获取日志级别
      * @returns {string} 日志级别
      */
     getLogLevel() {
-        return process.env.LOG_LEVEL || 'info';
+        // 生产环境默认使用 warn，开发环境默认使用 info
+        const defaultLevel = this.isProduction() ? 'warn' : 'info';
+        return process.env.LOG_LEVEL || defaultLevel;
     }
 
     /**
@@ -155,6 +165,7 @@ class Config {
             port: this.getPort(),
             databasePath: this.getDatabasePath(),
             logLevel: this.getLogLevel(),
+            baseCurrency: this.getBaseCurrency(),
             hasApiKey: !!this.getApiKey(),
             hasTianApiKey: !!this.getTianApiKey(),
             databaseExists: this.databaseExists()
@@ -171,6 +182,7 @@ class Config {
         console.log(`   Port: ${summary.port}`);
         console.log(`   Database Path: ${summary.databasePath}`);
         console.log(`   Log Level: ${summary.logLevel}`);
+        console.log(`   Base Currency: ${summary.baseCurrency}`);
         console.log(`   API Key: ${summary.hasApiKey ? '✅ Set' : '❌ Not set'}`);
         console.log(`   TianAPI Key: ${summary.hasTianApiKey ? '✅ Set' : '❌ Not set'}`);
         console.log(`   Database Exists: ${summary.databaseExists ? '✅ Yes' : '❌ No'}`);

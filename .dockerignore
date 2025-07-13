@@ -17,9 +17,10 @@ pnpm-debug.log*
 # Environment files (for security, .env files should not be copied to image)
 .env
 .env.*
+!.env.example
+!.env.production.example
 server/.env
 server/.env.*
-env.example
 
 # Build outputs (dist is needed for frontend build, but we exclude it since we copy from builder stage)
 dist/

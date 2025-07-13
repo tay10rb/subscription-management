@@ -6,8 +6,8 @@ dist
 .env.development
 
 .devv
-server/db/database.sqlite
+.claude
 
-# Cursor Background Agent (optional - you may want to commit these)
-# .cursor/environment-local.json
-# .cursor/secrets.json
+docs-dev
+
+server/db/database.sqlite

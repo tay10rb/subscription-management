@@ -34,7 +34,6 @@ export default defineConfig(() => {
             // App chunks
             'charts': [
               './src/components/charts/CategoryPieChart.tsx',
-              './src/components/charts/ExpenseMetrics.tsx',
               './src/components/charts/ExpenseTrendChart.tsx',
               './src/components/charts/YearlyTrendChart.tsx'
             ]

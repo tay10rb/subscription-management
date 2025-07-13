@@ -258,8 +258,34 @@ class SubscriptionService extends BaseRepository {
             throw new NotFoundError('Subscription');
         }
 
+        // 在删除前获取相关的支付历史记录的年月信息
+        const paymentMonthsQuery = `
+            SELECT DISTINCT 
+                strftime('%Y', payment_date) as year,
+                strftime('%m', payment_date) as month
+            FROM payment_history
+            WHERE subscription_id = ?
+            AND status = 'succeeded'
+        `;
+        const paymentMonths = this.db.prepare(paymentMonthsQuery).all(id);
+
         // 删除订阅（级联删除会自动处理相关的 payment_history 和 monthly_expenses）
         const result = this.delete(id);
+
+        // 重新计算受影响月份的月度分类汇总
+        if (paymentMonths.length > 0) {
+            logger.info(`Recalculating monthly category summaries for ${paymentMonths.length} months after subscription deletion`);
+            paymentMonths.forEach(({ year, month }) => {
+                try {
+                    this.monthlyCategorySummaryService.updateMonthlyCategorySummary(
+                        parseInt(year), 
+                        parseInt(month)
+                    );
+                } catch (error) {
+                    logger.error(`Failed to update monthly category summary for ${year}-${month}:`, error.message);
+                }
+            });
+        }
 
         logger.info(`Subscription deleted: ${existingSubscription.name} (ID: ${id}), related data cleaned up automatically`);
         return result;

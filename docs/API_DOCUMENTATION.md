@@ -1,39 +1,63 @@
-# Subscription Management API Documentation
+# 订阅管理系统 API 文档
 
-## Overview
+## 概述
 
-This API provides comprehensive subscription management functionality including subscription CRUD operations, payment history tracking, analytics, settings management, and exchange rate handling.
+本API提供完整的订阅管理功能，包括订阅CRUD操作、支付历史追踪、数据分析、设置管理、汇率处理等核心功能。
 
-**Base URL:** `http://localhost:3001/api`
+**基础URL:** `http://localhost:3001/api`  
+**受保护API基础URL:** `http://localhost:3001/api/protected`
 
-## Authentication
+## 认证机制
 
-Protected endpoints require an API key to be included in the request headers:
+受保护的端点需要在请求头中包含API密钥：
 
-```
+```http
 X-API-KEY: your-api-key-here
 ```
 
-The API key should be configured in the `.env` file as `API_KEY=your-secret-key`.
+API密钥需要在 `.env` 文件中配置：`API_KEY=your-secret-key`
 
-## Response Format
+## 响应格式
 
-All API responses are in JSON format. Successful responses return the requested data, while error responses follow this structure:
+所有API响应均为JSON格式。成功响应返回请求的数据，错误响应遵循以下结构：
 
 ```json
 {
-  "error": "Error message description"
+  "error": "错误信息描述"
 }
 ```
 
-## Endpoints
+成功响应通常包含以下结构：
+```json
+{
+  "data": "响应数据",
+  "message": "操作成功信息"
+}
+```
 
-### Health Check
+## API端点概览
 
-#### GET /health
-Check if the API server is running.
+### 核心模块
+- **健康检查** - 服务状态检查
+- **订阅管理** - 订阅CRUD操作和查询
+- **订阅管理服务** - 续费、过期处理等高级功能
+- **支付历史** - 支付记录管理和统计
+- **数据分析** - 收入分析和趋势统计
+- **月度分类汇总** - 按分类的月度支出统计
+- **设置管理** - 系统设置和用户偏好
+- **汇率管理** - 汇率数据和货币转换
+- **分类管理** - 订阅分类CRUD
+- **支付方式管理** - 支付方式CRUD
+- **续费调度器** - 自动续费任务管理
 
-**Response:**
+---
+
+## 1. 健康检查
+
+### GET /health
+检查API服务器运行状态。
+
+**响应:**
 ```json
 {
   "message": "Subscription Management Backend is running!",
@@ -43,12 +67,14 @@ Check if the API server is running.
 
 ---
 
-## Subscriptions
+## 2. 订阅管理 (Subscriptions)
 
-### GET /subscriptions
-Get all subscriptions.
+### 公开接口
 
-**Response:**
+#### GET /subscriptions
+获取所有订阅信息。
+
+**响应:**
 ```json
 [
   {
@@ -60,12 +86,22 @@ Get all subscriptions.
     "last_billing_date": "2025-07-01",
     "amount": 15.99,
     "currency": "USD",
-    "payment_method": "Credit Card",
+    "payment_method_id": 1,
+    "payment_method": {
+      "id": 1,
+      "value": "creditcard",
+      "label": "信用卡"
+    },
     "start_date": "2024-01-01",
     "status": "active",
-    "category": "video",
+    "category_id": 1,
+    "category": {
+      "id": 1,
+      "value": "video",
+      "label": "视频娱乐"
+    },
     "renewal_type": "auto",
-    "notes": "Family plan",
+    "notes": "家庭计划",
     "website": "https://netflix.com",
     "created_at": "2025-01-01T00:00:00.000Z",
     "updated_at": "2025-07-01T00:00:00.000Z"
@@ -73,18 +109,72 @@ Get all subscriptions.
 ]
 ```
 
-### GET /subscriptions/:id
-Get a specific subscription by ID.
+#### GET /subscriptions/:id
+根据ID获取特定订阅信息。
 
-**Parameters:**
-- `id` (path): Subscription ID
+**参数:**
+- `id` (路径参数): 订阅ID
 
-**Response:** Single subscription object (same structure as above)
+**响应:** 单个订阅对象（结构同上）
 
-### POST /subscriptions 🔒
-Create a new subscription.
+#### GET /subscriptions/stats/overview
+获取订阅统计概览。
 
-**Request Body:**
+**响应:**
+```json
+{
+  "totalSubscriptions": 15,
+  "activeSubscriptions": 12,
+  "totalMonthlyAmount": 299.99,
+  "averageAmount": 24.99
+}
+```
+
+#### GET /subscriptions/stats/upcoming-renewals
+获取即将续费的订阅列表。
+
+**查询参数:**
+- `days` (可选): 未来天数，默认7天
+
+**响应:**
+```json
+[
+  {
+    "id": 1,
+    "name": "Netflix",
+    "next_billing_date": "2025-07-15",
+    "amount": 15.99,
+    "currency": "USD"
+  }
+]
+```
+
+#### GET /subscriptions/stats/expired
+获取已过期的订阅列表。
+
+#### GET /subscriptions/category/:category
+根据分类获取订阅。
+
+#### GET /subscriptions/status/:status
+根据状态获取订阅。
+
+#### GET /subscriptions/search
+搜索订阅。
+
+**查询参数:**
+- `q`: 搜索关键词
+- `category`: 分类筛选
+- `status`: 状态筛选
+
+#### GET /subscriptions/:id/payment-history
+获取订阅的支付历史。
+
+### 受保护接口 (需要API密钥)
+
+#### POST /protected/subscriptions
+创建新订阅。
+
+**请求体:**
 ```json
 {
   "name": "Netflix",
@@ -93,880 +183,200 @@ Create a new subscription.
   "next_billing_date": "2025-08-01",
   "amount": 15.99,
   "currency": "USD",
-  "payment_method": "Credit Card",
+  "payment_method_id": 1,
   "start_date": "2025-07-01",
   "status": "active",
-  "category": "video",
+  "category_id": 1,
   "renewal_type": "auto",
-  "notes": "Family plan",
+  "notes": "家庭计划",
   "website": "https://netflix.com"
 }
 ```
 
-**Response:**
-```json
-{
-  "id": 1
-}
-```
+#### POST /protected/subscriptions/bulk
+批量创建订阅。
 
-### POST /subscriptions/bulk 🔒
-Create multiple subscriptions at once.
+#### PUT /protected/subscriptions/:id
+更新订阅。
 
-**Request Body:** Array of subscription objects
+#### DELETE /protected/subscriptions/:id
+删除订阅。
 
-**Response:**
-```json
-{
-  "message": "Successfully imported 5 subscriptions."
-}
-```
-
-### PUT /subscriptions/:id 🔒
-Update a subscription.
-
-**Parameters:**
-- `id` (path): Subscription ID
-
-**Request Body:** Partial subscription object with fields to update
-
-**Response:**
-```json
-{
-  "message": "Subscription updated successfully"
-}
-```
-
-### DELETE /subscriptions/:id 🔒
-Delete a subscription.
-
-**Parameters:**
-- `id` (path): Subscription ID
-
-**Response:**
-```json
-{
-  "message": "Subscription deleted successfully"
-}
-```
+#### POST /protected/subscriptions/reset
+重置所有订阅数据。
 
 ---
 
-## Subscription Management
+## 3. 订阅管理服务 (Subscription Management)
 
-### POST /subscriptions/auto-renew 🔒
-Process automatic renewals for all eligible subscriptions.
+### POST /protected/subscriptions/auto-renew
+处理自动续费。
 
-**Response:**
-```json
-{
-  "message": "Auto renewal complete: 3 processed, 0 errors",
-  "processed": 3,
-  "errors": 0,
-  "renewedSubscriptions": [
-    {
-      "id": 1,
-      "name": "Netflix",
-      "oldNextBilling": "2025-07-01",
-      "newLastBilling": "2025-07-01",
-      "newNextBilling": "2025-08-01"
-    }
-  ]
-}
-```
+### POST /protected/subscriptions/process-expired
+处理过期订阅。
 
-### POST /subscriptions/process-expired 🔒
-Mark expired manual renewal subscriptions as cancelled.
+### POST /protected/subscriptions/:id/manual-renew
+手动续费订阅。
 
-**Response:**
-```json
-{
-  "message": "Expired subscriptions processed: 2 expired, 0 errors",
-  "processed": 2,
-  "errors": 0,
-  "expiredSubscriptions": [
-    {
-      "id": 2,
-      "name": "Spotify",
-      "expiredDate": "2025-06-30"
-    }
-  ]
-}
-```
+### POST /protected/subscriptions/:id/reactivate
+重新激活订阅。
 
-### POST /subscriptions/:id/manual-renew 🔒
-Manually renew a subscription.
+### POST /protected/subscriptions/batch-process
+批量处理订阅。
 
-**Parameters:**
-- `id` (path): Subscription ID
+### GET /protected/subscriptions/stats
+获取订阅管理统计。
 
-**Response:**
-```json
-{
-  "message": "Subscription renewed successfully",
-  "renewalData": {
-    "id": 1,
-    "name": "Netflix",
-    "oldNextBilling": "2025-07-01",
-    "newLastBilling": "2025-07-01",
-    "newNextBilling": "2025-08-01",
-    "renewedEarly": false
-  }
-}
-```
-
-### POST /subscriptions/:id/reactivate 🔒
-Reactivate a cancelled subscription.
-
-**Parameters:**
-- `id` (path): Subscription ID
-
-**Response:**
-```json
-{
-  "message": "Subscription reactivated successfully",
-  "reactivationData": {
-    "id": 1,
-    "name": "Netflix",
-    "newLastBilling": "2025-07-01",
-    "newNextBilling": "2025-08-01",
-    "status": "active"
-  }
-}
-```
-
-### POST /subscriptions/reset 🔒
-Delete all subscriptions (use with caution).
-
-**Response:**
-```json
-{
-  "message": "All subscriptions have been deleted."
-}
-```
+### GET /protected/subscriptions/upcoming-renewals
+预览即将续费的订阅。
 
 ---
 
-## Payment History
+## 4. 支付历史 (Payment History)
 
-### GET /payment-history
-Get payment history with optional filters.
+### 公开接口
 
-**Query Parameters:**
-- `subscription_id` (optional): Filter by subscription ID
-- `start_date` (optional): Start date (YYYY-MM-DD)
-- `end_date` (optional): End date (YYYY-MM-DD)
-- `status` (optional): Payment status (succeeded, failed, pending, cancelled)
-- `currency` (optional): Filter by currency
-- `limit` (optional): Number of records per page (default: 50)
-- `offset` (optional): Number of records to skip (default: 0)
+#### GET /payment-history
+获取支付历史列表。
 
-**Response:**
-```json
-{
-  "payments": [
-    {
-      "id": 1,
-      "subscriptionId": 1,
-      "subscriptionName": "Netflix",
-      "subscriptionPlan": "Premium",
-      "paymentDate": "2025-07-01",
-      "amountPaid": 15.99,
-      "currency": "USD",
-      "billingPeriod": {
-        "start": "2025-07-01",
-        "end": "2025-08-01"
-      },
-      "status": "succeeded",
-      "notes": "Auto renewal payment",
-      "createdAt": "2025-07-01T00:00:00.000Z"
-    }
-  ],
-  "pagination": {
-    "total": 100,
-    "limit": 50,
-    "offset": 0,
-    "hasMore": true
-  },
-  "filters": {
-    "subscriptionId": null,
-    "startDate": null,
-    "endDate": null,
-    "status": null,
-    "currency": null
-  }
-}
-```
+**查询参数:**
+- `subscription_id`: 订阅ID筛选
+- `start_date`: 开始日期
+- `end_date`: 结束日期
+- `limit`: 限制数量
+- `offset`: 偏移量
 
-### GET /payment-history/:id
-Get a specific payment history record.
+#### GET /payment-history/:id
+根据ID获取支付记录。
 
-**Parameters:**
-- `id` (path): Payment history record ID
+#### GET /payment-history/stats/monthly
+获取月度支付统计。
 
-**Response:**
-```json
-{
-  "id": 1,
-  "subscriptionId": 1,
-  "subscriptionName": "Netflix",
-  "subscriptionPlan": "Premium",
-  "subscriptionBillingCycle": "monthly",
-  "paymentDate": "2025-07-01",
-  "amountPaid": 15.99,
-  "currency": "USD",
-  "billingPeriod": {
-    "start": "2025-07-01",
-    "end": "2025-08-01"
-  },
-  "status": "succeeded",
-  "notes": "Auto renewal payment",
-  "createdAt": "2025-07-01T00:00:00.000Z"
-}
-```
+#### GET /payment-history/stats/yearly
+获取年度支付统计。
 
-### POST /payment-history/reset 🔒
-Reset (delete) all payment history data and recalculate monthly category summaries.
+#### GET /payment-history/stats/quarterly
+获取季度支付统计。
 
-**Response:**
-```json
-{
-  "message": "Payment history has been reset successfully",
-  "deletedRecords": 150,
-  "timestamp": "2025-07-04T00:00:00.000Z"
-}
-```
+### 受保护接口
 
-### POST /payment-history/rebuild-from-subscriptions 🔒
-Rebuild payment history from subscription data and recalculate monthly category summaries.
+#### POST /protected/payment-history
+创建支付记录。
 
-**Response:**
-```json
-{
-  "message": "Payment history has been rebuilt from subscriptions successfully",
-  "deletedRecords": 150,
-  "rebuiltRecords": 180,
-  "timestamp": "2025-07-04T00:00:00.000Z"
-}
-```
+#### PUT /protected/payment-history/:id
+更新支付记录。
 
-### POST /payment-history 🔒
-Create a new payment history record.
-
-**Request Body:**
-```json
-{
-  "subscription_id": 1,
-  "payment_date": "2025-07-01",
-  "amount_paid": 15.99,
-  "currency": "USD",
-  "billing_period_start": "2025-07-01",
-  "billing_period_end": "2025-08-01",
-  "status": "succeeded",
-  "notes": "Manual payment entry"
-}
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "message": "Payment history record created successfully"
-}
-```
-
-### PUT /payment-history/:id 🔒
-Update a payment history record.
-
-**Parameters:**
-- `id` (path): Payment history record ID
-
-**Request Body:** Partial payment history object with fields to update
-
-**Response:**
-```json
-{
-  "message": "Payment history record updated successfully"
-}
-```
-
-### DELETE /payment-history/:id 🔒
-Delete a payment history record.
-
-**Parameters:**
-- `id` (path): Payment history record ID
-
-**Response:**
-```json
-{
-  "message": "Payment history record deleted successfully"
-}
-```
-
-
-
+#### DELETE /protected/payment-history/:id
+删除支付记录。
 
 ---
 
-## Monthly Category Summary
+## 5. 数据分析 (Analytics)
 
-### GET /monthly-category-summary
-Get monthly category summary data with optional filters.
+#### GET /analytics/monthly-revenue
+获取月度收入统计。
 
-**Query Parameters:**
-- `start_year` (optional): Start year (default: current year)
-- `start_month` (optional): Start month 1-12 (default: 1)
-- `end_year` (optional): End year (default: current year)
-- `end_month` (optional): End month 1-12 (default: 12)
+#### GET /analytics/monthly-active-subscriptions
+获取月度活跃订阅统计。
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Monthly category summaries retrieved successfully",
-  "data": {
-    "summaries": [
-      {
-        "year": 2024,
-        "month": 12,
-        "monthKey": "2024-12",
-        "categoryId": 3,
-        "categoryValue": "software",
-        "categoryLabel": "Software",
-        "totalAmount": 209.2,
-        "baseCurrency": "USD",
-        "transactionsCount": 2,
-        "updatedAt": "2025-07-08 01:29:25"
-      }
-    ],
-    "summary": {
-      "totalRecords": 1,
-      "dateRange": {
-        "startYear": 2024,
-        "startMonth": 1,
-        "endYear": 2024,
-        "endMonth": 12
-      }
-    }
-  }
-}
-```
+#### GET /analytics/revenue-trends
+获取收入趋势分析。
 
-### GET /monthly-category-summary/:year/:month
-Get category summary for a specific month.
-
-**Parameters:**
-- `year` (path): Year (e.g., 2024)
-- `month` (path): Month 1-12 (e.g., 12)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Month category summary retrieved successfully",
-  "data": {
-    "year": 2024,
-    "month": 12,
-    "categories": [
-      {
-        "categoryId": 3,
-        "categoryValue": "software",
-        "categoryLabel": "Software",
-        "totalAmount": 209.2,
-        "baseCurrency": "USD",
-        "transactionsCount": 2,
-        "updatedAt": "2025-07-08 01:29:25"
-      }
-    ],
-    "totalAmount": 214.07,
-    "totalTransactions": 4,
-    "baseCurrency": "USD"
-  }
-}
-```
-
-### GET /monthly-category-summary/total
-Get total summary for a date range.
-
-**Query Parameters:**
-- `start_year` (optional): Start year (default: current year)
-- `start_month` (optional): Start month 1-12 (default: 1)
-- `end_year` (optional): End year (default: current year)
-- `end_month` (optional): End month 1-12 (default: 12)
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Total summary retrieved successfully",
-  "data": {
-    "dateRange": {
-      "startYear": 2024,
-      "startMonth": 1,
-      "endYear": 2024,
-      "endMonth": 12
-    },
-    "totalAmount": 214.07,
-    "totalTransactions": 4,
-    "baseCurrency": "USD"
-  }
-}
-```
-
-### POST /protected/monthly-category-summary/recalculate 🔒
-Recalculate all monthly category summary data.
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Recalculation completed successfully",
-  "data": {
-    "message": "All monthly category summaries recalculated successfully",
-    "timestamp": "2025-07-08T01:29:25.000Z"
-  }
-}
-```
-
-### POST /protected/monthly-category-summary/process-payment/:paymentId 🔒
-Process a specific payment for monthly category summary.
-
-**Parameters:**
-- `paymentId` (path): Payment history record ID
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Payment processing completed successfully",
-  "data": {
-    "message": "Payment 123 processed successfully",
-    "paymentId": 123,
-    "timestamp": "2025-07-08T01:29:25.000Z"
-  }
-}
-```
+#### GET /analytics/subscription-overview
+获取订阅概览。
 
 ---
 
-## Analytics
+## 6. 设置管理 (Settings)
 
-### GET /analytics/monthly-revenue
-Get monthly revenue statistics.
+### 公开接口
 
-**Query Parameters:**
-- `start_date` (optional): Start date (YYYY-MM-DD)
-- `end_date` (optional): End date (YYYY-MM-DD)
-- `currency` (optional): Filter by currency
+#### GET /settings
+获取系统设置。
 
-**Response:**
-```json
-{
-  "monthlyStats": [
-    {
-      "month": "2025-07",
-      "currency": "USD",
-      "totalRevenue": 97.96,
-      "paymentCount": 4,
-      "averagePayment": 24.49
-    }
-  ],
-  "summary": {
-    "totalMonths": 8,
-    "totalRevenue": 570.94,
-    "totalPayments": 20,
-    "currencies": ["CNY", "USD"]
-  },
-  "filters": {
-    "startDate": "2025-01-01",
-    "endDate": "2025-12-31",
-    "currency": null
-  }
-}
-```
+#### GET /settings/currencies
+获取支持的货币列表。
 
-### GET /analytics/monthly-active-subscriptions
-Get active subscriptions for a specific month.
+#### GET /settings/themes
+获取支持的主题列表。
 
-**Query Parameters:**
-- `month` (required): Month (1-12)
-- `year` (required): Year (2000-3000)
+### 受保护接口
 
-**Response:**
-```json
-{
-  "targetMonth": "2025-07",
-  "period": {
-    "start": "2025-07-01",
-    "end": "2025-07-31"
-  },
-  "activeSubscriptions": [
-    {
-      "id": 1,
-      "name": "Netflix",
-      "plan": "Premium",
-      "amount": 15.99,
-      "currency": "USD",
-      "billingCycle": "monthly",
-      "status": "active",
-      "category": "video",
-      "paymentCountInMonth": 1,
-      "totalPaidInMonth": 15.99,
-      "activePeriod": {
-        "start": "2025-07-01",
-        "end": "2025-08-01"
-      }
-    }
-  ],
-  "summary": {
-    "totalActiveSubscriptions": 1,
-    "totalRevenue": 15.99,
-    "totalPayments": 1,
-    "byCategory": {
-      "video": { "count": 1, "revenue": 15.99 }
-    },
-    "byCurrency": {
-      "USD": { "count": 1, "revenue": 15.99 }
-    },
-    "byBillingCycle": {
-      "monthly": { "count": 1, "revenue": 15.99 }
-    }
-  }
-}
-```
+#### PUT /protected/settings
+更新系统设置。
+
+#### POST /protected/settings/reset
+重置系统设置。
 
 ---
 
-## Settings
+## 7. 汇率管理 (Exchange Rates)
 
-### GET /settings
-Get application settings.
+### 公开接口
 
-**Response:**
-```json
-{
-  "id": 1,
-  "currency": "USD",
-  "theme": "dark",
-  "created_at": "2025-07-01T00:00:00.000Z",
-  "updated_at": "2025-07-01T00:00:00.000Z"
-}
-```
+#### GET /exchange-rates
+获取所有汇率。
 
-### PUT /settings 🔒
-Update application settings.
+#### GET /exchange-rates/:from/:to
+获取特定汇率。
 
-**Request Body:**
-```json
-{
-  "currency": "EUR",
-  "theme": "light"
-}
-```
+#### GET /exchange-rates/convert
+货币转换。
 
-**Response:**
-```json
-{
-  "message": "Settings updated successfully"
-}
-```
+### 受保护接口
 
-### POST /settings/reset 🔒
-Reset settings to default values.
+#### POST /protected/exchange-rates
+创建或更新汇率。
 
-**Response:**
-```json
-{
-  "message": "Settings have been reset to default."
-}
-```
+#### POST /protected/exchange-rates/update
+手动更新汇率。
 
 ---
 
-## Exchange Rates
+## 8. 分类和支付方式管理
 
-### GET /exchange-rates
-Get all exchange rates.
+### 分类 (Categories)
 
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "from_currency": "CNY",
-    "to_currency": "USD",
-    "rate": 0.1538,
-    "created_at": "2025-07-01T00:00:00.000Z",
-    "updated_at": "2025-07-03T00:51:57.000Z"
-  }
-]
-```
+#### GET /categories
+获取所有分类。
 
-### GET /exchange-rates/:from/:to
-Get specific exchange rate.
+#### POST /protected/categories
+创建分类。
 
-**Parameters:**
-- `from` (path): Source currency code
-- `to` (path): Target currency code
+#### PUT /protected/categories/:value
+更新分类。
 
-**Response:** Single exchange rate object
+#### DELETE /protected/categories/:value
+删除分类。
 
-### POST /exchange-rates/update 🔒
-Manually update exchange rates from external API.
+### 支付方式 (Payment Methods)
 
-**Response:**
-```json
-{
-  "message": "Exchange rates updated successfully",
-  "updatedAt": "2025-07-03T00:51:57.000Z"
-}
-```
+#### GET /payment-methods
+获取所有支付方式。
 
-### GET /exchange-rates/status 🔒
-Get exchange rate scheduler status.
+#### POST /protected/payment-methods
+创建支付方式。
 
-**Response:**
-```json
-{
-  "isRunning": true,
-  "lastUpdate": "2025-07-03T00:51:57.000Z",
-  "nextUpdate": "2025-07-04T02:00:00.000Z",
-  "schedule": "Daily at 2:00 AM CST"
-}
-```
+#### PUT /protected/payment-methods/:value
+更新支付方式。
+
+#### DELETE /protected/payment-methods/:value
+删除支付方式。
 
 ---
 
-## Categories
+## 错误代码
 
-### GET /categories
-Get all subscription categories.
+- `400` - 请求参数错误
+- `401` - 未授权（缺少或无效的API密钥）
+- `404` - 资源未找到
+- `500` - 服务器内部错误
 
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "value": "video",
-    "label": "Video Streaming",
-    "created_at": "2025-07-01T00:00:00.000Z",
-    "updated_at": "2025-07-01T00:00:00.000Z"
-  },
-  {
-    "id": 2,
-    "value": "music",
-    "label": "Music Streaming",
-    "created_at": "2025-07-01T00:00:00.000Z",
-    "updated_at": "2025-07-01T00:00:00.000Z"
-  }
-]
-```
+## 使用示例
 
-### POST /categories 🔒
-Create a new category.
-
-**Request Body:**
-```json
-{
-  "value": "fitness",
-  "label": "Fitness & Health"
-}
-```
-
-**Response:**
-```json
-{
-  "id": 11,
-  "value": "fitness",
-  "label": "Fitness & Health",
-  "message": "Category created successfully"
-}
-```
-
-### PUT /categories/:value 🔒
-Update a category.
-
-**Parameters:**
-- `value` (path): Category value
-
-**Request Body:**
-```json
-{
-  "value": "fitness",
-  "label": "Fitness & Wellness"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Category updated successfully"
-}
-```
-
-### DELETE /categories/:value 🔒
-Delete a category.
-
-**Parameters:**
-- `value` (path): Category value
-
-**Response:**
-```json
-{
-  "message": "Category deleted successfully"
-}
-```
-
----
-
-## Payment Methods
-
-### GET /payment-methods
-Get all payment methods.
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "value": "creditcard",
-    "label": "Credit Card",
-    "created_at": "2025-07-01T00:00:00.000Z",
-    "updated_at": "2025-07-01T00:00:00.000Z"
-  },
-  {
-    "id": 2,
-    "value": "paypal",
-    "label": "PayPal",
-    "created_at": "2025-07-01T00:00:00.000Z",
-    "updated_at": "2025-07-01T00:00:00.000Z"
-  }
-]
-```
-
-### POST /payment-methods 🔒
-Create a new payment method.
-
-**Request Body:**
-```json
-{
-  "value": "venmo",
-  "label": "Venmo"
-}
-```
-
-**Response:**
-```json
-{
-  "id": 9,
-  "value": "venmo",
-  "label": "Venmo",
-  "message": "Payment method created successfully"
-}
-```
-
-### PUT /payment-methods/:value 🔒
-Update a payment method.
-
-**Parameters:**
-- `value` (path): Payment method value
-
-**Request Body:**
-```json
-{
-  "value": "venmo",
-  "label": "Venmo Pay"
-}
-```
-
-**Response:**
-```json
-{
-  "message": "Payment method updated successfully"
-}
-```
-
-### DELETE /payment-methods/:value 🔒
-Delete a payment method.
-
-**Parameters:**
-- `value` (path): Payment method value
-
-**Response:**
-```json
-{
-  "message": "Payment method deleted successfully"
-}
-```
-
----
-
-## Error Codes
-
-| Status Code | Description |
-|-------------|-------------|
-| 200 | Success |
-| 201 | Created |
-| 400 | Bad Request - Invalid input data |
-| 401 | Unauthorized - Invalid or missing API key |
-| 404 | Not Found - Resource doesn't exist |
-| 409 | Conflict - Resource already exists |
-| 500 | Internal Server Error |
-
----
-
-## Data Types
-
-### Billing Cycles
-- `monthly` - Monthly billing
-- `yearly` - Annual billing
-- `quarterly` - Quarterly billing
-
-### Subscription Status
-- `active` - Active subscription
-- `inactive` - Inactive subscription
-- `cancelled` - Cancelled subscription
-
-### Renewal Types
-- `auto` - Automatic renewal
-- `manual` - Manual renewal
-
-### Payment Status
-- `succeeded` - Payment successful
-- `failed` - Payment failed
-- `pending` - Payment pending
-- `cancelled` - Payment cancelled
-
-### Themes
-- `light` - Light theme
-- `dark` - Dark theme
-- `system` - Follow system preference
-
----
-
-## Notes
-
-🔒 = Protected endpoint (requires API key)
-
-- All dates are in ISO 8601 format (YYYY-MM-DD)
-- All timestamps are in ISO 8601 format with timezone
-- Currency codes follow ISO 4217 standard (USD, EUR, GBP, etc.)
-- The API automatically calculates `last_billing_date` when creating or updating subscriptions
-- Payment history records are automatically created for subscription renewals and reactivations
-- Exchange rates are updated daily at 2:00 AM CST using the TianAPI service
-- Monthly category summaries are automatically calculated and updated when payment history changes
-- Monthly category summaries provide pre-aggregated data by year, month, and category for optimal performance
-- All currency amounts are automatically converted to base currency (USD) using current exchange rates
-- Summary data is stored in an optimized table structure for fast analytical queries
-
----
-
-## Example Usage
-
-### Creating a Subscription with cURL
-
+### 创建订阅
 ```bash
-curl -X POST http://localhost:3001/api/subscriptions \
+curl -X POST http://localhost:3001/api/protected/subscriptions \
   -H "Content-Type: application/json" \
   -H "X-API-KEY: your-api-key" \
   -d '{
@@ -976,36 +386,22 @@ curl -X POST http://localhost:3001/api/subscriptions \
     "next_billing_date": "2025-08-01",
     "amount": 15.99,
     "currency": "USD",
-    "payment_method": "creditcard",
-    "start_date": "2025-07-01",
-    "status": "active",
-    "category": "video",
+    "payment_method_id": 1,
+    "category_id": 1,
     "renewal_type": "auto"
   }'
 ```
 
-### Getting Monthly Revenue Analytics
+### 获取订阅列表
+```bash
+curl http://localhost:3001/api/subscriptions
+```
 
+### 获取月度收入分析
 ```bash
 curl "http://localhost:3001/api/analytics/monthly-revenue?start_date=2025-01-01&end_date=2025-12-31&currency=USD"
 ```
 
-### Getting Monthly Category Summary
+---
 
-```bash
-# Get monthly category summaries for 2024
-curl "http://localhost:3001/api/monthly-category-summary?start_year=2024&start_month=1&end_year=2024&end_month=12"
-
-# Get specific month category summary
-curl "http://localhost:3001/api/monthly-category-summary/2024/12"
-
-# Get total summary for current year
-curl "http://localhost:3001/api/monthly-category-summary/total?start_year=2024"
-```
-
-### Recalculating Monthly Category Summary
-
-```bash
-curl -X POST http://localhost:3001/api/protected/monthly-category-summary/recalculate \
-  -H "X-API-KEY: your-api-key"
-```
+**注意**: 本文档会随着API的更新而持续维护。如有疑问或发现问题，请提交Issue。

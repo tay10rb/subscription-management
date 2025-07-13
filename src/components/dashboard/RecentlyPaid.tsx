@@ -9,28 +9,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+
 import { cn } from "@/lib/utils";
 
 interface RecentlyPaidProps {
   subscriptions: Subscription[];
-  onViewAll?: () => void;
   className?: string;
 }
 
-export function RecentlyPaid({ subscriptions, onViewAll, className }: RecentlyPaidProps) {
+export function RecentlyPaid({ subscriptions, className }: RecentlyPaidProps) {
   return (
     <Card className={cn("min-h-[200px] flex flex-col", className)}>
-      <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
-        <div>
-          <CardTitle className="text-lg">Recently Paid</CardTitle>
-          <CardDescription>
-            Subscriptions paid in the last 7 days
-          </CardDescription>
-        </div>
-        <Button variant="outline" size="sm" onClick={onViewAll}>
-          View all
-        </Button>
+      <CardHeader className="flex-shrink-0">
+        <CardTitle className="text-lg">Recently Paid</CardTitle>
+        <CardDescription>
+          Subscriptions paid in the last 7 days
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
         {subscriptions.length === 0 ? (

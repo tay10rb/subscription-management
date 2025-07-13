@@ -3,25 +3,9 @@ import { persist } from 'zustand/middleware'
 import { ExchangeRateApi } from '@/services/exchangeRateApi'
 import { logger } from '@/utils/logger'
 import { BASE_CURRENCY, DEFAULT_EXCHANGE_RATES, type CurrencyType } from '@/config/currency'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
-
-// Helper function to get headers, including API key for write operations
-const getHeaders = () => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  }
-  // The API key is taken from the store's own state
-  const { apiKey } = useSettingsStore.getState()
-  if (apiKey) {
-    headers['X-API-KEY'] = apiKey
-  }
-  return headers
-}
+import { apiClient } from '@/utils/api-client'
 
 export type ThemeType = 'light' | 'dark' | 'system'
-export type DefaultViewType = 'dashboard' | 'subscriptions'
-export type NotificationFrequencyType = 'once' | 'twice' | 'custom'
 
 interface SettingsState {
   // --- Synced with Backend ---
@@ -31,28 +15,10 @@ interface SettingsState {
   setCurrency: (currency: CurrencyType) => Promise<void>
   theme: ThemeType
   setTheme: (theme: ThemeType) => Promise<void>
-
-  // --- Frontend-Only Settings ---
-  defaultView: DefaultViewType
-  setDefaultView: (view: DefaultViewType) => void
-  showInactiveSubs: boolean
-  setShowInactiveSubs: (show: boolean) => void
   
   // Currency display settings
   showOriginalCurrency: boolean
   setShowOriginalCurrency: (show: boolean) => void
-  
-  // Notification settings
-  enableEmailNotifications: boolean
-  setEnableEmailNotifications: (enable: boolean) => void
-  emailAddress: string
-  setEmailAddress: (email: string) => void
-  reminderDays: number
-  setReminderDays: (days: number) => void
-  notificationFrequency: NotificationFrequencyType
-  setNotificationFrequency: (frequency: NotificationFrequencyType) => void
-  enableBrowserNotifications: boolean
-  setEnableBrowserNotifications: (enable: boolean) => void
   
   // Exchange rate settings
   exchangeRates: Record<string, number>
@@ -74,16 +40,8 @@ export const initialSettings = {
   apiKey: null,
   currency: BASE_CURRENCY,
   theme: 'system' as ThemeType,
-
-  // Frontend-only
-  defaultView: 'dashboard' as DefaultViewType,
-  showInactiveSubs: true,
   showOriginalCurrency: true,
-  enableEmailNotifications: false,
-  emailAddress: '',
-  reminderDays: 7,
-  notificationFrequency: 'once' as NotificationFrequencyType,
-  enableBrowserNotifications: true,
+
   exchangeRates: DEFAULT_EXCHANGE_RATES,
   lastExchangeRateUpdate: null,
   isLoading: false,
@@ -98,31 +56,28 @@ export const useSettingsStore = create<SettingsState>()(
       fetchSettings: async () => {
         set({ isLoading: true, error: null })
         try {
-          const response = await fetch(`${API_BASE_URL}/settings`)
-          if (!response.ok) {
-            // If settings don't exist, the backend might 404, which is okay.
-            // We just use the initial/persisted state.
-            if (response.status === 404) {
-              logger.warn('Settings not found on backend. Using local/default settings.')
-              set({ isLoading: false })
-              return
-            }
-            throw new Error('Failed to fetch settings from backend.')
-          }
-          const response_data = await response.json()
-
-          const loadedSettings = {
-            currency: response_data.data.currency || initialSettings.currency,
-            theme: response_data.data.theme || initialSettings.theme,
+          const loadedSettings = await apiClient.get<any>('/settings')
+          const settings = {
+            currency: loadedSettings.currency || initialSettings.currency,
+            theme: loadedSettings.theme || initialSettings.theme,
+            showOriginalCurrency: loadedSettings.show_original_currency !== undefined
+              ? Boolean(loadedSettings.show_original_currency)
+              : initialSettings.showOriginalCurrency,
           }
 
-          set({ ...loadedSettings, isLoading: false })
+          set({ ...settings, isLoading: false })
           // Don't apply theme here - let next-themes handle it
 
           // 获取汇率数据
           get().fetchExchangeRates()
 
         } catch (error: any) {
+          // If settings don't exist, the backend might 404, which is okay.
+          if (error.status === 404) {
+            logger.warn('Settings not found on backend. Using local/default settings.')
+            set({ isLoading: false })
+            return
+          }
           logger.error('Error fetching settings:', error)
           set({ error: error.message, isLoading: false })
         }
@@ -135,16 +90,7 @@ export const useSettingsStore = create<SettingsState>()(
         
         // Sync to backend
         try {
-          const response = await fetch(`${API_BASE_URL}/protected/settings`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify({ currency })
-          })
-          
-          if (!response.ok) {
-            logger.error('Failed to save currency setting to backend')
-            // Could optionally revert the local change here
-          }
+          await apiClient.put('/protected/settings', { currency })
         } catch (error: any) {
           logger.error('Error saving currency setting:', error)
           // Could optionally revert the local change here
@@ -158,28 +104,25 @@ export const useSettingsStore = create<SettingsState>()(
 
         // Sync to backend
         try {
-          const response = await fetch(`${API_BASE_URL}/protected/settings`, {
-            method: 'PUT',
-            headers: getHeaders(),
-            body: JSON.stringify({ theme })
-          })
-
-          if (!response.ok) {
-            logger.error('Failed to save theme setting to backend')
-          }
+          await apiClient.put('/protected/settings', { theme })
         } catch (error: any) {
           logger.error('Error saving theme setting:', error)
         }
       },
 
-      setDefaultView: (defaultView) => set({ defaultView }),
-      setShowInactiveSubs: (showInactiveSubs) => set({ showInactiveSubs }),
-      setShowOriginalCurrency: (showOriginalCurrency) => set({ showOriginalCurrency }),
-      setEnableEmailNotifications: (enableEmailNotifications) => set({ enableEmailNotifications }),
-      setEmailAddress: (emailAddress) => set({ emailAddress }),
-      setReminderDays: (reminderDays) => set({ reminderDays }),
-      setNotificationFrequency: (notificationFrequency) => set({ notificationFrequency }),
-      setEnableBrowserNotifications: (enableBrowserNotifications) => set({ enableBrowserNotifications }),
+
+      setShowOriginalCurrency: async (showOriginalCurrency) => {
+        set({ showOriginalCurrency })
+
+        // Sync to backend
+        try {
+          await apiClient.put('/protected/settings', { showOriginalCurrency })
+        } catch (error: any) {
+          logger.error('Error saving showOriginalCurrency setting:', error)
+          // Could optionally revert the local change here
+        }
+      },
+
       
       updateExchangeRate: (currency, rate) => set((state) => ({
         exchangeRates: { ...state.exchangeRates, [currency]: rate }
@@ -223,25 +166,17 @@ export const useSettingsStore = create<SettingsState>()(
       
       resetSettings: async () => {
         try {
-          const response = await fetch(`${API_BASE_URL}/protected/settings/reset`, {
-            method: 'POST',
-            headers: getHeaders(),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to reset settings');
-          }
+          await apiClient.post('/protected/settings/reset')
 
           // Reset local state to initial settings
-          set({ ...initialSettings });
+          set({ ...initialSettings })
           // Don't apply theme here - let next-themes handle it
 
-          return { error: null };
+          return { error: null }
         } catch (error: any) {
-          logger.error('Error resetting settings:', error);
-          set({ error: error.message });
-          return { error };
+          logger.error('Error resetting settings:', error)
+          set({ error: error.message })
+          return { error }
         }
       },
     }),

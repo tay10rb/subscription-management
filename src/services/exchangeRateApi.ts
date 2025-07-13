@@ -1,7 +1,6 @@
 import { logger } from '@/utils/logger';
 import { getBaseCurrency, isBaseCurrency } from '@/config/currency';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+import { apiClient } from '@/utils/api-client';
 
 export interface ExchangeRate {
   id: number;
@@ -27,22 +26,7 @@ export class ExchangeRateApi {
    */
   static async getAllRates(): Promise<ExchangeRate[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/exchange-rates`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch exchange rates: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      // Handle new unified response format
-      if (result.success && result.data) {
-        return result.data;
-      } else if (Array.isArray(result)) {
-        // Fallback for old format
-        return result;
-      } else {
-        throw new Error(result.message || 'Failed to fetch exchange rates');
-      }
+      return await apiClient.get<ExchangeRate[]>('/exchange-rates');
     } catch (error) {
       logger.error('Error fetching exchange rates:', error);
       throw error;
@@ -54,22 +38,7 @@ export class ExchangeRateApi {
    */
   static async getRate(fromCurrency: string, toCurrency: string): Promise<ExchangeRate> {
     try {
-      const response = await fetch(`${API_BASE_URL}/exchange-rates/${fromCurrency}/${toCurrency}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch exchange rate: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-
-      // Handle new unified response format
-      if (result.success && result.data) {
-        return result.data;
-      } else if (result.id) {
-        // Fallback for old format
-        return result;
-      } else {
-        throw new Error(result.message || 'Failed to fetch exchange rate');
-      }
+      return await apiClient.get<ExchangeRate>(`/exchange-rates/${fromCurrency}/${toCurrency}`);
     } catch (error) {
       logger.error(`Error fetching exchange rate ${fromCurrency}->${toCurrency}:`, error);
       throw error;
@@ -81,30 +50,42 @@ export class ExchangeRateApi {
    */
   static async updateRates(apiKey: string): Promise<{ message: string; updatedAt: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/exchange-rates/update`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-API-KEY': apiKey
+      // Temporarily set the API key in localStorage for this request
+      const persistedState = localStorage.getItem('settings-storage');
+      let oldApiKey: string | null = null;
+      
+      if (persistedState) {
+        try {
+          const parsed = JSON.parse(persistedState);
+          oldApiKey = parsed.state?.apiKey || null;
+          parsed.state = { ...parsed.state, apiKey };
+          localStorage.setItem('settings-storage', JSON.stringify(parsed));
+        } catch (e) {
+          // If parsing fails, create a new state
+          localStorage.setItem('settings-storage', JSON.stringify({ state: { apiKey } }));
         }
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to update exchange rates: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-
-      // Handle new unified response format
-      if (result.success && result.data) {
-        return result.data;
-      } else if (result.message) {
-        // Fallback for old format or direct message
-        return result;
       } else {
-        throw new Error('Failed to update exchange rates');
+        localStorage.setItem('settings-storage', JSON.stringify({ state: { apiKey } }));
       }
+      
+      const result = await apiClient.post<{ message: string; updatedAt: string }>('/protected/exchange-rates/update');
+      
+      // Restore old API key
+      if (persistedState && oldApiKey !== apiKey) {
+        try {
+          const parsed = JSON.parse(persistedState);
+          if (oldApiKey) {
+            parsed.state = { ...parsed.state, apiKey: oldApiKey };
+          } else {
+            delete parsed.state.apiKey;
+          }
+          localStorage.setItem('settings-storage', JSON.stringify(parsed));
+        } catch (e) {
+          // Ignore restore errors
+        }
+      }
+      
+      return result;
     } catch (error) {
       logger.error('Error updating exchange rates:', error);
       throw error;
@@ -116,27 +97,42 @@ export class ExchangeRateApi {
    */
   static async getSchedulerStatus(apiKey: string): Promise<ExchangeRateStatus> {
     try {
-      const response = await fetch(`${API_BASE_URL}/exchange-rates/status`, {
-        headers: {
-          'X-API-KEY': apiKey
+      // Temporarily set the API key in localStorage for this request
+      const persistedState = localStorage.getItem('settings-storage');
+      let oldApiKey: string | null = null;
+      
+      if (persistedState) {
+        try {
+          const parsed = JSON.parse(persistedState);
+          oldApiKey = parsed.state?.apiKey || null;
+          parsed.state = { ...parsed.state, apiKey };
+          localStorage.setItem('settings-storage', JSON.stringify(parsed));
+        } catch (e) {
+          // If parsing fails, create a new state
+          localStorage.setItem('settings-storage', JSON.stringify({ state: { apiKey } }));
         }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch scheduler status: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-
-      // Handle new unified response format
-      if (result.success && result.data) {
-        return result.data;
-      } else if (result.isRunning !== undefined) {
-        // Fallback for old format
-        return result;
       } else {
-        throw new Error(result.message || 'Failed to fetch scheduler status');
+        localStorage.setItem('settings-storage', JSON.stringify({ state: { apiKey } }));
       }
+      
+      const result = await apiClient.get<ExchangeRateStatus>('/exchange-rates/status');
+      
+      // Restore old API key
+      if (persistedState && oldApiKey !== apiKey) {
+        try {
+          const parsed = JSON.parse(persistedState);
+          if (oldApiKey) {
+            parsed.state = { ...parsed.state, apiKey: oldApiKey };
+          } else {
+            delete parsed.state.apiKey;
+          }
+          localStorage.setItem('settings-storage', JSON.stringify(parsed));
+        } catch (e) {
+          // Ignore restore errors
+        }
+      }
+      
+      return result;
     } catch (error) {
       logger.error('Error fetching scheduler status:', error);
       throw error;

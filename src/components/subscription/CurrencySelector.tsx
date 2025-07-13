@@ -19,27 +19,6 @@ import {
 import { currencySymbols } from "@/utils/currency"
 import { useSettingsStore } from "@/store/settingsStore"
 
-// Map of currency codes to full names
-const currencyNames: Record<string, string> = {
-  USD: "US Dollar",
-  EUR: "Euro",
-  GBP: "British Pound",
-  CAD: "Canadian Dollar",
-  AUD: "Australian Dollar",
-  JPY: "Japanese Yen",
-  CNY: "Chinese Yuan",
-  INR: "Indian Rupee",
-  BRL: "Brazilian Real",
-  MXN: "Mexican Peso",
-  RUB: "Russian Ruble",
-  KRW: "South Korean Won",
-  ZAR: "South African Rand",
-  NZD: "New Zealand Dollar",
-  CHF: "Swiss Franc",
-  SGD: "Singapore Dollar",
-  HKD: "Hong Kong Dollar"
-}
-
 interface CurrencySelectorProps {
   value: string
   onValueChange: (value: string) => void
@@ -62,7 +41,7 @@ export function CurrencySelector({
   // Generate currencies list based on available exchange rates
   const currencies = Object.keys(exchangeRates).map((code) => ({
     value: code,
-    label: `${code} - ${currencyNames[code] || code}`,
+    label: code, // Only show currency code
     symbol: currencySymbols[code] || code
   }))
 
@@ -111,8 +90,7 @@ export function CurrencySelector({
                       value === currency.value ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <span className="mr-3 text-sm w-6 text-center">{currency.symbol}</span>
-                  <span>{currency.label}</span>
+                  <span>{currency.value}</span>
                 </CommandItem>
               ))}
             </CommandGroup>

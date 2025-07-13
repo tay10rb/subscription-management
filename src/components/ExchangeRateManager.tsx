@@ -9,17 +9,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { type CurrencyType, isBaseCurrency } from '@/config/currency';
 import { formatCurrencyAmount } from '@/utils/currency';
 import { logger } from '@/utils/logger';
-
-// Map of currency codes to full names
-const currencyNames: Record<string, string> = {
-  USD: "US Dollar",
-  EUR: "Euro",
-  GBP: "British Pound",
-  CAD: "Canadian Dollar",
-  AUD: "Australian Dollar",
-  JPY: "Japanese Yen",
-  CNY: "Chinese Yuan"
-};
+import { CURRENCY_NAMES } from '@/config/constants';
 
 export function ExchangeRateManager() {
   const {
@@ -69,7 +59,7 @@ export function ExchangeRateManager() {
   return (
     <div className="space-y-4">
       {/* 上排：货币设置和状态卡片 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:h-80">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Card className="flex flex-col">
           <CardHeader>
             <CardTitle>Currency Settings</CardTitle>
@@ -226,7 +216,7 @@ export function ExchangeRateManager() {
                 <div className="space-y-1">
                   <p className="font-medium">{currency}</p>
                   <p className="text-xs text-muted-foreground">
-                    {currencyNames[currency] || currency}
+                    {CURRENCY_NAMES[currency as keyof typeof CURRENCY_NAMES] || currency}
                   </p>
                   <p className="text-sm text-muted-foreground">
                     {formatCurrencyAmount(rate, currency, false)}

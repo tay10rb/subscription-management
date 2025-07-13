@@ -29,6 +29,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { useConfirmation } from "@/hooks/use-confirmation"
 
 import { 
   useSubscriptionStore, 
@@ -173,12 +175,14 @@ export function SubscriptionsPage() {
     })
   }
 
+  // State for delete confirmation
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
+  
   // Handler for deleting subscription
-  const handleDeleteSubscription = async (id: number) => {
-    const subscription = subscriptions.find(sub => sub.id === id)
-    if (!subscription) return
+  const handleDeleteSubscription = async () => {
+    if (!deleteTarget) return
     
-    const { error } = await deleteSubscription(id)
+    const { error } = await deleteSubscription(deleteTarget.id)
     
     if (error) {
       toast({
@@ -191,9 +195,28 @@ export function SubscriptionsPage() {
     
     toast({
       title: "Subscription deleted",
-      description: `${subscription.name} has been deleted.`,
+      description: `${deleteTarget.name} has been deleted.`,
       variant: "destructive"
     })
+    
+    setDeleteTarget(null)
+  }
+  
+  // Confirmation dialog hook
+  const deleteConfirmation = useConfirmation({
+    title: "Delete Subscription",
+    description: deleteTarget ? `Are you sure you want to delete "${deleteTarget.name}"? This action cannot be undone.` : "",
+    confirmText: "Delete",
+    onConfirm: handleDeleteSubscription,
+  })
+  
+  // Handler to open delete confirmation
+  const handleDeleteClick = (id: number) => {
+    const subscription = subscriptions.find(sub => sub.id === id)
+    if (!subscription) return
+    
+    setDeleteTarget({ id, name: subscription.name })
+    deleteConfirmation.openDialog()
   }
 
   // Handler for changing subscription status
@@ -684,7 +707,7 @@ export function SubscriptionsPage() {
               key={subscription.id}
               subscription={subscription}
               onEdit={() => setEditingSubscription(subscription)}
-              onDelete={() => handleDeleteSubscription(subscription.id)}
+              onDelete={() => handleDeleteClick(subscription.id)}
               onStatusChange={handleStatusChange}
               onManualRenew={handleManualRenew}
               onViewDetails={(subscription) => setDetailSubscription(subscription)}
@@ -732,6 +755,7 @@ export function SubscriptionsPage() {
         onOpenChange={setShowImportModal}
         onImport={handleImportSubscriptions}
       />
+      <ConfirmDialog {...deleteConfirmation.dialogProps} />
     </>
   )
 }

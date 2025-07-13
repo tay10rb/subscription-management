@@ -6,8 +6,14 @@
 // 所有支持的货币代码（固定不变）
 const ALL_CURRENCY_CODES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'CNY'];
 
-// 基础货币配置 - 修改这里就能改变整个系统的基础货币
-const BASE_CURRENCY = 'CNY';
+// 基础货币配置 - 从环境变量读取，默认为 CNY
+let BASE_CURRENCY = process.env.BASE_CURRENCY || 'CNY';
+
+// 验证基础货币是否在支持的货币列表中
+if (!ALL_CURRENCY_CODES.includes(BASE_CURRENCY)) {
+    console.warn(`⚠️  Invalid BASE_CURRENCY: ${BASE_CURRENCY}. Using default: CNY`);
+    BASE_CURRENCY = 'CNY';
+}
 
 /**
  * 支持的货币代码列表（基础货币在前，其他按字母排序）

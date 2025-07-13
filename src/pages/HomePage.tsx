@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
 import {
-  CreditCard,
-  DollarSign,
+  Calendar,
   Clock,
   RefreshCw
 } from "lucide-react"
@@ -25,7 +23,6 @@ import { CategoryBreakdown } from "@/components/dashboard/CategoryBreakdown"
 import { ImportModal } from "@/components/imports/ImportModal"
 
 function HomePage() {
-  const navigate = useNavigate()
   const { toast } = useToast()
   const [editingSubscription, setEditingSubscription] = useState<Subscription | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
@@ -207,37 +204,32 @@ function HomePage() {
               title="Monthly Spending"
               value={formatCurrencyAmount(monthlySpending, userCurrency)}
               description="Current month expenses"
-              icon={CreditCard}
+              icon={Calendar}
+              iconColor="text-blue-500"
             />
             <StatCard
               title="Yearly Spending"
               value={formatCurrencyAmount(yearlySpending, userCurrency)}
               description="Current year total expenses"
-              icon={DollarSign}
+              icon={Calendar}
+              iconColor="text-purple-500"
             />
-            <StatCard 
-              title="Active Subscriptions" 
+            <StatCard
+              title="Active Subscriptions"
               value={subscriptions.filter(sub => sub.status === "active").length}
               description="Total services"
               icon={Clock}
+              iconColor="text-green-500"
             />
           </div>
           
           <div className="grid gap-4 grid-cols-1 lg:grid-cols-2 xl:grid-cols-3">
             <RecentlyPaid
               subscriptions={recentlyPaidSubscriptions}
-              onViewAll={() => {
-                // Navigate to subscriptions page
-                navigate('/subscriptions')
-              }}
             />
 
             <UpcomingRenewals
               subscriptions={upcomingRenewals}
-              onViewAll={() => {
-                // Navigate to subscriptions page
-                navigate('/subscriptions')
-              }}
             />
 
             <CategoryBreakdown data={spendingByCategory} />

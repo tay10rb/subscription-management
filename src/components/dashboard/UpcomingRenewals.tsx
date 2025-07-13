@@ -10,16 +10,15 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+
 import { cn } from "@/lib/utils"
 
 interface UpcomingRenewalsProps {
   subscriptions: Subscription[]
-  onViewAll?: () => void
   className?: string
 }
 
-export function UpcomingRenewals({ subscriptions, onViewAll, className }: UpcomingRenewalsProps) {
+export function UpcomingRenewals({ subscriptions, className }: UpcomingRenewalsProps) {
   const getBadgeVariant = (daysLeft: number) => {
     if (daysLeft <= 3) return "destructive"
     if (daysLeft <= 7) return "warning"
@@ -34,16 +33,11 @@ export function UpcomingRenewals({ subscriptions, onViewAll, className }: Upcomi
 
   return (
     <Card className={cn("min-h-[200px] flex flex-col", className)}>
-      <CardHeader className="flex flex-row items-center justify-between flex-shrink-0">
-        <div>
-          <CardTitle className="text-lg">Upcoming Renewals</CardTitle>
-          <CardDescription>
-            Subscriptions renewing in the next 7 days
-          </CardDescription>
-        </div>
-        <Button variant="outline" size="sm" onClick={onViewAll}>
-          View all
-        </Button>
+      <CardHeader className="flex-shrink-0">
+        <CardTitle className="text-lg">Upcoming Renewals</CardTitle>
+        <CardDescription>
+          Subscriptions renewing in the next 7 days
+        </CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col">
         {subscriptions.length === 0 ? (

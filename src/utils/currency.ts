@@ -63,7 +63,6 @@ export function convertCurrency(
 export function formatWithUserCurrency(
   amount: number,
   originalCurrency: string,
-  showOriginal: boolean = true
 ): string {
   const { currency: userCurrency, showOriginalCurrency } = useSettingsStore.getState()
   
@@ -74,7 +73,7 @@ export function formatWithUserCurrency(
   const formattedConverted = formatCurrencyAmount(convertedAmount, userCurrency)
   
   // If the currencies are the same or we don't want to show original, just return the converted
-  if (originalCurrency === userCurrency || (!showOriginal && !showOriginalCurrency)) {
+  if (originalCurrency === userCurrency ||  !showOriginalCurrency) {
     return formattedConverted
   }
   

@@ -11,7 +11,9 @@ class Logger {
 
   constructor() {
     this.isDevelopment = import.meta.env.DEV;
-    this.logLevel = (import.meta.env.VITE_LOG_LEVEL as LogLevel) || 'info';
+    // 生产环境默认使用 'warn'，开发环境默认使用 'info'
+    const defaultLevel = import.meta.env.PROD ? 'warn' : 'info';
+    this.logLevel = (import.meta.env.VITE_LOG_LEVEL as LogLevel) || defaultLevel;
   }
 
   private shouldLog(level: LogLevel): boolean {

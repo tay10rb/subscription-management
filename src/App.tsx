@@ -1,7 +1,7 @@
 import { Route, Routes } from "react-router-dom"
 import { Suspense, lazy } from "react"
 import { Toaster } from "./components/ui/toaster"
-import { ThemeProvider } from "./components/theme-provider"
+import { ThemeProvider } from "./components/ThemeProvider"
 import { MainLayout } from "./components/layouts/MainLayout"
 
 // Lazy load pages for code splitting

@@ -3,8 +3,7 @@ import { persist } from 'zustand/middleware'
 import { convertCurrency } from '@/utils/currency'
 import { useSettingsStore } from './settingsStore'
 import { isSubscriptionDue, processSubscriptionRenewal } from '@/lib/subscription-utils'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+import { apiClient } from '@/utils/api-client'
 
 // Helper to calculate the last billing date from the next one
 const calculateLastBillingDate = (nextBillingDate: string, billingCycle: BillingCycle): string => {
@@ -23,19 +22,6 @@ const calculateLastBillingDate = (nextBillingDate: string, billingCycle: Billing
   return nextDate.toISOString().split('T')[0]
 }
 
-// Helper function to get headers, including API key for write operations
-const getHeaders = (method: 'GET' | 'POST' | 'PUT' | 'DELETE') => {
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  }
-  if (method !== 'GET') {
-    const { apiKey } = useSettingsStore.getState()
-    if (apiKey) {
-      headers['X-API-KEY'] = apiKey
-    }
-  }
-  return headers
-}
 
 // Helper function to transform data from API (snake_case) to frontend (camelCase)
 const transformFromApi = (sub: any): Subscription => {
@@ -233,25 +219,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       fetchSubscriptions: async () => {
         set({ isLoading: true, error: null })
         try {
-          const response = await fetch(`${API_BASE_URL}/subscriptions`, {
-            method: 'GET',
-            headers: getHeaders('GET'),
-          })
-          if (!response.ok) {
-            throw new Error('Failed to fetch subscriptions')
-          }
-          const result = await response.json()
-
-          // Handle new unified response format
-          let data;
-          if (result.success && result.data) {
-            data = result.data;
-          } else if (Array.isArray(result)) {
-            // Fallback for old format
-            data = result;
-          } else {
-            throw new Error(result.message || 'Failed to fetch subscriptions');
-          }
+          const data = await apiClient.get<any[]>('/subscriptions')
 
           const transformedData = data.map(transformFromApi)
           set({ subscriptions: transformedData, isLoading: false })
@@ -264,22 +232,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Fetch categories from API
       fetchCategories: async () => {
         try {
-          const response = await fetch(`${API_BASE_URL}/categories`)
-          if (!response.ok) {
-            throw new Error('Failed to fetch categories')
-          }
-          const result = await response.json()
-
-          // Handle new unified response format
-          let data;
-          if (result.success && result.data) {
-            data = result.data;
-          } else if (Array.isArray(result)) {
-            // Fallback for old format
-            data = result;
-          } else {
-            throw new Error(result.message || 'Failed to fetch categories');
-          }
+          const data = await apiClient.get<CategoryOption[]>('/categories')
 
           set({ categories: data })
         } catch (error) {
@@ -290,22 +243,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Fetch payment methods from API
       fetchPaymentMethods: async () => {
         try {
-          const response = await fetch(`${API_BASE_URL}/payment-methods`)
-          if (!response.ok) {
-            throw new Error('Failed to fetch payment methods')
-          }
-          const result = await response.json()
-
-          // Handle new unified response format
-          let data;
-          if (result.success && result.data) {
-            data = result.data;
-          } else if (Array.isArray(result)) {
-            // Fallback for old format
-            data = result;
-          } else {
-            throw new Error(result.message || 'Failed to fetch payment methods');
-          }
+          const data = await apiClient.get<PaymentMethodOption[]>('/payment-methods')
 
           set({ paymentMethods: data })
         } catch (error) {
@@ -316,25 +254,16 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Add a new subscription
       addSubscription: async (subscription) => {
         try {
-          const subscriptionWithLastBilling = { 
-            ...subscription, 
+          const subscriptionWithLastBilling = {
+            ...subscription,
             lastBillingDate: calculateLastBillingDate(
               subscription.nextBillingDate,
               subscription.billingCycle
             )
           }
           const apiSubscription = transformToApi(subscriptionWithLastBilling)
-          const response = await fetch(`${API_BASE_URL}/subscriptions`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-            body: JSON.stringify(apiSubscription),
-          })
+          await apiClient.post('/protected/subscriptions', apiSubscription)
 
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.message || 'Failed to add subscription')
-          }
-          
           // Refetch all subscriptions to get the new one with its DB-generated ID
           await get().fetchSubscriptions()
           return { error: null }
@@ -349,7 +278,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       bulkAddSubscriptions: async (subscriptions) => {
         try {
           const apiSubscriptions = subscriptions.map(sub => {
-            const subWithLastBilling = { 
+            const subWithLastBilling = {
               ...sub,
               lastBillingDate: calculateLastBillingDate(
                 sub.nextBillingDate,
@@ -359,16 +288,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             return transformToApi(subWithLastBilling);
           });
 
-          const response = await fetch(`${API_BASE_URL}/subscriptions/bulk`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-            body: JSON.stringify(apiSubscriptions),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to bulk add subscriptions');
-          }
+          await apiClient.post('/protected/subscriptions/bulk', apiSubscriptions);
 
           await get().fetchSubscriptions();
           return { error: null };
@@ -393,16 +313,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             )
           }
           const apiSubscription = transformToApi(subscriptionWithLastBilling)
-          const response = await fetch(`${API_BASE_URL}/subscriptions/${id}`, {
-            method: 'PUT',
-            headers: getHeaders('PUT'),
-            body: JSON.stringify(apiSubscription),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.message || 'Failed to update subscription')
-          }
+          await apiClient.put(`/protected/subscriptions/${id}`, apiSubscription)
           
           // Refetch to ensure data consistency
           await get().fetchSubscriptions()
@@ -417,15 +328,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Delete a subscription
       deleteSubscription: async (id) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/subscriptions/${id}`, {
-            method: 'DELETE',
-            headers: getHeaders('DELETE'),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.message || 'Failed to delete subscription')
-          }
+          await apiClient.delete(`/protected/subscriptions/${id}`)
 
           // Refetch to reflect the deletion
           await get().fetchSubscriptions()
@@ -440,15 +343,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Reset subscriptions by calling the backend endpoint
       resetSubscriptions: async () => {
         try {
-          const response = await fetch(`${API_BASE_URL}/subscriptions/reset`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-          });
-
-          if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.message || 'Failed to reset subscriptions');
-          }
+          await apiClient.post('/protected/subscriptions/reset');
 
           // Refetch to ensure the UI is cleared
           await get().fetchSubscriptions();
@@ -463,15 +358,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Add a new category option
       addCategory: async (category) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/categories`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-            body: JSON.stringify(category)
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to add category');
-          }
+          await apiClient.post('/protected/categories', category);
 
           // Refresh categories from server
           await get().fetchCategories();
@@ -484,15 +371,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Edit a category option
       editCategory: async (oldValue, newCategory) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/categories/${oldValue}`, {
-            method: 'PUT',
-            headers: getHeaders('PUT'),
-            body: JSON.stringify(newCategory)
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to update category');
-          }
+          await apiClient.put(`/protected/categories/${oldValue}`, newCategory);
 
           // Refresh categories from server
           await get().fetchCategories();
@@ -505,14 +384,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Delete a category option
       deleteCategory: async (value) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/categories/${value}`, {
-            method: 'DELETE',
-            headers: getHeaders('DELETE')
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to delete category');
-          }
+          await apiClient.delete(`/protected/categories/${value}`);
 
           // Refresh categories from server
           await get().fetchCategories();
@@ -525,15 +397,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Add a new payment method option
       addPaymentMethod: async (paymentMethod) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/payment-methods`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-            body: JSON.stringify(paymentMethod)
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to add payment method');
-          }
+          await apiClient.post('/protected/payment-methods', paymentMethod);
 
           // Refresh payment methods from server
           await get().fetchPaymentMethods();
@@ -546,15 +410,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Edit a payment method option
       editPaymentMethod: async (oldValue, newPaymentMethod) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/payment-methods/${oldValue}`, {
-            method: 'PUT',
-            headers: getHeaders('PUT'),
-            body: JSON.stringify(newPaymentMethod)
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to update payment method');
-          }
+          await apiClient.put(`/protected/payment-methods/${oldValue}`, newPaymentMethod);
 
           // Refresh payment methods from server
           await get().fetchPaymentMethods();
@@ -567,14 +423,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       // Delete a payment method option
       deletePaymentMethod: async (value) => {
         try {
-          const response = await fetch(`${API_BASE_URL}/payment-methods/${value}`, {
-            method: 'DELETE',
-            headers: getHeaders('DELETE')
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to delete payment method');
-          }
+          await apiClient.delete(`/protected/payment-methods/${value}`);
 
           // Refresh payment methods from server
           await get().fetchPaymentMethods();
@@ -760,27 +609,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             return { processed: 0, errors: 0 }
           }
 
-          const response = await fetch(`${API_BASE_URL}/subscriptions/auto-renew`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-          })
-
-          if (!response.ok) {
-            throw new Error('Failed to process auto renewals')
-          }
-
-          const response_data = await response.json()
-
-          // Handle new unified response format
-          let result;
-          if (response_data.success && response_data.data) {
-            result = response_data.data;
-          } else if (response_data.processed !== undefined) {
-            // Fallback for old format
-            result = response_data;
-          } else {
-            throw new Error(response_data.message || 'Failed to process auto renewals');
-          }
+          const result = await apiClient.post<{ processed: number; errors: number }>('/protected/subscriptions/auto-renew')
 
           // Only refresh subscriptions if not skipped and there were changes
           if (!skipRefresh && result.processed > 0) {
@@ -804,27 +633,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             return { processed: 0, errors: 0 }
           }
 
-          const response = await fetch(`${API_BASE_URL}/subscriptions/process-expired`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-          })
-
-          if (!response.ok) {
-            throw new Error('Failed to process expired subscriptions')
-          }
-
-          const response_data = await response.json()
-
-          // Handle new unified response format
-          let result;
-          if (response_data.success && response_data.data) {
-            result = response_data.data;
-          } else if (response_data.processed !== undefined) {
-            // Fallback for old format
-            result = response_data;
-          } else {
-            throw new Error(response_data.message || 'Failed to process expired subscriptions');
-          }
+          const result = await apiClient.post<{ processed: number; errors: number }>('/subscriptions/process-expired')
 
           // Only refresh subscriptions if not skipped and there were changes
           if (!skipRefresh && result.processed > 0) {
@@ -847,28 +656,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             throw new Error('API key not configured. Please set your API key in Settings.')
           }
 
-          const response = await fetch(`${API_BASE_URL}/subscriptions/${id}/manual-renew`, {
-            method: 'POST',
-            headers: getHeaders('POST'),
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            throw new Error(errorData.error || 'Failed to renew subscription')
-          }
-
-          const response_data = await response.json()
-
-          // Handle new unified response format
-          let result;
-          if (response_data.success && response_data.data) {
-            result = response_data.data;
-          } else if (response_data.renewalData) {
-            // Fallback for old format
-            result = response_data;
-          } else {
-            throw new Error(response_data.message || 'Failed to renew subscription');
-          }
+          const result = await apiClient.post<{ renewalData: any }>(`/protected/subscriptions/${id}/manual-renew`)
 
           // Refresh subscriptions to get updated data
           await get().fetchSubscriptions()

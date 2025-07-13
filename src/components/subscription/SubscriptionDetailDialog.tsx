@@ -8,8 +8,7 @@ import {
   DollarSign,
   User,
   FileText,
-  Globe,
-  Receipt
+  Globe
 } from "lucide-react"
 
 import { Subscription, useSubscriptionStore } from "@/store/subscriptionStore"
@@ -31,11 +30,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerTitle,
-} from "@/components/ui/drawer"
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -90,9 +89,7 @@ const ContentComponent = ({
     nextBillingDate,
     lastBillingDate,
     billingCycle,
-    paymentMethod,
     status,
-    category,
     renewalType,
     startDate,
     notes,
@@ -128,10 +125,10 @@ const ContentComponent = ({
 
   return (
     <div className="w-full">
-      <div className="grid w-full grid-cols-2 mb-4 h-9 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
+      <div className="grid w-full grid-cols-2 mb-4 h-10 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground">
         <button
           onClick={() => setActiveTab("details")}
-          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
             activeTab === "details"
               ? "bg-background text-foreground shadow"
               : ""
@@ -141,7 +138,7 @@ const ContentComponent = ({
         </button>
         <button
           onClick={() => setActiveTab("payments")}
-          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1 text-xs sm:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
+          className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-2 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
             activeTab === "payments"
               ? "bg-background text-foreground shadow"
               : ""
@@ -151,7 +148,7 @@ const ContentComponent = ({
         </button>
       </div>
 
-      <div className={`space-y-3 sm:space-y-4 mt-0 ${activeTab !== "details" ? "hidden" : ""}`}>
+      <div className={`space-y-4 mt-0 ${activeTab !== "details" ? "hidden" : ""}`}>
 
       {/* Basic Information */}
       <div className="space-y-2">
@@ -160,7 +157,7 @@ const ContentComponent = ({
           <span className="font-medium text-sm">Subscription Plan</span>
         </div>
         <div className="pl-6">
-          <p className="text-sm">{plan}</p>
+          <p className="text-sm break-words">{plan}</p>
         </div>
       </div>
 
@@ -172,16 +169,16 @@ const ContentComponent = ({
           <DollarSign className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">Pricing</span>
         </div>
-        <div className="pl-6 space-y-1.5">
-          <div className="flex items-center justify-between">
+        <div className="pl-6 space-y-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm">Amount:</span>
-            <span className="font-semibold text-sm">
+            <span className="font-semibold text-sm break-words text-right">
               {formatWithUserCurrency(amount, currency)}
             </span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm">Billing Cycle:</span>
-            <Badge variant={getBillingCycleBadgeVariant()} className="text-xs h-5">
+            <Badge variant={getBillingCycleBadgeVariant()} className="text-xs h-5 shrink-0">
               {getBillingCycleLabel(billingCycle)}
             </Badge>
           </div>
@@ -196,14 +193,14 @@ const ContentComponent = ({
           <CreditCard className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">Payment Details</span>
         </div>
-        <div className="pl-6 space-y-1.5">
-          <div className="flex items-center justify-between">
+        <div className="pl-6 space-y-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm">Payment Method:</span>
-            <span className="text-sm">{paymentMethodLabel}</span>
+            <span className="text-sm break-words text-right">{paymentMethodLabel}</span>
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm">Renewal Type:</span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               {renewalType === 'auto' ? (
                 <RotateCcw className="h-3 w-3" />
               ) : (
@@ -223,25 +220,25 @@ const ContentComponent = ({
           <Calendar className="h-4 w-4 text-muted-foreground" />
           <span className="font-medium text-sm">Important Dates</span>
         </div>
-        <div className="pl-6 space-y-1.5">
-          <div className="flex items-center justify-between">
+        <div className="pl-6 space-y-2">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm">Start Date:</span>
             <span className="text-sm">{formatDate(startDate)}</span>
           </div>
           {lastBillingDate && (
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <span className="text-sm">Last Payment:</span>
               <span className="text-sm">{formatDate(lastBillingDate)}</span>
             </div>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <span className="text-sm">Next Payment:</span>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5 shrink-0">
               <span className={`text-sm ${isExpiringSoon ? "text-destructive font-medium" : ""}`}>
                 {formatDate(nextBillingDate)}
               </span>
               {isExpiringSoon && status === 'active' && (
-                <Badge variant={getBadgeVariant()} className="text-xs h-5">
+                <Badge variant={getBadgeVariant()} className="text-xs h-5 shrink-0">
                   {daysLeft === 0 ? "Today" : `${daysLeft} day${daysLeft !== 1 ? 's' : ''}`}
                 </Badge>
               )}
@@ -295,9 +292,9 @@ const ContentComponent = ({
                 variant="outline"
                 size="sm"
                 onClick={() => window.open(website, '_blank')}
-                className="gap-1.5 text-xs h-7"
+                className="gap-2 text-sm h-9 w-full sm:w-auto"
               >
-                <ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-4 w-4" />
                 Visit Website
               </Button>
             </div>
@@ -307,15 +304,15 @@ const ContentComponent = ({
 
       {/* Action Buttons */}
       <Separator />
-      <div className="flex flex-col sm:flex-row gap-2 pt-1">
+      <div className="flex flex-col gap-3 pt-2">
         {onEdit && (
           <Button
             onClick={() => {
               onEdit(id)
               onOpenChange(false)
             }}
-            className="flex-1 text-xs h-8"
-            size="sm"
+            className="w-full h-10 text-sm"
+            size="default"
           >
             Edit Subscription
           </Button>
@@ -327,10 +324,10 @@ const ContentComponent = ({
               onManualRenew(id)
               onOpenChange(false)
             }}
-            className="flex-1 gap-1.5 text-xs h-8"
-            size="sm"
+            className="w-full gap-2 h-10 text-sm"
+            size="default"
           >
-            <RotateCcw className="h-3 w-3" />
+            <RotateCcw className="h-4 w-4" />
             Renew Now
           </Button>
         )}
@@ -361,17 +358,17 @@ export function SubscriptionDetailDialog({
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="max-h-[80vh]">
-          <DrawerHeader className="text-left pb-2">
-            <DrawerTitle className="flex flex-col gap-1">
-              <span className="text-base">{subscription.name}</span>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent className="!w-full !max-w-none h-full flex flex-col p-0">
+          <SheetHeader className="text-left pb-3 px-4 pt-6 shrink-0">
+            <SheetTitle className="flex flex-col gap-1.5">
+              <span className="text-lg font-semibold break-words">{subscription.name}</span>
               <Badge variant={subscription.status === 'active' ? 'default' : 'secondary'} className="self-start text-xs">
                 {subscription.status.charAt(0).toUpperCase() + subscription.status.slice(1)}
               </Badge>
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-4">
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto px-4 pb-6">
             <ContentComponent
               subscription={subscription}
               categories={categories}
@@ -381,8 +378,8 @@ export function SubscriptionDetailDialog({
               onOpenChange={onOpenChange}
             />
           </div>
-        </DrawerContent>
-      </Drawer>
+        </SheetContent>
+      </Sheet>
     )
   }
 

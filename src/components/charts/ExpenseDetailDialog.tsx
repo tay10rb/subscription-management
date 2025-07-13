@@ -13,8 +13,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 import { formatCurrencyAmount } from "@/utils/currency"
 import { transformPaymentsFromApi, type PaymentRecord } from '@/utils/dataTransform'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api')
+import { apiClient } from '@/utils/api-client'
+import { formatDateDisplay } from '@/utils/date'
 import {
   Search,
   Calendar,
@@ -26,28 +26,6 @@ import {
 } from "lucide-react"
 import { ExpenseInfoData } from "./ExpenseInfoCards"
 
-// 生成指定日期范围内的所有月份键（只到当前月份）
-function generateMonthKeys(startDate: string, endDate: string): string[] {
-  const monthKeys: string[] = []
-  const start = new Date(startDate)
-  const end = new Date(endDate)
-  const now = new Date()
-
-  // 确保结束日期不超过当前月份
-  const actualEnd = new Date(Math.min(end.getTime(), now.getTime()))
-
-  const current = new Date(start.getFullYear(), start.getMonth(), 1)
-
-  while (current <= actualEnd) {
-    const year = current.getFullYear()
-    const month = current.getMonth() + 1
-    const monthKey = `${year}-${month.toString().padStart(2, '0')}`
-    monthKeys.push(monthKey)
-    current.setMonth(current.getMonth() + 1)
-  }
-
-  return monthKeys
-}
 
 
 
@@ -113,19 +91,9 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
         const startDateStr = startDate.toISOString().split('T')[0]
         const endDateStr = endDate.toISOString().split('T')[0]
 
-        const response = await fetch(`${API_BASE_URL}/payment-history?start_date=${startDateStr}&end_date=${endDateStr}&status=succeeded`)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch payment history data: ${response.statusText}`)
-        }
-
-        const result = await response.json()
-
-        if (result.success && result.data) {
-          const rawData = result.data || []
-          allPaymentDetails = transformPaymentsFromApi(rawData)
-        } else {
-          throw new Error(result.message || 'Failed to fetch payment history data');
-        }
+        const response = await apiClient.get<any>(`/payment-history?start_date=${startDateStr}&end_date=${endDateStr}&status=succeeded`)
+        const rawData = response.payments || response.data || response || []
+        allPaymentDetails = transformPaymentsFromApi(rawData)
 
       } else {
         // 季度或年度数据：直接从 payment-history API 获取整个时间范围的数据
@@ -135,19 +103,9 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
         const startDateStr = startDate.toISOString().split('T')[0]
         const endDateStr = endDate.toISOString().split('T')[0]
 
-        const response = await fetch(`${API_BASE_URL}/payment-history?start_date=${startDateStr}&end_date=${endDateStr}&status=succeeded`)
-        if (!response.ok) {
-          throw new Error(`Failed to fetch payment history data: ${response.statusText}`)
-        }
-
-        const result = await response.json()
-
-        if (result.success && result.data) {
-          const rawData = result.data || []
-          allPaymentDetails = transformPaymentsFromApi(rawData)
-        } else {
-          throw new Error(result.message || 'Failed to fetch payment history data');
-        }
+        const response = await apiClient.get<any>(`/payment-history?start_date=${startDateStr}&end_date=${endDateStr}&status=succeeded`)
+        const rawData = response.payments || response.data || response || []
+        allPaymentDetails = transformPaymentsFromApi(rawData)
       }
 
       setPayments(allPaymentDetails)
@@ -174,19 +132,6 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
   // Update pagination info based on filtered results
   const filteredTotalPages = Math.ceil(filteredPayments.length / pageSize)
 
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'N/A';
-
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
-      })
-    } catch (error) {
-      return 'Invalid Date';
-    }
-  }
 
   const getStatusColor = (status: string | null | undefined) => {
     switch (status) {
@@ -322,9 +267,9 @@ export function ExpenseDetailDialog({ isOpen, onClose, periodData }: ExpenseDeta
                           )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                          <span>Paid: {formatDate(payment.paymentDate)}</span>
+                          <span>Paid: {formatDateDisplay(payment.paymentDate)}</span>
                           <span>
-                            Billing: {formatDate(payment.billingPeriod?.start)} - {formatDate(payment.billingPeriod?.end)}
+                            Billing: {formatDateDisplay(payment.billingPeriod?.start)} - {formatDateDisplay(payment.billingPeriod?.end)}
                           </span>
                         </div>
                       </div>

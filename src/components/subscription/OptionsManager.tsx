@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { useConfirmation } from '@/hooks/use-confirmation'
 
 import { Trash2, Edit, Plus } from 'lucide-react'
 import { useSubscriptionStore } from '@/store/subscriptionStore'
@@ -131,17 +133,20 @@ interface OptionItemProps {
 
 function OptionItem({ value, label, onEdit, onDelete, canDelete = true }: OptionItemProps) {
   return (
-    <div className="flex items-center justify-between p-3 border rounded-lg">
-      <div className="flex items-center gap-3">
-        <span className="font-medium">{label}</span>
+    <div className="group relative p-3 border rounded-lg hover:shadow-md transition-all duration-200">
+      <div className="space-y-1">
+        <p className="font-medium">{label}</p>
+        <p className="text-xs text-muted-foreground">
+          {value}
+        </p>
       </div>
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={onEdit}>
-          <Edit className="h-4 w-4" />
+      <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button variant="ghost" size="sm" onClick={onEdit} className="h-6 w-6 p-0">
+          <Edit className="h-3 w-3" />
         </Button>
         {canDelete && (
-          <Button variant="ghost" size="sm" onClick={onDelete}>
-            <Trash2 className="h-4 w-4" />
+          <Button variant="ghost" size="sm" onClick={onDelete} className="h-6 w-6 p-0">
+            <Trash2 className="h-3 w-3" />
           </Button>
         )}
       </div>
@@ -182,6 +187,9 @@ export function OptionsManager() {
     open: boolean
     type: 'category' | 'payment'
   }>({ open: false, type: 'category' })
+  
+  // Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'category' | 'payment'; value: string; label: string } | null>(null)
 
   const handleEdit = (type: 'category' | 'payment', value: string, label: string) => {
     setEditDialog({ open: true, type, value, label })
@@ -224,28 +232,44 @@ export function OptionsManager() {
     }
   }
 
-  const handleDelete = async (type: 'category' | 'payment', value: string) => {
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    
     try {
-      switch (type) {
+      switch (deleteTarget.type) {
         case 'category':
-          await deleteCategory(value)
+          await deleteCategory(deleteTarget.value)
           break
         case 'payment':
-          await deletePaymentMethod(value)
+          await deletePaymentMethod(deleteTarget.value)
           break
       }
 
       toast({
         title: "Option deleted",
-        description: `${type} option has been deleted successfully.`
+        description: `${deleteTarget.type} option has been deleted successfully.`
       })
     } catch (error) {
       toast({
         title: "Error",
-        description: `Failed to delete ${type} option.`,
+        description: `Failed to delete ${deleteTarget.type} option.`,
         variant: "destructive"
       })
     }
+    
+    setDeleteTarget(null)
+  }
+  
+  const deleteConfirmation = useConfirmation({
+    title: deleteTarget?.type === 'category' ? "Delete Category" : "Delete Payment Method",
+    description: deleteTarget ? `Are you sure you want to delete "${deleteTarget.label}"? Any subscriptions using this ${deleteTarget.type} will need to be updated.` : "",
+    confirmText: "Delete",
+    onConfirm: handleDelete,
+  })
+  
+  const handleDeleteClick = (type: 'category' | 'payment', value: string, label: string) => {
+    setDeleteTarget({ type, value, label })
+    deleteConfirmation.openDialog()
   }
 
   const handleAdd = (type: 'category' | 'payment') => {
@@ -283,13 +307,6 @@ export function OptionsManager() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold">Subscription Options Manager</h2>
-        <p className="text-muted-foreground">
-          Manage your custom categories, payment methods, and subscription plans.
-        </p>
-      </div>
-
       <Tabs defaultValue="categories" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="categories">Categories</TabsTrigger>
@@ -313,14 +330,14 @@ export function OptionsManager() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {categories.map((category) => (
                   <OptionItem
                     key={category.value}
                     value={category.value}
                     label={category.label}
                     onEdit={() => handleEdit('category', category.value, category.label)}
-                    onDelete={() => handleDelete('category', category.value)}
+                    onDelete={() => handleDeleteClick('category', category.value, category.label)}
                   />
                 ))}
               </div>
@@ -345,14 +362,14 @@ export function OptionsManager() {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {paymentMethods.map((method) => (
                   <OptionItem
                     key={method.value}
                     value={method.value}
                     label={method.label}
                     onEdit={() => handleEdit('payment', method.value, method.label)}
-                    onDelete={() => handleDelete('payment', method.value)}
+                    onDelete={() => handleDeleteClick('payment', method.value, method.label)}
                   />
                 ))}
               </div>
@@ -379,6 +396,9 @@ export function OptionsManager() {
         title={addDialog.type === 'category' ? 'Category' : addDialog.type === 'payment' ? 'Payment Method' : 'Plan'}
         onAdd={handleSaveAdd}
       />
+      
+      {/* Delete Confirmation Dialog */}
+      <ConfirmDialog {...deleteConfirmation.dialogProps} />
     </div>
   )
 }

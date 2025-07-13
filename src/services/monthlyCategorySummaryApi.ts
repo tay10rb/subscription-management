@@ -1,6 +1,5 @@
 import { logger } from '@/utils/logger';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+import { apiClient } from '@/utils/api-client';
 
 // API响应类型定义
 export interface MonthlyCategorySummaryApiResponse {
@@ -76,20 +75,10 @@ export async function getMonthlyCategorySummaries(
     if (endYear) params.append('end_year', endYear.toString());
     if (endMonth) params.append('end_month', endMonth.toString());
 
-    const url = `${API_BASE_URL}/monthly-category-summary?${params.toString()}`;
+    const url = `/monthly-category-summary?${params.toString()}`;
     logger.debug('Fetching monthly category summaries from:', url);
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.message || 'Failed to fetch monthly category summaries');
-    }
-
-    return result.data;
+    return await apiClient.get<MonthlyCategorySummariesResponse>(url);
   } catch (error) {
     logger.error('Error fetching monthly category summaries:', error);
     throw error;
@@ -104,20 +93,10 @@ export async function getMonthCategorySummary(
   month: number
 ): Promise<MonthCategorySummaryResponse> {
   try {
-    const url = `${API_BASE_URL}/monthly-category-summary/${year}/${month}`;
+    const url = `/monthly-category-summary/${year}/${month}`;
     logger.debug('Fetching month category summary from:', url);
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.message || 'Failed to fetch month category summary');
-    }
-
-    return result.data;
+    return await apiClient.get<MonthCategorySummaryResponse>(url);
   } catch (error) {
     logger.error('Error fetching month category summary:', error);
     throw error;
@@ -140,20 +119,10 @@ export async function getTotalSummary(
     if (endYear) params.append('end_year', endYear.toString());
     if (endMonth) params.append('end_month', endMonth.toString());
 
-    const url = `${API_BASE_URL}/monthly-category-summary/total?${params.toString()}`;
+    const url = `/monthly-category-summary/total?${params.toString()}`;
     logger.debug('Fetching total summary from:', url);
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.message || 'Failed to fetch total summary');
-    }
-
-    return result.data;
+    return await apiClient.get<TotalSummaryResponse>(url);
   } catch (error) {
     logger.error('Error fetching total summary:', error);
     throw error;
@@ -165,28 +134,10 @@ export async function getTotalSummary(
  */
 export async function recalculateAllSummaries(): Promise<{ message: string; timestamp: string }> {
   try {
-    const url = `${API_BASE_URL}/protected/monthly-category-summary/recalculate`;
+    const url = `/protected/monthly-category-summary/recalculate`;
     logger.debug('Recalculating all summaries at:', url);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add API key if needed
-        ...(getApiKey() && { 'X-API-KEY': getApiKey() })
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.message || 'Failed to recalculate summaries');
-    }
-
-    return result.data;
+    return await apiClient.post<{ message: string; timestamp: string }>(url);
   } catch (error) {
     logger.error('Error recalculating summaries:', error);
     throw error;
@@ -198,39 +149,13 @@ export async function recalculateAllSummaries(): Promise<{ message: string; time
  */
 export async function processPayment(paymentId: number): Promise<{ message: string; paymentId: number; timestamp: string }> {
   try {
-    const url = `${API_BASE_URL}/protected/monthly-category-summary/process-payment/${paymentId}`;
+    const url = `/protected/monthly-category-summary/process-payment/${paymentId}`;
     logger.debug('Processing payment at:', url);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // Add API key if needed
-        ...(getApiKey() && { 'X-API-KEY': getApiKey() })
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.message || 'Failed to process payment');
-    }
-
-    return result.data;
+    return await apiClient.post<{ message: string; paymentId: number; timestamp: string }>(url);
   } catch (error) {
     logger.error('Error processing payment:', error);
     throw error;
   }
 }
 
-/**
- * 获取 API 密钥（如果需要的话）
- */
-function getApiKey(): string | null {
-  // 这里可以从设置存储或环境变量中获取 API 密钥
-  // 暂时返回 null，表示不需要 API 密钥
-  return null;
-}

@@ -62,14 +62,14 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
             No category data available
           </div>
         ) : (
-          <div className="space-y-6 lg:space-y-0 lg:grid lg:gap-8 lg:grid-cols-[1fr_1fr]">
+          <>
             {/* Chart */}
-            <div className="flex items-center justify-center min-h-[250px] sm:min-h-[300px] lg:min-h-[350px] w-full">
-              <ChartContainer config={chartConfig} className="h-[250px] sm:h-[300px] lg:h-[350px] w-full max-w-[320px] mx-auto overflow-hidden">
+            <div className="flex items-center justify-center min-h-[240px] sm:min-h-[280px] w-full">
+              <ChartContainer config={chartConfig} className="h-[240px] sm:h-[280px] w-full max-w-[400px] mx-auto overflow-hidden">
                 <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
                     <Pie
                       data={chartData}
-                      cx="45%"
+                      cx="50%"
                       cy="50%"
                       labelLine={false}
                       label={({ percentage }) => `${percentage.toFixed(1)}%`}
@@ -102,12 +102,6 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
                                     <span className="text-muted-foreground">Percentage:</span>
                                     <span className="font-medium">{data.percentage.toFixed(1)}%</span>
                                   </div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="text-muted-foreground">Services:</span>
-                                    <span className="font-medium">
-                                      {data.subscriptionCount} service{data.subscriptionCount !== 1 ? 's' : ''}
-                                    </span>
-                                  </div>
                                 </div>
                               </div>
                             </div>
@@ -121,35 +115,18 @@ export function CategoryPieChart({ data, currency, className }: CategoryPieChart
             </div>
 
             {/* Legend */}
-            <div className="flex flex-col justify-center w-full min-w-0">
-              <div className="space-y-3">
-                {chartData.map((item) => (
-                  <div key={item.category} className="flex items-center justify-between p-3 rounded-lg border bg-muted/20 hover:bg-muted/40 transition-colors min-w-0">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div
-                        className="w-4 h-4 rounded-full flex-shrink-0"
-                        style={{ backgroundColor: item.color }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-medium text-sm truncate">{item.label}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {item.subscriptionCount} service{item.subscriptionCount !== 1 ? 's' : ''}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0 ml-3">
-                      <div className="font-semibold text-sm">
-                        {formatCurrencyAmount(item.amount, currency)}
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {item.percentage.toFixed(1)}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="flex flex-wrap gap-4 justify-center mt-4 pt-4 border-t">
+              {chartData.map((item) => (
+                <div key={item.category} className="flex items-center gap-2 text-sm">
+                  <div
+                    className="h-3 w-3 rounded-sm"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="text-muted-foreground">{item.label}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          </>
         )}
       </CardContent>
     </Card>

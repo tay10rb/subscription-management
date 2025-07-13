@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { ModeToggle } from '@/components/mode-toggle'
+import { ModeToggle } from '@/components/ModeToggle'
 
 interface MainLayoutProps {
   children: React.ReactNode

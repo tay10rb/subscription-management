@@ -45,6 +45,9 @@ class SettingsService extends BaseRepository {
             if (updateData.theme) {
                 updates.theme = updateData.theme;
             }
+            if (updateData.show_original_currency !== undefined) {
+                updates.show_original_currency = updateData.show_original_currency;
+            }
 
             if (Object.keys(updates).length === 0) {
                 throw new Error('No update fields provided');
@@ -111,6 +114,17 @@ class SettingsService extends BaseRepository {
     }
 
     /**
+     * 验证显示原始货币设置
+     * @param {boolean|number} showOriginalCurrency - 显示原始货币设置
+     * @returns {boolean} 是否有效
+     */
+    validateShowOriginalCurrency(showOriginalCurrency) {
+        return typeof showOriginalCurrency === 'boolean' ||
+               showOriginalCurrency === 0 ||
+               showOriginalCurrency === 1;
+    }
+
+    /**
      * 获取默认设置
      * @private
      * @returns {Object} 默认设置
@@ -119,6 +133,7 @@ class SettingsService extends BaseRepository {
         return {
             currency: getBaseCurrency(),
             theme: 'system',
+            show_original_currency: 1, // Use integer instead of boolean for SQLite
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
         };
@@ -136,6 +151,10 @@ class SettingsService extends BaseRepository {
 
         if (updateData.theme && !this.validateTheme(updateData.theme)) {
             throw new Error(`Invalid theme: ${updateData.theme}`);
+        }
+
+        if (updateData.show_original_currency !== undefined && !this.validateShowOriginalCurrency(updateData.show_original_currency)) {
+            throw new Error(`Invalid show_original_currency value: ${updateData.show_original_currency}`);
         }
     }
 

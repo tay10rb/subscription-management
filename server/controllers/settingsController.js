@@ -24,16 +24,16 @@ class SettingsController {
      * 更新应用设置
      */
     updateSettings = asyncHandler(async (req, res) => {
-        const { currency, theme } = req.body;
+        const { currency, theme, showOriginalCurrency } = req.body;
 
         // 验证更新数据
         const validator = createValidator();
-        
+
         if (currency !== undefined) {
             validator
                 .string(currency, 'currency')
                 .length(currency, 'currency', 3, 3)
-                .custom(currency, 'currency', 
+                .custom(currency, 'currency',
                     (value) => this.settingsService.validateCurrency(value),
                     'Invalid currency code'
                 );
@@ -48,18 +48,27 @@ class SettingsController {
                 );
         }
 
+        if (showOriginalCurrency !== undefined) {
+            validator
+                .custom(showOriginalCurrency, 'showOriginalCurrency',
+                    (value) => this.settingsService.validateShowOriginalCurrency(value),
+                    'Invalid showOriginalCurrency value'
+                );
+        }
+
         if (validator.hasErrors()) {
             return validationError(res, validator.getErrors());
         }
 
         // 检查是否有更新字段
-        if (currency === undefined && theme === undefined) {
+        if (currency === undefined && theme === undefined && showOriginalCurrency === undefined) {
             return validationError(res, 'No update fields provided');
         }
 
         const updateData = {};
         if (currency !== undefined) updateData.currency = currency.toUpperCase();
         if (theme !== undefined) updateData.theme = theme;
+        if (showOriginalCurrency !== undefined) updateData.show_original_currency = showOriginalCurrency ? 1 : 0;
 
         const result = await this.settingsService.updateSettings(updateData);
         handleDbResult(res, result, 'update', 'Settings');
@@ -175,7 +184,7 @@ class SettingsController {
 
         // 验证所有更新字段
         const validator = createValidator();
-        const validFields = ['currency', 'theme'];
+        const validFields = ['currency', 'theme', 'showOriginalCurrency'];
         const updateData = {};
 
         Object.entries(updates).forEach(([key, value]) => {
@@ -188,7 +197,7 @@ class SettingsController {
                 validator
                     .string(value, 'currency')
                     .length(value, 'currency', 3, 3)
-                    .custom(value, 'currency', 
+                    .custom(value, 'currency',
                         (val) => this.settingsService.validateCurrency(val),
                         'Invalid currency code'
                     );
@@ -206,6 +215,17 @@ class SettingsController {
                     );
                 if (!validator.hasErrors()) {
                     updateData.theme = value;
+                }
+            }
+
+            if (key === 'showOriginalCurrency') {
+                validator
+                    .custom(value, 'showOriginalCurrency',
+                        (val) => this.settingsService.validateShowOriginalCurrency(val),
+                        'Invalid showOriginalCurrency value'
+                    );
+                if (!validator.hasErrors()) {
+                    updateData.show_original_currency = value ? 1 : 0;
                 }
             }
         });
